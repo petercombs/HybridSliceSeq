@@ -14,7 +14,7 @@ OUTDIR:         The directory name to output split sequences to (will create if 
     exit(1)
 
 if not path.exists(argv[2]):
-    mkdirs(argv[2])
+    makedirs(argv[2])
 
 if not path.isdir(argv[2]):
     print("{} is not a directory".format(argv[2]))
