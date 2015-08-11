@@ -1,27 +1,39 @@
-from subprocess import Popen
-from tempfile import NamedTemporaryFile
+from subprocess import Popen, PIPE
+from argparse import ArgumentParser
+from progressbar import ProgressBar as pb
+from io import StringIO
+import itertools
+
+parser = ArgumentParser()
+parser.add_argument('species1', type=str, 
+        help='The first species (e.g. "mel")')
+parser.add_argument('species2', type=str,
+        help='The second species (e.g. "sim")')
+
+args = parser.parse_args()
 
 script = open('qsub_base.sh').read()
 
-species1_gtf = open('Reference/mel_good.gtf')
-species2_gtf = open('Reference/sim_good.gtf')
+species1_gtf = open('Reference/{}_good.gtf'.format(args.species1))
+species2_gtf = open('Reference/{}_good.gtf'.format(args.species2))
 
 species1_chroms = {line.split()[0] for line in species1_gtf}
 species2_chroms = {line.split()[0] for line in species2_gtf}
 
 print(species1_chroms, species2_chroms)
+items = list(itertools.product(species1_chroms, species2_chroms))
 
-for id1 in species1_chroms:
-    for id2 in species2_chroms:
-        outfile = NamedTemporaryFile(dir='.')
-        job = script.format(
+jobs = []
+for id1, id2 in pb()(items):
+    job = script.format(
             job_name=id1+'_'+id2,
             id1 = id1,
-            id2 = id2)
-        print(job)
-        outfile.file.write(bytes(job, 'UTF-8'))
-        outfile.flush()
-        Popen(['qsub', outfile.name]).wait()
-        outfile.close()
-        
+            id2 = id2, 
+            species1=args.species1,
+            species2=args.species2)
+    jobs.append(Popen(['qsub'], stdin=PIPE))
+    jobs[-1].communicate(bytes(job, 'ASCII'))
+
+for job in jobs:
+    job.wait()
 
