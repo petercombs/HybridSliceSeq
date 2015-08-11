@@ -1,5 +1,6 @@
 # Configuration files for the experiment
 RUNCONFIG  = Parameters/RunConfig.cfg
+STARCONFIG = Parameters/STAR_params.in
 
 # Other random variables
 ANALYSIS_DIR = analysis
@@ -152,18 +153,72 @@ $(REFDIR) :
 $(PREREQDIR):
 	mkdir $@
 
-$(REFDIR)/Dmel/Genome : $(REFDIR)/$(MELMAJORVERSION) | $(MELGTF)  $(REFDIR)/Dmel $(MELFASTA2) $(REFDIR)
+$(ANALYSIS_DIR):
+	mkdir $@
+
+##### MEL GENOMES ####
+$(REFDIR)/Dmel/Genome : $(REFDIR)/mel_$(MELMAJORVERSION) | $(MELGTF)  $(REFDIR)/Dmel $(MELFASTA2) $(REFDIR)
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dmel \
+		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(MELFASTA2) \
 		--sjdbGTFfile $(MELGTF)
 
+$(REFDIR)/Dmel_unspliced/Genome : $(REFDIR)/mel_$(MELMAJORVERSION) | $(REFDIR)/Dmel_unspliced $(MELFASTA2) $(REFDIR)
+	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dmel_unspliced \
+		--outTmpDir $(@D)/_tmp \
+		--genomeFastaFiles $(MELFASTA2) \
+
 $(REFDIR)/Dmel : | $(REFDIR)
+	mkdir $@
+
+$(REFDIR)/Dmel_unspliced : | $(REFDIR)
+	mkdir $@
+
+##### SIM GENOMES ####
+$(REFDIR)/Dsim/Genome : $(REFDIR)/sim_$(SIMMAJORVERSION) | $(SIMGTF)  $(REFDIR)/Dsim $(SIMFASTA2) $(REFDIR)
+	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsim \
+		--outTmpDir $(@D)/_tmp \
+		--genomeFastaFiles $(SIMFASTA2) \
+		--sjdbGTFfile $(SIMGTF)
+
+$(REFDIR)/Dsim_unspliced/Genome : $(REFDIR)/sim_$(SIMMAJORVERSION) | $(REFDIR)/Dsim_unspliced $(SIMFASTA2) $(REFDIR)
+	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsim_unspliced \
+		--outTmpDir $(@D)/_tmp \
+		--genomeFastaFiles $(SIMFASTA2) 
+
+$(REFDIR)/Dsim : | $(REFDIR)
+	mkdir $@
+
+$(REFDIR)/Dsim_unspliced : | $(REFDIR)
+	mkdir $@
+
+##### SEC GENOMES ####
+$(REFDIR)/Dsec/Genome : $(REFDIR)/sec_$(SECMAJORVERSION) | $(SECGTF)  $(REFDIR)/Dsec $(SECFASTA2) $(REFDIR)
+	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsec \
+		--outTmpDir $(@D)/_tmp \
+		--genomeFastaFiles $(SECFASTA2) \
+		--sjdbGTFfile $(SECGTF)
+
+$(REFDIR)/Dsec_unspliced/Genome : $(REFDIR)/sec_$(SECMAJORVERSION) | $(REFDIR)/Dsec_unspliced $(SECFASTA2) $(REFDIR)
+	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsec_unspliced \
+		--outTmpDir $(@D)/_tmp \
+		--genomeFastaFiles $(SECFASTA2) 
+
+$(REFDIR)/Dsec : | $(REFDIR)
+	mkdir $@
+
+$(REFDIR)/Dsec_unspliced : | $(REFDIR)
 	mkdir $@
 
 $(GENEMAPTABLE):
 	wget ftp://ftp.flybase.net/releases/FB$(MELDATE)/precomputed_files/genes/$(notdir $(GENEMAPTABLE)).gz \
 		-O $(GENEMAPTABLE).gz
 	gunzip --force $(GENEMAPTABLE).gz
+
+%_sorted.bam: %.bam
+	touch $@
+	samtools sort $< $*_sorted 
+	samtools index $@
 
 $(REFDIR)/mel_$(MELVERSION): | $(REFDIR)
 	touch $@
