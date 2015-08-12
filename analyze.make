@@ -34,6 +34,8 @@ $(ANALYSIS_DIR)/on_sim/%_on_sim_bowtie.bam: $(%) $(basename $(SIMFASTA2)).1.ebwt
 	samtools sort $(basename $@)_unsorted.bam $(basename $@)
 
 $(ANALYSIS_DIR)/on_sim/%_on_sim_bowtie2.bam: $(%) $(basename $(SIMFASTA2)).1.bt2 | $(ANALYSIS_DIR)
+	./qsubber --job-name $*_on_sim_bowtie2 --queue batch --keep-temporary tmp -t 8 \
+		-l mem=2gb -l pmem=2gb --log-base $(basename $@) \
 	bowtie2 \
 		--very-sensitive \
 		-p 8 \
@@ -50,6 +52,8 @@ $(ANALYSIS_DIR)/on_sim/%_on_sim_bowtie2.bam: $(%) $(basename $(SIMFASTA2)).1.bt2
 	samtools sort $(basename $@)_unsorted.bam $(basename $@)
 
 $(ANALYSIS_DIR)/on_sec/%_on_sec_bowtie2.bam: $(%) $(basename $(SECFASTA2)).1.bt2 | $(ANALYSIS_DIR)
+	./qsubber --job-name $*_on_sec_bowtie2 --keep-temporary tmp \
+		--queue batch -l mem=2gb -l pmem=2gb -t 8 --log-base $(basename $@) \
 	bowtie2 \
 		--very-sensitive \
 		-p 8 \
