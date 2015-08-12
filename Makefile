@@ -54,6 +54,9 @@ SECBADGTF= $(REFDIR)/sec_bad.gtf
 GENEMAPTABLE = $(PREREQDIR)/gene_map_table_fb_$(MELDATE).tsv
 
 
+.SECONDARY:
+
+
 all :  $(REFDIR)/mel_$(MELMAJORVERSION) $(REFDIR)/mel_$(MELVERSION)
 
 genomes: Reference/Dmel/Genome $(SIMFASTA2) $(MELFASTA2) $(SECFASTA2)
@@ -216,7 +219,6 @@ $(GENEMAPTABLE):
 	gunzip --force $(GENEMAPTABLE).gz
 
 %_sorted.bam: %.bam
-	touch $@
 	samtools sort $< $*_sorted 
 	samtools index $@
 
@@ -237,3 +239,20 @@ $(REFDIR)/sec_$(SECVERSION): | $(REFDIR)
 
 $(REFDIR)/sec_$(SECMAJORVERSION): | $(REFDIR)
 	touch $@
+
+%.bwt : %
+	bwa index $*
+	samtools faidx $*
+
+%.1.ebwt: $(basename $(basename %)).fasta
+	bowtie-build --offrate 3 $< $(basename $(basename $@))
+
+%.1.bt2: $(basename $(basename %)).fasta
+	bowtie2-build --offrate 3 $< $(basename $(basename $@))
+
+%.dict : %.fasta
+	picard CreateSequenceDictionary R=$< O=$@
+
+%.dict : %.fa
+	picard CreateSequenceDictionary R=$< O=$@
+
