@@ -255,6 +255,9 @@ $(REFDIR)/d%_masked/done: $(REFDIR)/d%_masked.fasta
 	bwa index $*
 	samtools faidx $*
 
+%.fai : %
+	samtools faidx $<
+
 %.1.ebwt: $(basename $(basename %)).fasta
 	bowtie-build --offrate 3 $< $(basename $(basename $@))
 
