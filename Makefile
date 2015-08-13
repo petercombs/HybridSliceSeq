@@ -240,6 +240,17 @@ $(REFDIR)/sec_$(SECVERSION): | $(REFDIR)
 $(REFDIR)/sec_$(SECMAJORVERSION): | $(REFDIR)
 	touch $@
 
+
+$(REFDIR)/lav: | $(REFDIR)
+	mkdir $@
+
+$(REFDIR)/psl: | $(REFDIR)/lav
+	mkdir $@
+
+$(REFDIR)/d%_masked/done: $(REFDIR)/d%_masked.fasta
+	python faSplitter.py $< $(@D)
+	touch $@
+
 %.bwt : %
 	bwa index $*
 	samtools faidx $*
@@ -255,4 +266,15 @@ $(REFDIR)/sec_$(SECMAJORVERSION): | $(REFDIR)
 
 %.dict : %.fa
 	picard CreateSequenceDictionary R=$< O=$@
+
+$(REFDIR)/d%_masked.fasta: $(REFDIR)/d%_prepend.fasta
+	trfBig $< $@
+
+$(REFDIR)/lav/melsim: $(REFDIR)/dmel_masked/done $(REFDIR)/dsim_masked/done $(REFDIR)/mel_good.gtf $(REFDIR)/sim_good.gtf | $(REFDIR)/lav
+	python SubmitAlignments.py mel sim
+	touch $@
+
+$(REFDIR)/lav/melsec: $(REFDIR)/dmel_masked/done $(REFDIR)/dsec_masked/done $(REFDIR)/mel_good.gtf $(REFDIR)/sec_good.gtf | $(REFDIR)/lav
+	python SubmitAlignments.py mel sec
+	touch $@
 
