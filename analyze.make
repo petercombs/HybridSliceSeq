@@ -11,6 +11,8 @@ sec_gdna = sequence/SRR869587
 simXsec = sequence/SRR869602 sequence/SRR869844
 secXsim = sequence/SRR869603 sequence/SRR869905
 
+QSUBBER_ARGS = --keep-temporary tmp --log-base $(basename $@)  --job-name $(basename $(@F))
+
 sequence/%:
 	wget -c -P sequence ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$(call substr,$*,1,6)/$*/$*_1.fastq.gz
 	wget -c -P sequence ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$(call substr,$*,1,6)/$*/$*_2.fastq.gz
@@ -75,7 +77,8 @@ $(ANALYSIS_DIR)/%_dedup.bam: $(ANALYSIS_DIR)/%.bam
 	picard MarkDuplicates INPUT=$< OUTPUT=$@ METRICS_FILE=$(basename $@)_metrics.txt
 	picard BuildBamIndex INPUT=$@
 
-$(ANALYSIS_DIR)/on_sim/%_raw_variants_uncalibrated.vcf: $(ANALYSIS_DIR)/on_sim/%_dedup.bam
+$(ANALYSIS_DIR)/on_sim/%_raw_variants_uncalibrated.vcf: $(ANALYSIS_DIR)/on_sim/%_dedup.bam $(SIMFASTA2).fai $(basename $(SIMFASTA2)).dict
+	./qsubber $(QSUBBER_ARGS) -t 1  \
 	gatk -T HaplotypeCaller \
 		-R $(SIMFASTA2) \
 		-I $< \
@@ -85,11 +88,51 @@ $(ANALYSIS_DIR)/on_sim/%_raw_variants_uncalibrated.vcf: $(ANALYSIS_DIR)/on_sim/%
 		-stand_call_conf 30 \
 		-o $@
 
-$(ANALYSIS_DIR)/on_sec/%_raw_variants_uncalibrated.vcf: $(ANALYSIS_DIR)/on_sec/%_dedup.bam
+$(ANALYSIS_DIR)/on_sim/%_raw_variants_uncalibrated.g.vcf: $(ANALYSIS_DIR)/on_sim/%_dedup.bam $(SIMFASTA2).fai $(basename $(SIMFASTA2)).dict
+	./qsubber $(QSUBBER_ARGS) -t 1  \
+	gatk -T HaplotypeCaller \
+		-R $(SIMFASTA2) \
+		-I $< \
+		--genotyping_mode DISCOVERY \
+		-fixMisencodedQuals \
+		--output_mode EMIT_ALL_SITES \
+		--emitRefConfidence GVCF \
+		-stand_emit_conf 10 \
+		-stand_call_conf 30 \
+		-o $@
+
+$(ANALYSIS_DIR)/on_sim/%_raw_variants_uncalibrated.p.g.vcf: $(ANALYSIS_DIR)/on_sim/%_dedup.bam $(SIMFASTA2).fai $(basename $(SIMFASTA2)).dict
+	./qsubber $(QSUBBER_ARGS) -t 8  \
+	gatk -T HaplotypeCaller \
+		-R $(SIMFASTA2) \
+		-I $< \
+		-nct 8  \
+		--genotyping_mode DISCOVERY \
+		-fixMisencodedQuals \
+		--emitRefConfidence GVCF \
+		-stand_emit_conf 10 \
+		-stand_call_conf 30 \
+		-o $@
+
+$(ANALYSIS_DIR)/on_sec/%_raw_variants_uncalibrated.vcf: $(ANALYSIS_DIR)/on_sec/%_dedup.bam $(SECFASTA2).fai $(basename $(SECFASTA2)).dict
+	./qsubber $(QSUBBER_ARGS) -t 1  \
 	gatk -T HaplotypeCaller \
 		-R $(SECFASTA2) \
 		-I $< \
 		--genotyping_mode DISCOVERY \
+		-fixMisencodedQuals \
+		-stand_emit_conf 10 \
+		-stand_call_conf 30 \
+		-o $@
+
+$(ANALYSIS_DIR)/on_sec/%_raw_variants_uncalibrated.g.vcf: $(ANALYSIS_DIR)/on_sec/%_dedup.bam $(SECFASTA2).fai $(basename $(SECFASTA2)).dict
+	./qsubber $(QSUBBER_ARGS) -t 1  \
+	gatk -T HaplotypeCaller \
+		-R $(SECFASTA2) \
+		-I $< \
+		--genotyping_mode DISCOVERY \
+		--output_mode EMIT_ALL_SITES \
+		--emitRefConfidence GVCF \
 		-fixMisencodedQuals \
 		-stand_emit_conf 10 \
 		-stand_call_conf 30 \
