@@ -50,8 +50,9 @@ $(ANALYSIS_DIR)/on_sim/%_on_sim_bowtie2.bam: $(%) $(basename $(SIMFASTA2)).1.bt2
 		-x $(basename $(SIMFASTA2)) \
 		-1 $(subst $(space),$(comma),$(strip $(patsubst %, %_1.fastq.gz, $($*)))) \
 		-2 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($*)))) \
-		| samtools view -bS -o $(basename $@)_unsorted.bam -
+		\| samtools view -bS -o $(basename $@)_unsorted.bam -
 	samtools sort $(basename $@)_unsorted.bam $(basename $@)
+	rm $(basename $@)_unsorted.bam
 
 $(ANALYSIS_DIR)/on_sec/%_on_sec_bowtie2.bam: $(%) $(basename $(SECFASTA2)).1.bt2 | $(ANALYSIS_DIR)
 	./qsubber --job-name $*_on_sec_bowtie2 --keep-temporary tmp \
@@ -74,7 +75,7 @@ $(ANALYSIS_DIR)/on_sec/%_on_sec_bowtie2.bam: $(%) $(basename $(SECFASTA2)).1.bt2
 
 
 $(ANALYSIS_DIR)/%_dedup.bam: $(ANALYSIS_DIR)/%.bam
-	picard MarkDuplicates INPUT=$< OUTPUT=$@ METRICS_FILE=$(basename $@)_metrics.txt
+	picard MarkDuplicates MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 INPUT=$< OUTPUT=$@ METRICS_FILE=$(basename $@)_metrics.txt
 	picard BuildBamIndex INPUT=$@
 
 $(ANALYSIS_DIR)/on_sim/%_raw_variants_uncalibrated.vcf: $(ANALYSIS_DIR)/on_sim/%_dedup.bam $(SIMFASTA2).fai $(basename $(SIMFASTA2)).dict
