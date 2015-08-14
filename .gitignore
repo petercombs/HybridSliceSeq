@@ -5,3 +5,4 @@ prereqs/*
 *.swp
 *.out
 *[Ll]og*
+tmp*
