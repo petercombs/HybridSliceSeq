@@ -165,3 +165,18 @@ $(ANALYSIS_DIR)/on_sim: | $(ANALYSIS_DIR)
 
 $(ANALYSIS_DIR)/on_sec: | $(ANALYSIS_DIR)
 	mkdir $@
+
+
+$(ANALYSIS_DIR)/on_%/simsec_variants.tsv: $($(call uc,%)FASTA2)  #$(ANALYSIS_DIR)/on_%/sim_gdna_on_%_bowtie2_raw_variants_uncalibrated.g.vcf  $(ANALYSIS_DIR)/on_%/sec_gdna_on_%_bowtie2_raw_variants_uncalibrated.g.vcf
+	echo $(call uc,echo)
+	gatk -T CombineGVCFs \
+		-R $($(call uc,$*)FASTA2) \
+		-V $(@D)/sim_gdna_raw_variants_uncalibrated.g.vcf \
+		-V $(@D)/sec_gdna_raw_variants_uncalibrated.g.vcf \
+		-o $(@D)/simsec_variants_on_$*.gvcf
+	gatk -T VariantsToTable \
+		-R $($(call uc,$*)FASTA2) \
+		-V $(@D)/simsec_variants_on_$*.gvcf \
+		-F CHROM -F POS -F REF -F ALT -F QUAL \
+		-F AC -F HET -F HOM-REF -F HOM-VAR -F NCALLED \
+		-o $@
