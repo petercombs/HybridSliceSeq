@@ -210,10 +210,14 @@ $(REFDIR)/Dsec_unspliced/Genome : $(REFDIR)/sec_$(SECMAJORVERSION) | $(REFDIR)/D
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(SECFASTA2) 
 
+
 $(REFDIR)/Dsec : | $(REFDIR)
 	mkdir $@
 
 $(REFDIR)/Dsec_unspliced : | $(REFDIR)
+	mkdir $@
+
+%/: 
 	mkdir $@
 
 $(GENEMAPTABLE):
