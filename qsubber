@@ -32,12 +32,15 @@ def sigterm_handler(signum, frame):
     pass
 
 def check_job(id):
-    proc = sp.Popen(['qstat', str(id)],
-            stdout=sp.PIPE)
-    output, _ = proc.communicate()
-    line = output.decode().splitlines()[-1].split()
-    #print(line)
-    return line[-2]
+    try:
+        proc = sp.Popen(['qstat', str(id)],
+                stdout=sp.PIPE)
+        output, _ = proc.communicate()
+        line = output.decode().splitlines()[-1].split()
+        #print(line)
+        return line[-2]
+    except IndexError:
+        return 'ERROR'
 
 signal.signal(signal.SIGTERM, sigterm_handler)
 signal.siginterrupt(signal.SIGTERM, False)
