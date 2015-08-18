@@ -75,16 +75,19 @@ $(MELALLGTF): $(MELGFF) | $(REFDIR)
 $(MELGTF): $(MELALLGTF) | $(REFDIR)
 	cat $< \
 		| grep -vP '(snoRNA|CR[0-9]{4}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
+		| grep 'gene_id' \
 		> $@
 
 $(SIMGTF): $(SIMALLGTF) | $(REFDIR)
 	cat $< \
 		| grep -vP '(snoRNA|CR[0-9]{4}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
+		| grep 'gene_id' \
 		> $@
 
 $(SECGTF): $(SECALLGTF) | $(REFDIR)
 	cat $< \
 		| grep -vP '(snoRNA|CR[0-9]{4}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
+		| grep 'gene_id' \
 		> $@
 
 $(MELBADGTF): $(MELALLGTF) | $(REFDIR)
