@@ -29,7 +29,8 @@ sequence/%:
 	touch $@
 
 
-$(ANALYSIS_DIR)/on_sim/%_on_sim_bowtie.bam: $(%) $(basename $(SIMFASTA2)).1.ebwt | $(ANALYSIS_DIR)
+$(ANALYSIS_DIR)/on_sim/%_bowtie.bam: $(%) $(basename $(SIMFASTA2)).1.ebwt | $(ANALYSIS_DIR)
+	echo $<
 	bowtie \
 		--try-hard \
 		-p 8 \
@@ -45,8 +46,8 @@ $(ANALYSIS_DIR)/on_sim/%_on_sim_bowtie.bam: $(%) $(basename $(SIMFASTA2)).1.ebwt
 		| samtools view -bS -o $(basename $@)_unsorted.bam -
 	samtools sort $(basename $@)_unsorted.bam $(basename $@)
 
-$(ANALYSIS_DIR)/on_sim/%_on_sim_bowtie2.bam: $(%) $(basename $(SIMFASTA2)).1.bt2 | $(ANALYSIS_DIR)
-	./qsubber --job-name $*_on_sim_bowtie2 --queue batch --keep-temporary tmp -t 8 \
+$(ANALYSIS_DIR)/on_sim/%_bowtie2.bam: $(%) $(basename $(SIMFASTA2)).1.bt2 | $(ANALYSIS_DIR)
+	./qsubber --job-name $*_bowtie2 --queue batch --keep-temporary tmp -t 8 \
 		-l mem=2gb -l pmem=2gb --log-base $(basename $@) \
 	bowtie2 \
 		--very-sensitive \
@@ -64,8 +65,8 @@ $(ANALYSIS_DIR)/on_sim/%_on_sim_bowtie2.bam: $(%) $(basename $(SIMFASTA2)).1.bt2
 	samtools sort $(basename $@)_unsorted.bam $(basename $@)
 	rm $(basename $@)_unsorted.bam
 
-$(ANALYSIS_DIR)/on_sec/%_on_sec_bowtie2.bam: $(%) $(basename $(SECFASTA2)).1.bt2 | $(ANALYSIS_DIR)
-	./qsubber --job-name $*_on_sec_bowtie2 --keep-temporary tmp \
+$(ANALYSIS_DIR)/on_sec/%_bowtie2.bam: $(%) $(basename $(SECFASTA2)).1.bt2 | $(ANALYSIS_DIR)
+	./qsubber --job-name $*_bowtie2 --keep-temporary tmp \
 		--queue batch -l mem=2gb -l pmem=2gb -t 8 --log-base $(basename $@) \
 	bowtie2 \
 		--very-sensitive \
@@ -149,7 +150,7 @@ $(ANALYSIS_DIR)/on_sec/%_raw_variants_uncalibrated.g.vcf: $(ANALYSIS_DIR)/on_sec
 		-stand_call_conf 30 \
 		-o $@
 
-$(ANALYSIS_DIR)/on_sim/%_on_sim.bam: $(%) $(REFDIR)/Dsim_unspliced/Genome | $(ANALYSIS_DIR)/on_sim
+$(ANALYSIS_DIR)/on_sim/%_STAR.bam: $(%) $(REFDIR)/Dsim_unspliced/Genome | $(ANALYSIS_DIR)/on_sim
 	STAR \
 		--parametersFiles $(STARCONFIG) \
 		--genomeDir $(REFDIR)/Dsim_unspliced \
@@ -160,7 +161,7 @@ $(ANALYSIS_DIR)/on_sim/%_on_sim.bam: $(%) $(REFDIR)/Dsim_unspliced/Genome | $(AN
 	samtools view -bS -o $@ $(@D)/$*Aligned.out.sam
 	rm $(@D)/$*Aligned.out.sam
 
-$(ANALYSIS_DIR)/on_sec/%_on_sec.bam: $(%) $(REFDIR)/Dsec_unspliced/Genome | $(ANALYSIS_DIR)/on_sec
+$(ANALYSIS_DIR)/on_sec/%_STAR.bam: $(%) $(REFDIR)/Dsec_unspliced/Genome | $(ANALYSIS_DIR)/on_sec
 	STAR \
 		--parametersFiles $(STARCONFIG) \
 		--genomeDir $(REFDIR)/Dsec_unspliced \
