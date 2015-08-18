@@ -281,3 +281,8 @@ $(REFDIR)/lav/melsec: $(REFDIR)/dmel_masked/done $(REFDIR)/dsec_masked/done $(RE
 	python SubmitAlignments.py mel sec
 	touch $@
 
+%.bw : %.bam
+	python ChromSizes.py $<
+	bamToBed -i $< -bed12 | bed12ToBed6 -i stdin | genomeCoverageBed -bga -i stdin -g $<.chromsizes > $(basename $@).bed
+	bedGraphToBigWig $(basename $@).bed $<.chromsizes $@
+
