@@ -23,7 +23,11 @@ for i, var in joint_vars.iterrows():
         sequence[var.CHROM][var.POS-1] = var['ALT']
         corrected_sites += 1
     elif var['HOM-REF'] != var['NCALLED']:
-        if args.emit_bed and var['HOM-REF'] == 1 and var['HOM-VAR'] == 1:
+        if (args.emit_bed 
+                and (var['HOM-REF'] == 1) 
+                and (var['HOM-VAR'] == 1)
+                and (len(var['ALT']) == 1)
+                and (len(var['REF'])== 1)):
             args.emit_bed.write('{}\t{}\t{}\t{}\n'.format(
                 var.CHROM, 
                 var.POS - 1,
