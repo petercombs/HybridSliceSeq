@@ -10,8 +10,18 @@ sim_gdna = sequence/SRR869579 sequence/SRR869580
 sec_gdna = sequence/SRR869587
 simXsec = sequence/SRR869602 sequence/SRR869844
 secXsim = sequence/SRR869603 sequence/SRR869905
+sim_rna = sequence/SRR869573 sequence/SRR869575
+sec_rna = sequence/SRR869601
+
+mel_gdna = sequence/SRR492062 sequence/SRR492061
+simXmel = sequence/SRR869592
+melXsim = sequence/SRR869590
+simPLUSmel = sequence/SRR869596	sequence/SRR869597 sequence/SRR869598 sequence/SRR869599 sequence/SRR869600
 
 QSUBBER_ARGS = --keep-temporary tmp --log-base $(basename $@)  --job-name $(basename $(@F))
+
+SIMSEC_REFSIMFASTA2 = analysis/on_sim/simsec_variants.fasta
+SIMSEC_REFSECFASTA2 = analysis/on_sec/simsec_variants.fasta
 
 sequence/%:
 	wget -c -P sequence ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$(call substr,$*,1,6)/$*/$*_1.fastq.gz
