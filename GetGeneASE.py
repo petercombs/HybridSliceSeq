@@ -34,6 +34,7 @@ import subprocess	#Access to external command-line
 import os			#Access to external command-line
 import textwrap		#Add text block wrapping properties
 from time import sleep	#Allow system pausing
+from collections import defaultdict
 #import common		#My custom common python scripts
 
 ##########################
@@ -151,12 +152,12 @@ for line in count_file:
 	neg_counts = line_t[3].split('|')
 	bases = ['A','C','G','T']
 
-	pos_dict = {}
-	neg_dict = {}
+	pos_dict = defaultdict(int)
+	neg_dict = defaultdict(int)
 
 	for i in range(len(pos_counts)):
-		pos_dict[bases[i]] = pos_counts[i]
-		neg_dict[bases[i]] = neg_counts[i]
+		pos_dict[bases[i]] = int(pos_counts[i])
+		neg_dict[bases[i]] = int(neg_counts[i])
 
 
 	snp_counts_dict[pos] = [pos_dict, neg_dict]
