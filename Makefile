@@ -164,12 +164,14 @@ $(ANALYSIS_DIR):
 
 ##### MEL GENOMES ####
 $(REFDIR)/Dmel/Genome : $(REFDIR)/mel_$(MELMAJORVERSION) | $(MELGTF)  $(REFDIR)/Dmel $(MELFASTA2) $(REFDIR)
+	rm -rf $(@D)/_tmp
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dmel \
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(MELFASTA2) \
 		--sjdbGTFfile $(MELGTF)
 
 $(REFDIR)/Dmel_unspliced/Genome : $(REFDIR)/mel_$(MELMAJORVERSION) | $(REFDIR)/Dmel_unspliced $(MELFASTA2) $(REFDIR)
+	rm -rf $(@D)/_tmp
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dmel_unspliced \
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(MELFASTA2) \
@@ -182,12 +184,14 @@ $(REFDIR)/Dmel_unspliced : | $(REFDIR)
 
 ##### SIM GENOMES ####
 $(REFDIR)/Dsim/Genome : $(REFDIR)/sim_$(SIMMAJORVERSION) | $(SIMGTF)  $(REFDIR)/Dsim $(SIMFASTA2) $(REFDIR)
+	rm -rf $(@D)/_tmp
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsim \
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(SIMFASTA2) \
 		--sjdbGTFfile $(SIMGTF)
 
 $(REFDIR)/Dsim_unspliced/Genome : $(REFDIR)/sim_$(SIMMAJORVERSION) | $(REFDIR)/Dsim_unspliced $(SIMFASTA2) $(REFDIR)
+	rm -rf $(@D)/_tmp
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsim_unspliced \
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(SIMFASTA2) 
@@ -200,12 +204,14 @@ $(REFDIR)/Dsim_unspliced : | $(REFDIR)
 
 ##### SEC GENOMES ####
 $(REFDIR)/Dsec/Genome : $(REFDIR)/sec_$(SECMAJORVERSION) | $(SECGTF)  $(REFDIR)/Dsec $(SECFASTA2) $(REFDIR)
+	rm -rf $(@D)/_tmp
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsec \
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(SECFASTA2) \
 		--sjdbGTFfile $(SECGTF)
 
 $(REFDIR)/Dsec_unspliced/Genome : $(REFDIR)/sec_$(SECMAJORVERSION) | $(REFDIR)/Dsec_unspliced $(SECFASTA2) $(REFDIR)
+	rm -rf $(@D)/_tmp
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsec_unspliced \
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(SECFASTA2) 
@@ -276,6 +282,12 @@ $(REFDIR)/d%_masked/done: $(REFDIR)/d%_masked.fasta
 
 %.dict : %.fa
 	picard CreateSequenceDictionary R=$< O=$@
+
+%_transcriptome: %.1.ebwt
+	tophat2 --transcriptome-index $@ \
+			--GTF $($(call uc,$*)GTF)
+			$*
+
 
 $(REFDIR)/d%_masked.fasta: $(REFDIR)/d%_prepend.fasta
 	trfBig $< $@
