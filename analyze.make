@@ -179,8 +179,9 @@ $(ANALYSIS_DIR)/on_%_STAR_RNASEQ.bam:
 		--outTmpDir $(basename $@)_tmp/ \
 		--readFilesIn $(subst $(space),$(comma),$(strip $(patsubst %, %_1.fastq.gz, $($(notdir $*))))) \
 				 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($(notdir $*))))) 
-	samtools view -bS $(@D)/$(notdir $*)Aligned.out.sam | samtools sort -@ 4 - $(basename $@)
-	rm $(@D)$(notdir $*)Aligned.out.sam
+	./qsubber $(QSUBBER_ARGS) -t 4 \
+	samtools view -bS $(@D)/$(notdir $*)Aligned.out.sam \| samtools sort -@ 4 - $(basename $@)
+	rm $(@D)/$(notdir $*)Aligned.out.sam
 	@echo pass
 
 
@@ -229,6 +230,7 @@ $(ANALYSIS_DIR)/on_%/simsec_variants.tsv: $($(call uc,%)FASTA2)   $(ANALYSIS_DIR
 
 $(ANALYSIS_DIR)/on_%/simsec_masked.fasta $(ANALYSIS_DIR)/on_%/simsec_variant.bed: $(ANALYSIS_DIR)/on_%/simsec_variants.tsv
 	python MaskReferenceFromGATKTable.py \
+		--threads 4 \
 		--emit-bed $(@D)/simsec_variant.bed \
 		$($(call uc,$*)FASTA2) \
 		$< \
@@ -241,12 +243,19 @@ $(ANALYSIS_DIR)/on_%/masked/Genome: $(ANALYSIS_DIR)/on_%/simsec_masked.fasta | $
 		--sjdbGTFfile $($(call uc,$*)GTF)
 
 %_wasp_dup_removed.bam : %_STAR_RNASEQ.bam
+	./qsubber $(QSUBBER_ARGS) -t 4 \
 	python2 rmdup_pe.py $< - \
-		| samtools sort -n -@ 4 - $(basename $@)
+		\| samtools sort -n -@ 3 - $(basename $@)
 
 %_SNP_COUNTS.txt : %_wasp_dup_removed.bam 
 	mkdir -p $*_countsnpase_tmp
-	python2 CountSNPASE.py --mode multi --reads $< --snps $(@D)/simsec_variant.bed --prefix $*_countsnpase_tmp/
+	./qsubber $(QSUBBER_ARGS) \
+	python2 CountSNPASE.py \
+		--mode single \
+		--reads $< \
+		--snps $(@D)/simsec_variant.bed \
+		--prefix $*_countsnpase_tmp/
+	mv $*_countsnpase_tmp/_SNP_COUNTS.txt $@
 	
 %_gene_ase.tsv : %_SNP_COUNTS.txt
 	python2 GetGeneASE.py \
