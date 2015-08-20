@@ -239,6 +239,7 @@ $(ANALYSIS_DIR)/on_%/simsec_variants.tsv: $($(call uc,%)FASTA2)   $(ANALYSIS_DIR
 		-V $(@D)/simsec_variants_on_$*.gvcf \
 		-F CHROM -F POS -F REF -F ALT -F QUAL \
 		-F HET -F HOM-REF -F HOM-VAR -F NCALLED \
+		-GF GT \
 		-o $@
 
 $(ANALYSIS_DIR)/on_%/simsec_masked.fasta $(ANALYSIS_DIR)/on_%/simsec_variant.bed: $(ANALYSIS_DIR)/on_%/simsec_variants.tsv
