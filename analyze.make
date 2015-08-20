@@ -1,5 +1,7 @@
 include gmsl
 
+all: analysis/on_sec/sec_rna_gene_ase.tsv  analysis/on_sec/sim_rna_gene_ase.tsv  analysis/on_sim/sec_rna_gene_ase.tsv  analysis/on_sim/sim_rna_gene_ase.tsv analysis/on_sec/secXsim_gene_ase.tsv  analysis/on_sec/simXsec_gene_ase.tsv  analysis/on_sim/secXsim_gene_ase.tsv  analysis/on_sim/simXsec_gene_ase.tsv
+
 .SECONDEXPANSION:
 
 comma := ,
@@ -267,6 +269,32 @@ $(ANALYSIS_DIR)/on_%/masked/Genome: $(ANALYSIS_DIR)/on_%/simsec_masked.fasta | $
 		--outTmpDir $(@D)/_tmp/ \
 		--genomeFastaFiles $< \
 		--sjdbGTFfile $($(call uc,$*)GTF)
+
+$(ANALYSIS_DIR)/on_%/masked/transcriptome: $(ANALYSIS_DIR)/on_%/simsec_masked.1.bt2 | $(ANALYSIS_DIR)/on_%/masked
+	touch $@
+	tophat2 --transcriptome-index $@ \
+		--GTF $($(call uc,$*)GTF) \
+		$(basename $(basename $<))
+
+$(ANALYSIS_DIR)/on_mel/masked/transcriptome: $(ANALYSIS_DIR)/on_mel/melsim_masked.1.bt2 | $(ANALYSIS_DIR)/on_%/masked
+	touch $@
+	tophat2 --transcriptome-index $@ \
+		--GTF $($(call uc,$*)GTF) \
+		$(basename $(basename $<))
+
+$(ANALYSIS_DIR)/on_%/masked/index_kal: $(ANALYSIS_DIR)/on_%/masked/transcriptome
+	kallisto index \
+		-i $@ \
+		$<.fa
+
+$(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call split,/,$$*))/masked/index_kal 
+	mkdir -p $(@D)
+	./qsubber $(QSUBBER_ARGS) -t 1 \
+	kallisto quant \
+		--index $<\
+		--plaintext \
+		--output-dir $(@D) \
+		$(foreach F,$($(notdir $*)), $F_1.fastq.gz $F_2.fastq.gz)
 
 %_wasp_dup_removed.bam : %_STAR_RNASEQ.bam
 	./qsubber $(QSUBBER_ARGS) -t 4 \
