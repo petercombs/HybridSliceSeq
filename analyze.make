@@ -68,14 +68,6 @@ $(ANALYSIS_DIR)/on_%_bowtie2.bam: $$(basename $$($$(call uc,$$(subst /,,$$(dir $
 		\| samtools view -bS - \
 		\| samtools sort - $(basename $@)
 
-$(ANALYSIS_DIR)/sec_gdna_mapped.bam: sequence/sec_gdna_reads $(SECFASTA2).bwt | $(ANALYSIS_DIR)
-	bwa mem -M -t 10 $(SECFASTA2) \
-		-R "@RG	ID:group2	SM:sample1	PL:illumina	LB:lib1	PU:unit1" \
-		$<_1 $<_2 \
-		| samtools view -bS -o $(basename $@)_unsorted.bam -;
-	samtools sort -@ 4 $(basename $@)_unsorted.bam $(basename $@)
-	rm $(basename $@)_unsorted.bam
-
 
 $(ANALYSIS_DIR)/%_dedup.bam: $(ANALYSIS_DIR)/%.bam
 	picard MarkDuplicates MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 INPUT=$< OUTPUT=$@ METRICS_FILE=$(basename $@)_metrics.txt
@@ -241,14 +233,6 @@ $(ANALYSIS_DIR)/on_%/simsec_variants.tsv: $($(call uc,%)FASTA2)   $(ANALYSIS_DIR
 		-F HET -F HOM-REF -F HOM-VAR -F NCALLED \
 		-GF GT \
 		-o $@
-
-$(ANALYSIS_DIR)/on_%/simsec_masked.fasta $(ANALYSIS_DIR)/on_%/simsec_variant.bed: $(ANALYSIS_DIR)/on_%/simsec_variants.tsv
-	python MaskReferenceFromGATKTable.py \
-		--threads 4 \
-		--emit-bed $(@D)/simsec_variant.bed \
-		$($(call uc,$*)FASTA2) \
-		$< \
-		$(@D)/simsec_masked.fasta
 
 $(ANALYSIS_DIR)/on_%_masked.fasta $(ANALYSIS_DIR)/on_%_variant.bed: $(ANALYSIS_DIR)/on_%_variants.tsv
 	python MaskReferenceFromGATKTable.py \
