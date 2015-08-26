@@ -17,7 +17,7 @@ secXsim = sequence/SRR869603 sequence/SRR869905
 sim_rna = sequence/SRR869573 sequence/SRR869575
 sec_rna = sequence/SRR869601
 
-mel_gdna = sequence/SRR492062 sequence/SRR492061
+mel_gdna = sequence/SRR492061
 simXmel = sequence/SRR869592
 melXsim = sequence/SRR869590
 simPLUSmel = sequence/SRR869596	sequence/SRR869597 sequence/SRR869598 sequence/SRR869599 sequence/SRR869600
@@ -205,15 +205,15 @@ $(ANALYSIS_DIR)/on_%/ : | $(ANALYSIS_DIR)
 
 
 $(ANALYSIS_DIR)/on_%_variants.tsv: $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2)   $(ANALYSIS_DIR)/on_$$(call substr,$$*,1,7)_gdna_raw_variants_uncalibrated.p.g.vcf $(ANALYSIS_DIR)/on_$$(dir $$*)$$(call substr,$$(notdir $$*),4,6)_gdna_raw_variants_uncalibrated.p.g.vcf
-	echo $^ $(ANALYSIS_DIR)/on_$(call substr,$*,1,7)_gdna_bowtie2_raw_variants_uncalibrated.p.g.vcf 
+	echo $^ $(call uc,$(patsubst %/,%,$(dir $*)))
 	gatk -T GenotypeGVCFs \
-		-R $($(call uc,$*)FASTA2) \
-		-V $(@D)/$(call substr,$(notdir $*),1,3)_gdna_bowtie2_raw_variants_uncalibrated.p.g.vcf \
-		-V $(@D)/$(call substr,$(notdir $*),4,6)_gdna_bowtie2_raw_variants_uncalibrated.p.g.vcf \
-		-o $(@D)/simsec_variants_on_$*.gvcf
+		-R $($(call uc,$(patsubst %/,%,$(dir $*)))FASTA2) \
+		-V $(@D)/$(call substr,$(notdir $*),1,3)_gdna_raw_variants_uncalibrated.p.g.vcf \
+		-V $(@D)/$(call substr,$(notdir $*),4,6)_gdna_raw_variants_uncalibrated.p.g.vcf \
+		-o $(@D)/$(notdir $*)_variants_on_$(patsubst %/,%,$(dir $*)).gvcf
 	gatk -T VariantsToTable \
-		-R $($(call uc,$*)FASTA2) \
-		-V $(@D)/simsec_variants_on_$*.gvcf \
+		-R $($(call uc,$(patsubst %/,%,$(dir $*)))FASTA2) \
+		-V $(@D)/$(notdir $*)_variants_on_$(patsubst %/,%,$(dir $*)).gvcf \
 		-F CHROM -F POS -F REF -F ALT -F QUAL \
 		-F HET -F HOM-REF -F HOM-VAR -F NCALLED \
 		-GF GT \
@@ -256,16 +256,18 @@ $(ANALYSIS_DIR)/on_%/masked/Genome: $(ANALYSIS_DIR)/on_%/simsec_masked.fasta | $
 		--sjdbGTFfile $($(call uc,$*)GTF)
 
 $(ANALYSIS_DIR)/on_%/masked/transcriptome: $(ANALYSIS_DIR)/on_%/simsec_masked.1.bt2 | $(ANALYSIS_DIR)/on_%/masked
-	touch $@
+	mkdir -p $(@D)
+	echo $(call uc,$*)GTF
 	tophat2 --transcriptome-index $@ \
 		--GTF $($(call uc,$*)GTF) \
 		$(basename $(basename $<))
+	touch $@
 
 $(ANALYSIS_DIR)/on_mel/masked/transcriptome: $(ANALYSIS_DIR)/on_mel/melsim_masked.1.bt2 | $(ANALYSIS_DIR)/on_%/masked
-	touch $@
 	tophat2 --transcriptome-index $@ \
-		--GTF $($(call uc,$*)GTF) \
+		--GTF $(MELGTF) \
 		$(basename $(basename $<))
+	touch $@
 
 $(ANALYSIS_DIR)/on_%/masked/index_kal: $(ANALYSIS_DIR)/on_%/masked/transcriptome
 	kallisto index \
@@ -281,10 +283,35 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--output-dir $(@D) \
 		$(foreach F,$($(notdir $*)), $F_1.fastq.gz $F_2.fastq.gz)
 
+
+$(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call split,/,$$*))/masked/index_kal 
+	mkdir -p $(@D)
+	./qsubber $(QSUBBER_ARGS) -t 1 \
+	kallisto quant \
+		--index $<\
+		--plaintext \
+		--output-dir $(@D) \
+		$(foreach F,$($(notdir $*)), $F_1.fastq.gz $F_2.fastq.gz)
+
+%_wasp_dedup.bam: %.bam
+	./qsubber $(QSUBBER_ARGS) -t 4 \
+	python2 rmdup_pe.py $< - \
+		\| samtools sort -n -@ 3 - $(basename $@)
+
 %_wasp_dup_removed.bam : %_STAR_RNASEQ.bam
 	./qsubber $(QSUBBER_ARGS) -t 4 \
 	python2 rmdup_pe.py $< - \
 		\| samtools sort -n -@ 3 - $(basename $@)
+
+%_SNP_COUNTS.txt : %_wasp_dedup.bam $$(@D)/simsec_variant.bed
+	mkdir -p $*_countsnpase_tmp
+	./qsubber $(QSUBBER_ARGS) \
+	python2 CountSNPASE.py \
+		--mode single \
+		--reads $< \
+		--snps $(@D)/simsec_variant.bed \
+		--prefix $*_countsnpase_tmp/
+	mv $*_countsnpase_tmp/_SNP_COUNTS.txt $@
 
 %_SNP_COUNTS.txt : %_wasp_dup_removed.bam $$(@D)/simsec_variant.bed 
 	mkdir -p $*_countsnpase_tmp

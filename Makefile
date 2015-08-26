@@ -99,6 +99,11 @@ $(SIMALLGTF): $(SIMGFF) | $(REFDIR)
 		awk '{print "dsim_"$$0}' > \
 		$@
 
+$(SIMBADGTF): $(SIMALLGTF) | $(REFDIR)
+	cat $< \
+		| grep -v 'gene_id' \
+		> $@
+
 $(SECALLGTF): $(SECGFF) | $(REFDIR)
 	gffread $< -E -T -o- | \
 		awk '{print "dsec_"$$0}' > \
