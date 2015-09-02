@@ -32,7 +32,6 @@ sequence/%:
 	touch $@
 
 $(ANALYSIS_DIR)/on_sim/%_bowtie.bam: $(%) $(basename $(SIMFASTA2)).1.ebwt | $(ANALYSIS_DIR)
-	echo $<
 	bowtie \
 		--try-hard \
 		-p 8 \
@@ -124,7 +123,6 @@ $(ANALYSIS_DIR)/on_sec/%_raw_variants_uncalibrated.g.vcf: $(ANALYSIS_DIR)/on_sec
 
 
 $(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2) $$(basename $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2)).dict $(ANALYSIS_DIR)/on_%_bowtie2_dedup.bam 
-	echo $^ 
 	./qsubber $(QSUBBER_ARGS) -t 8  \
 	gatk -T HaplotypeCaller \
 		-R $(basename $<).fasta \
@@ -154,7 +152,6 @@ $(ANALYSIS_DIR)/on_%_STAR_RNASEQ.bam: $$(@D)/masked/Genome $$($$(notdir $$*))
 	./qsubber $(QSUBBER_ARGS) -t 4 \
 	samtools view -bS $(@D)/$(notdir $*)Aligned.out.sam \| samtools sort -@ 4 - $(basename $@)
 	rm $(@D)/$(notdir $*)Aligned.out.sam
-	@echo pass
 
 
 $(ANALYSIS_DIR)/on_sim/%_STAR.bam: $(%) $(REFDIR)/Dsim_unspliced/Genome | $(ANALYSIS_DIR)/on_sim
@@ -204,7 +201,6 @@ $(ANALYSIS_DIR)/on_%/ : | $(ANALYSIS_DIR)
 
 
 $(ANALYSIS_DIR)/on_%_variants.tsv: $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2)   $(ANALYSIS_DIR)/on_$$(call substr,$$*,1,7)_gdna_raw_variants_uncalibrated.p.g.vcf $(ANALYSIS_DIR)/on_$$(dir $$*)$$(call substr,$$(notdir $$*),4,6)_gdna_raw_variants_uncalibrated.p.g.vcf
-	echo $^ $(call uc,$(patsubst %/,%,$(dir $*)))
 	gatk -T GenotypeGVCFs \
 		-R $($(call uc,$(patsubst %/,%,$(dir $*)))FASTA2) \
 		-V $(@D)/$(call substr,$(notdir $*),1,3)_gdna_raw_variants_uncalibrated.p.g.vcf \
@@ -219,7 +215,6 @@ $(ANALYSIS_DIR)/on_%_variants.tsv: $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2
 		-o $@
 
 $(ANALYSIS_DIR)/on_%/simsec_variants.tsv: $($(call uc,%)FASTA2)   $(ANALYSIS_DIR)/on_%/sim_gdna_raw_variants_uncalibrated.p.g.vcf $(ANALYSIS_DIR)/on_%/sec_gdna_raw_variants_uncalibrated.p.g.vcf
-	echo $^
 	gatk -T GenotypeGVCFs \
 		-R $($(call uc,$*)FASTA2) \
 		-V $(@D)/sim_gdna_bowtie2_raw_variants_uncalibrated.p.g.vcf \
@@ -255,7 +250,6 @@ $(ANALYSIS_DIR)/on_%/masked/Genome: $(ANALYSIS_DIR)/on_%/simsec_masked.fasta | $
 
 $(ANALYSIS_DIR)/on_%/masked/transcriptome: $(ANALYSIS_DIR)/on_%/simsec_masked.1.bt2 | $(ANALYSIS_DIR)/on_%/masked
 	mkdir -p $(@D)
-	echo $(call uc,$*)GTF
 	tophat2 --transcriptome-index $@ \
 		--GTF $($(call uc,$*)GTF) \
 		$(basename $(basename $<))
