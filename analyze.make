@@ -1,26 +1,25 @@
 include gmsl
 
-all: analysis/on_sec/sec_rna_gene_ase.tsv  analysis/on_sec/sim_rna_gene_ase.tsv  analysis/on_sim/sec_rna_gene_ase.tsv  analysis/on_sim/sim_rna_gene_ase.tsv analysis/on_sec/secXsim_gene_ase.tsv  analysis/on_sec/simXsec_gene_ase.tsv  analysis/on_sim/secXsim_gene_ase.tsv  analysis/on_sim/simXsec_gene_ase.tsv
+all: analysis/on_sim/simsec_variants.tsv
 
 .SECONDEXPANSION:
 
 comma := ,
 space := $(null) #
 
-wittkopp_reads:  sequence/SRR869573 sequence/SRR869575 sequence/SRR869590 sequence/SRR869596 sequence/SRR869597 sequence/SRR869598 sequence/SRR869599 sequence/SRR869600 sequence/SRR869601 sequence/SRR869602 sequence/SRR869844 sequence/SRR869603 sequence/SRR869905 sequence/SRR869592 sequence/SRR869579 sequence/SRR869580 sequence/SRR869587
-	echo "All Downloaded"
 
 sim_gdna = sequence/SRR869579 sequence/SRR869580
 sec_gdna = sequence/SRR869587
-simXsec = sequence/SRR869602 sequence/SRR869844
-secXsim = sequence/SRR869603 sequence/SRR869905
-sim_rna = sequence/SRR869573 sequence/SRR869575
-sec_rna = sequence/SRR869601
 
-mel_gdna = sequence/SRR492061
-simXmel = sequence/SRR869592
-melXsim = sequence/SRR869590
-simPLUSmel = sequence/SRR869596	sequence/SRR869597 sequence/SRR869598 sequence/SRR869599 sequence/SRR869600
+oemale = sequence/150812_BRISCOE_0250_AC7K8CACXX_L2_OEmale
+oefemale = sequence/150812_BRISCOE_0250_AC7K8CACXX_L2_OEfemale
+fbfemale = sequence/150812_BRISCOE_0250_AC7K8CACXX_L2_FBfemale
+fbmale = sequence/150812_BRISCOE_0250_AC7K8CACXX_L2_FBmale
+
+oemale_r2   = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_ACTTGATG_pf
+oefemale_r2 = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_TGACAGAC_pf
+fbfemale_r2 = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_CGATGTTT_pf
+fbmale_r2   = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_TAGAACAC_pf
 
 QSUBBER_ARGS = --keep-temporary tmp --log-base $(basename $@)  --job-name $(basename $(@F))
 
@@ -219,7 +218,7 @@ $(ANALYSIS_DIR)/on_%_variants.tsv: $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2
 		-GF GT \
 		-o $@
 
-$(ANALYSIS_DIR)/on_%/simsec_variants.tsv: $($(call uc,%)FASTA2)   $(ANALYSIS_DIR)/on_%/sim_gdna_bowtie2_raw_variants_uncalibrated.p.g.vcf $(ANALYSIS_DIR)/on_%/sec_gdna_bowtie2_raw_variants_uncalibrated.p.g.vcf
+$(ANALYSIS_DIR)/on_%/simsec_variants.tsv: $($(call uc,%)FASTA2)   $(ANALYSIS_DIR)/on_%/sim_gdna_raw_variants_uncalibrated.p.g.vcf $(ANALYSIS_DIR)/on_%/sec_gdna_raw_variants_uncalibrated.p.g.vcf
 	echo $^
 	gatk -T GenotypeGVCFs \
 		-R $($(call uc,$*)FASTA2) \
@@ -236,7 +235,6 @@ $(ANALYSIS_DIR)/on_%/simsec_variants.tsv: $($(call uc,%)FASTA2)   $(ANALYSIS_DIR
 
 $(ANALYSIS_DIR)/on_%_masked.fasta $(ANALYSIS_DIR)/on_%_variant.bed: $(ANALYSIS_DIR)/on_%_variants.tsv
 	python MaskReferenceFromGATKTable.py \
-		--threads 4 \
 		--target-species $(patsubst %/,%,$(dir $*)) \
 		--emit-bed $(@D)/$(notdir $*)_variant.bed \
 		--outfasta $(@D)/$(notdir $*)_masked.fasta \
@@ -294,12 +292,12 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		$(foreach F,$($(notdir $*)), $F_1.fastq.gz $F_2.fastq.gz)
 
 %_wasp_dedup.bam: %.bam
-	./qsubber $(QSUBBER_ARGS) -t 4 \
+	./qsubber --local $(QSUBBER_ARGS) -t 4 \
 	python2 rmdup_pe.py $< - \
 		\| samtools sort -n -@ 3 - $(basename $@)
 
 %_wasp_dup_removed.bam : %_STAR_RNASEQ.bam
-	./qsubber $(QSUBBER_ARGS) -t 4 \
+	./qsubber --local $(QSUBBER_ARGS) -t 4 \
 	python2 rmdup_pe.py $< - \
 		\| samtools sort -n -@ 3 - $(basename $@)
 
@@ -333,3 +331,16 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 
 $(ANALYSIS_DIR)/on_%/masked:
 	mkdir -p $@
+
+%/genes.fpkm_tracking: %_STAR_RNASEQ.bam
+	mkdir -p $(@D)
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 8 \
+	cufflinks \
+		--GTF $($(call uc,$(call substr,$(notdir $(*D)),4,6))GTF) \
+		--num-threads 8 \
+		--frag-bias-correct $(@D)/../simsec_masked.fasta \
+		--multi-read-correct \
+		--output-dir $(@D) \
+		--verbose \
+		$<
+
