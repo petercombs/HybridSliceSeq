@@ -8,7 +8,7 @@ comma := ,
 space := $(null) #
 
 
-sim_gdna = sequence/SRR869579 sequence/SRR869580
+sim_gdna = sequence/SRR520334 sequence/SRR520351
 sec_gdna = sequence/SRR869587
 
 oemale = sequence/150812_BRISCOE_0250_AC7K8CACXX_L2_OEmale
@@ -122,10 +122,10 @@ $(ANALYSIS_DIR)/on_sec/%_raw_variants_uncalibrated.g.vcf: $(ANALYSIS_DIR)/on_sec
 		-o $@
 
 
-$(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2) $$(basename $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2)).dict $(ANALYSIS_DIR)/on_%_bowtie2_dedup.bam 
+$(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2).fai $$(basename $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2)).dict $(ANALYSIS_DIR)/on_%_bowtie2_dedup.bam 
 	./qsubber $(QSUBBER_ARGS) -t 8  \
 	gatk -T HaplotypeCaller \
-		-R $(basename $<).fasta \
+		-R $(basename $<) \
 		-I $(ANALYSIS_DIR)/on_$*_bowtie2_dedup.bam \
 		-nct 8 \
 		--genotyping_mode DISCOVERY \
@@ -217,8 +217,8 @@ $(ANALYSIS_DIR)/on_%_variants.tsv: $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2
 $(ANALYSIS_DIR)/on_%/simsec_variants.tsv: $($(call uc,%)FASTA2)   $(ANALYSIS_DIR)/on_%/sim_gdna_raw_variants_uncalibrated.p.g.vcf $(ANALYSIS_DIR)/on_%/sec_gdna_raw_variants_uncalibrated.p.g.vcf
 	gatk -T GenotypeGVCFs \
 		-R $($(call uc,$*)FASTA2) \
-		-V $(@D)/sim_gdna_bowtie2_raw_variants_uncalibrated.p.g.vcf \
-		-V $(@D)/sec_gdna_bowtie2_raw_variants_uncalibrated.p.g.vcf \
+		-V $(@D)/sim_gdna_raw_variants_uncalibrated.p.g.vcf \
+		-V $(@D)/sec_gdna_raw_variants_uncalibrated.p.g.vcf \
 		-o $(@D)/simsec_variants_on_$*.gvcf
 	gatk -T VariantsToTable \
 		-R $($(call uc,$*)FASTA2) \
@@ -286,16 +286,16 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		$(foreach F,$($(notdir $*)), $F_1.fastq.gz $F_2.fastq.gz)
 
 %_wasp_dedup.bam: %.bam
-	./qsubber --local $(QSUBBER_ARGS) -t 4 \
+	./qsubber $(QSUBBER_ARGS) -t 4 \
 	python2 rmdup_pe.py $< - \
 		\| samtools sort -n -@ 3 - $(basename $@)
 
 %_wasp_dup_removed.bam : %_STAR_RNASEQ.bam
-	./qsubber --local $(QSUBBER_ARGS) -t 4 \
+	./qsubber $(QSUBBER_ARGS) -t 4 \
 	python2 rmdup_pe.py $< - \
 		\| samtools sort -n -@ 3 - $(basename $@)
 
-%_SNP_COUNTS.txt : %_wasp_dedup.bam $$(@D)/simsec_variant.bed
+%_SNP_COUNTS.txt : %_STAR_RNASEQ_wasp_dedup.bam $$(@D)/simsec_variant.bed
 	mkdir -p $*_countsnpase_tmp
 	./qsubber $(QSUBBER_ARGS) \
 	python2 CountSNPASE.py \
@@ -305,20 +305,11 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--prefix $*_countsnpase_tmp/
 	mv $*_countsnpase_tmp/_SNP_COUNTS.txt $@
 
-%_SNP_COUNTS.txt : %_wasp_dup_removed.bam $$(@D)/simsec_variant.bed 
-	mkdir -p $*_countsnpase_tmp
-	./qsubber $(QSUBBER_ARGS) \
-	python2 CountSNPASE.py \
-		--mode single \
-		--reads $< \
-		--snps $(@D)/simsec_variant.bed \
-		--prefix $*_countsnpase_tmp/
-	mv $*_countsnpase_tmp/_SNP_COUNTS.txt $@
-	
-%_gene_ase.tsv : %_SNP_COUNTS.txt
+%_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py
 	python2 GetGeneASE.py \
 		--snpcounts $< \
 		--phasedsnps $(@D)/simsec_variant.bed \
+		--allele-min 2 \
 		--gff $($(call uc,$(call substr,$(notdir $(@D)),4,6))GTF) \
 		-o $@ \
 		--writephasedsnps
