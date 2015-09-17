@@ -309,7 +309,8 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 	python2 GetGeneASE.py \
 		--snpcounts $< \
 		--phasedsnps $(@D)/simsec_variant.bed \
-		--allele-min 2 \
+		--allele-min 0 \
+		--true-hets analysis/on_sim/true_hets.tsv \
 		--gff $($(call uc,$(call substr,$(notdir $(@D)),4,6))GTF) \
 		-o $@ \
 		--writephasedsnps

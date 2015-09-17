@@ -126,8 +126,17 @@ opt.add_argument('-t','--type', action="store", dest="type", help='Annotation fe
 opt.add_argument('-m','--min', action="store", dest="min", type=int, help='Min reads to calculate proportion ref/alt biased', default=10)
 opt.add_argument('-M', '--allele-min', type=int, default=5, help='Minimum reads per allele to count the SNP (helps with false hets')
 opt.add_argument('-s','--stranded', action="store_true", dest="stranded", help='Data are stranded? [Default: False]')
+opt.add_argument('-H', '--true-hets', default=None, help="Tab-separated file"
+                 'containing validated true hets')
 opt.add_argument('-h', '--help', action="help", help="Show this help message and exit")
 args = parser.parse_args()
+
+if args.true_hets:
+    with open(args.true_hets) as hetfile:
+        args.true_hets = set()
+        for line in hetfile:
+            chrom, pos = line.strip().split()
+            args.true_hets.add((chrom, pos))
 
 #############
 # FUNCTIONS #
@@ -186,7 +195,7 @@ total_alt = {}
 total_snps = {}
 ref_biased = {}
 alt_biased = {}
-snp_array = {}
+snp_array = defaultdict(list)
 phased_snp_array = []	#15.03.24 - For phased SNP output file.
 
 features = {}	#We have to store a list of all of the features somewhere
@@ -265,7 +274,10 @@ for line in gff_file:
 			#If stranded add only appropriate strand counts
 			if args.stranded is True:
 				if orientation == '+':
-					if min(int(ref_pos_counts), int(alt_pos_counts)) < args.allele_min: 
+					if min(int(ref_pos_counts), int(alt_pos_counts)) < args.allele_min:
+						continue
+					if (args.true_hets
+                        and tuple(pos.split('|')) not in args.true_hets):
 						continue
 					if name in total_ref:
 						total_ref[name] += int(ref_pos_counts)
@@ -302,10 +314,13 @@ for line in gff_file:
 						phased_snp_array.append(str(chromosome[name]) + '\t' + str(i) + '\t' + name + '\t' + ori[name] + '\t' + str(refalt[0]) + '\t' + str(refalt[1]) + '\t' + str(ref_pos_counts) + '\t' + str(alt_pos_counts))
 
 				elif orientation == '-':
-					if min(int(ref_neg_counts), int(alt_neg_counts)) < args.allele_min: 
+					if min(int(ref_neg_counts), int(alt_neg_counts)) < args.allele_min:
 						if name not in snp_array:
 							snp_array[name] = []
 						snp_array[name].append('**{},{},{}|{}**'.format(i, snp_phase_dict[pos], tot_ref, tot_alt))
+						continue
+					if (args.true_hets
+                        and tuple(pos.split('|')) not in args.true_hets):
 						continue
 					if name in total_ref:
 						total_ref[name] += int(ref_neg_counts)
@@ -343,15 +358,20 @@ for line in gff_file:
 
 
 			else:
-				if min((int(ref_pos_counts)+int(ref_neg_counts)), 
-                                        (int(alt_pos_counts) + int(alt_neg_counts))) < args.allele_min: 
-						if name not in snp_array:
-							snp_array[name] = []
-						snp_array[name].append('**{},{},{}|{}**'.format(i, 
-                            snp_phase_dict[pos], 
-                            ref_pos_counts+ref_neg_counts, 
-                            alt_pos_counts+alt_neg_counts))
-						continue
+				if min((int(ref_pos_counts)+int(ref_neg_counts)),
+                                        (int(alt_pos_counts) + int(alt_neg_counts))) < args.allele_min:
+					snp_array[name].append('**{},{},{}|{}**'.format(i,
+													 snp_phase_dict[pos],
+													 ref_pos_counts+ref_neg_counts,
+													 alt_pos_counts+alt_neg_counts))
+					continue
+				if (args.true_hets
+					and tuple(pos.split('|')) not in args.true_hets):
+					snp_array[name].append('##{},{},{}|{}##'.format(i,
+													 snp_phase_dict[pos],
+													 ref_pos_counts+ref_neg_counts,
+													 alt_pos_counts+alt_neg_counts))
+					continue
 				if name in total_ref:
 					total_ref[name] += int(ref_pos_counts)
 					total_ref[name] += int(ref_neg_counts)
