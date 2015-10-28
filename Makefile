@@ -6,6 +6,7 @@ STARCONFIG = Parameters/STAR_params.in
 ANALYSIS_DIR = analysis
 
 # Reference FASTA and GFF files from FlyBase
+MEL5RELEASE= r5.57_FB2014_03
 MELRELEASE = r6.06_FB2015_03
 SIMRELEASE = r2.01_FB2015_01
 SECRELEASE = r1.3_FB2015_01
@@ -68,7 +69,7 @@ include config.make
 include analyze.make
 
 $(MELALLGTF): $(MELGFF) | $(REFDIR)
-	gffread $< -E -T -o- | \
+	gffread $< -C -E -T -o- | \
 		awk '{print "dmel_"$$0}' > \
 		$@
 
@@ -95,7 +96,7 @@ $(MELBADGTF): $(MELALLGTF) | $(REFDIR)
 		| grep -P '(snoRNA|CR[0-9]{4}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
 		> $@
 $(SIMALLGTF): $(SIMGFF) | $(REFDIR)
-	gffread $< -E -T -o- | \
+	gffread $< -C -E -T -o- | \
 		awk '{print "dsim_"$$0}' > \
 		$@
 
@@ -105,7 +106,7 @@ $(SIMBADGTF): $(SIMALLGTF) | $(REFDIR)
 		> $@
 
 $(SECALLGTF): $(SECGFF) | $(REFDIR)
-	gffread $< -E -T -o- | \
+	gffread $< -C -E -T -o- | \
 		awk '{print "dsec_"$$0}' > \
 		$@
 
@@ -238,6 +239,9 @@ $(GENEMAPTABLE):
 
 %_sorted.bam: %.bam
 	samtools sort $< $*_sorted 
+	samtools index $@
+
+%.bam.bai: %.bam
 	samtools index $@
 
 $(REFDIR)/mel_$(MELVERSION): | $(REFDIR)
