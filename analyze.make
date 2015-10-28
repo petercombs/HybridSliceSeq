@@ -285,9 +285,11 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--output-dir $(@D) \
 		$(foreach F,$($(notdir $*)), $F_1.fastq.gz $F_2.fastq.gz)
 
-%_wasp_dedup.bam: %.bam
-	./qsubber $(QSUBBER_ARGS) -t 4 \
-	python2 rmdup_pe.py $< - \
+%_wasp_dedup.bam: %.bam RestoreQuals.py RandomizeQuals.py
+	./qsubber $(QSUBBER_ARGS) -t 6 \
+	python RandomizeQuals.py $< - \
+		\| samtools rmdup - - \
+		\| python RestoreQuals.py - - \
 		\| samtools sort -n -@ 3 - $(basename $@)
 
 %_wasp_dup_removed.bam : %_STAR_RNASEQ.bam
