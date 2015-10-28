@@ -307,11 +307,24 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--prefix $*_countsnpase_tmp/
 	mv $*_countsnpase_tmp/_SNP_COUNTS.txt $@
 
-%_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py
+%_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py analyze.make
 	python2 GetGeneASE.py \
 		--snpcounts $< \
 		--phasedsnps $(@D)/simsec_variant.bed \
-		--allele-min 0 \
+		--allele-min 2 \
+		--true-hets analysis/on_sim/true_hets.tsv \
+		--gff $($(call uc,$(call substr,$(notdir $(@D)),4,6))GTF) \
+		-o $@ \
+		--writephasedsnps
+
+%_gene_ase.tsv : $$(firstword $$(subst _counts_, ,$$@))_SNP_COUNTS.txt GetGeneASE.py analyze.make
+	echo $(firstword $(subst _counts_, ,$*))_SNP_COUNTS.txt
+	echo $(lastword $(subst _counts_, ,$*))
+	python2 GetGeneASE.py \
+		--snpcounts $< \
+		--phasedsnps $(@D)/simsec_variant.bed \
+		--allele-min 2 \
+		--min $(lastword $(subst _counts_, ,$*)) \
 		--true-hets analysis/on_sim/true_hets.tsv \
 		--gff $($(call uc,$(call substr,$(notdir $(@D)),4,6))GTF) \
 		-o $@ \
@@ -332,3 +345,5 @@ $(ANALYSIS_DIR)/on_%/masked:
 		--verbose \
 		$<
 
+$(REFDIR)/dgrp_%.vcf: prereqs/dgrp2.vcf
+	grep -P '^(#|$*)' $< > $@
