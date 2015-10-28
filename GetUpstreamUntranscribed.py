@@ -53,7 +53,7 @@ if __name__ == "__main__":
         strand = strand_by_gene[gene]
         chrom = chrom_by_gene[gene]
         name = gene_name_by_id[gene]
-        if strand == '-' and last_on_chrom[chrom] == gene:
+        if strand == '-' and last_on_chrom[chrom][1] == gene:
             gene_tss = sorted(tss[gene].values())
             prev_tss = gene_tss[1:] + ['end']
         else:
