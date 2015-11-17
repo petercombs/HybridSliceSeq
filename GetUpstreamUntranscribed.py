@@ -11,7 +11,7 @@ from progressbar import ProgressBar as pb
 if __name__ == "__main__":
     tss = defaultdict(dict)
     chrom_by_gene = {}
-    gene_name_by_id = {}
+    gene_name_by_id = defaultdict(dict)
     strand_by_gene = {}
     in_exon = defaultdict(lambda : zeros(40000000, dtype=bool))
     last_on_chrom = {}
@@ -31,7 +31,7 @@ if __name__ == "__main__":
             raise ValueError("Misformed GFF Description: '{}'".format( line.strip().split('\t')))
 
         strand_by_gene[gene_id] = strand
-        gene_name_by_id[gene_id] = gene_name
+        gene_name_by_id[chrom][gene_id] = gene_name
         chrom_by_gene[gene_id] = chrom
         low, hi = int(low), int(hi)
         if chrom not in last_on_chrom or hi > last_on_chrom[chrom][0]:
@@ -48,11 +48,14 @@ if __name__ == "__main__":
         else:
             assert False
     print("Finished Loading GFF", file=stderr)
-    print("FBgn\tgene_name\tchrom\ttss\tmax_upstream")
-    for gene in pb()(gene_name_by_id):
+    print("FBgn\tgene_name\tchrom\tstrand\ttss\tmax_upstream")
+    for gene in (gene
+            for chrom in sorted(gene_name_by_id)
+            for gene in sorted(gene_name_by_id[chrom], key=lambda x: min(tss[x].values()))
+            ):
         strand = strand_by_gene[gene]
         chrom = chrom_by_gene[gene]
-        name = gene_name_by_id[gene]
+        name = gene_name_by_id[chrom][gene]
         if strand == '-' and last_on_chrom[chrom][1] == gene:
             gene_tss = sorted(tss[gene].values())
             prev_tss = gene_tss[1:] + ['end']
@@ -70,7 +73,11 @@ if __name__ == "__main__":
                 gene_tss = sorted(set(tss[gene].values()))
                 prev_tss = gene_tss[1:] + [pos]
         for curr_tss, prev_coord in zip(gene_tss, prev_tss):
-            print(gene, name, chrom, curr_tss, prev_coord,
+            print(gene,
+                    name,
+                    chrom,
+                    '-' if prev_coord == 'end' or prev_coord > curr_tss else '+',
+                    curr_tss, prev_coord,
                     sep='\t')
 
 
