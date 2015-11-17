@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# vim: set noexpandtab tabstop=4
 
 # Created on: 2015.03.19 
 # Author: Carlo Artieri
@@ -138,6 +139,8 @@ if args.true_hets:
             chrom, pos = line.strip().split()
             args.true_hets.add((chrom, pos))
 
+print("Minimum per allele: ", args.allele_min)
+
 #############
 # FUNCTIONS #
 #############
@@ -276,8 +279,7 @@ for line in gff_file:
 				if orientation == '+':
 					if min(int(ref_pos_counts), int(alt_pos_counts)) < args.allele_min:
 						continue
-					if (args.true_hets
-                        and tuple(pos.split('|')) not in args.true_hets):
+					if (args.true_hets and tuple(pos.split('|')) not in args.true_hets):
 						continue
 					if name in total_ref:
 						total_ref[name] += int(ref_pos_counts)
@@ -319,8 +321,7 @@ for line in gff_file:
 							snp_array[name] = []
 						snp_array[name].append('**{},{},{}|{}**'.format(i, snp_phase_dict[pos], tot_ref, tot_alt))
 						continue
-					if (args.true_hets
-                        and tuple(pos.split('|')) not in args.true_hets):
+					if (args.true_hets and tuple(pos.split('|')) not in args.true_hets):
 						continue
 					if name in total_ref:
 						total_ref[name] += int(ref_neg_counts)
@@ -358,16 +359,15 @@ for line in gff_file:
 
 
 			else:
-				if min((int(ref_pos_counts)+int(ref_neg_counts)),
-                                        (int(alt_pos_counts) + int(alt_neg_counts))) < args.allele_min:
-					snp_array[name].append('**{},{},{}|{}**'.format(i,
+				if (args.true_hets and tuple(pos.split('|')) not in args.true_hets):
+					snp_array[name].append('##{},{},{}|{}##'.format(i,
 													 snp_phase_dict[pos],
 													 ref_pos_counts+ref_neg_counts,
 													 alt_pos_counts+alt_neg_counts))
 					continue
-				if (args.true_hets
-					and tuple(pos.split('|')) not in args.true_hets):
-					snp_array[name].append('##{},{},{}|{}##'.format(i,
+				if min((int(ref_pos_counts)+int(ref_neg_counts)),
+                                        (int(alt_pos_counts) + int(alt_neg_counts))) < args.allele_min:
+					snp_array[name].append('**{},{},{}|{}**'.format(i,
 													 snp_phase_dict[pos],
 													 ref_pos_counts+ref_neg_counts,
 													 alt_pos_counts+alt_neg_counts))
