@@ -6,3 +6,4 @@ prereqs/*
 *.out
 *[Ll]og*
 tmp*
+*.pkl
