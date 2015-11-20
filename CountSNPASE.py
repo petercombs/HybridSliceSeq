@@ -40,6 +40,7 @@ import textwrap		#Add text block wrapping properties
 from time import sleep	#Allow system pausing
 #import common		#My custom common python scripts
 from pysam import Samfile
+random.seed(0)
 
 ##########################
 # COMMAND-LINE ARGUMENTS #
