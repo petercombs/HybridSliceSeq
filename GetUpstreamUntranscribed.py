@@ -3,12 +3,24 @@ from sys import argv, stderr
 from collections import defaultdict
 from numpy import zeros
 from progressbar import ProgressBar as pb
-
+from argparse import ArgumentParser
 
 # GTF Line:
 #2L      FlyBase exon    7529    8116    .       +       .       transcript_id "FBtr0300689"; gene_id "FBgn0031208"; gene_name "CG11023";
 
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument('--max-distance', default=-1, type=int)
+    parser.add_argument('--ordered', default=False, action='store_true')
+    parser.add_argument('gtf_file')
+
+    return parser.parse_args()
+
+
+
 if __name__ == "__main__":
+    args = parse_args()
+    print(args, file=stderr)
     tss = defaultdict(dict)
     chrom_by_gene = {}
     gene_name_by_id = defaultdict(dict)
@@ -16,7 +28,7 @@ if __name__ == "__main__":
     in_exon = defaultdict(lambda : zeros(40000000, dtype=bool))
     last_on_chrom = {}
     print("Loading GFF", file=stderr)
-    for line in open(argv[1]):
+    for line in open(args.gtf_file):
         chrom, _, ftype, low, hi, _, strand, _, desc = line.strip().split('\t')
         if ftype != 'exon': continue
         desc = {entr.strip().split(' ', 1)[0].strip() : 
@@ -48,7 +60,10 @@ if __name__ == "__main__":
         else:
             assert False
     print("Finished Loading GFF", file=stderr)
-    print("FBgn\tgene_name\tchrom\tstrand\ttss\tmax_upstream")
+    if args.ordered:
+        print("chrom\tcoord_low\tcoord_hi\tFBgn\tgene_name\tstrand")
+    else:
+        print("chrom\ttss\tmax_upstream\tFBgn\tgene_name\tstrand")
     for gene in (gene
             for chrom in sorted(gene_name_by_id)
             for gene in sorted(gene_name_by_id[chrom], key=lambda x: min(tss[x].values()))
@@ -73,11 +88,22 @@ if __name__ == "__main__":
                 gene_tss = sorted(set(tss[gene].values()))
                 prev_tss = gene_tss[1:] + [pos]
         for curr_tss, prev_coord in zip(gene_tss, prev_tss):
-            print(gene,
-                    name,
+            if args.max_distance > 0 and (prev_coord == 'end' or abs(curr_tss - prev_coord) > args.max_distance):
+                if strand == '-':
+                    prev_coord = curr_tss + args.max_distance
+                elif strand == '+':
+                    prev_coord = curr_tss - args.max_distance
+                else:
+                    raise ValueError("Bad strand value: " + strand)
+
+            if args.ordered:
+                curr_tss, prev_coord = sorted([curr_tss, prev_coord])
+            print(
                     chrom,
-                    '-' if prev_coord == 'end' or prev_coord > curr_tss else '+',
                     curr_tss, prev_coord,
+                    gene,
+                    name,
+                    strand,
                     sep='\t')
 
 
