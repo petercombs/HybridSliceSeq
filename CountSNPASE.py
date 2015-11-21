@@ -40,7 +40,6 @@ import textwrap		#Add text block wrapping properties
 from time import sleep	#Allow system pausing
 #import common		#My custom common python scripts
 from pysam import Samfile
-random.seed(0)
 
 ##########################
 # COMMAND-LINE ARGUMENTS #
@@ -398,10 +397,7 @@ elif args.mode == 'single':
 	num_reads = count_reads(sam_file)
 	in_sam =  Samfile(sam_file)
 	references = in_sam.references
-	from progressbar import ProgressBar
-	pb = ProgressBar(maxval=num_reads).start()
-	for line_num, line in enumerate(in_sam):
-		pb.update(line_num)
+	for line in in_sam:
 
 		#Skip lines that overlap indels OR don't match Ns
 		cigarstring = line.cigarstring
@@ -491,14 +487,12 @@ elif args.mode == 'single':
 						potsnp_dict[line.qname].append(snp)
 			
 	in_sam.close()
-	pb.finish()
 
 	#Initialize the counting dictionaries
 	pos_counts = {}
 	neg_counts = {}
 	
 	#Go through the potential SNP dictionary and choose one SNP at random for those overlapping multiple SNPs
-	print(len(potsnp_dict))
 	keys = potsnp_dict.keys()
 	for key in keys:
 		snp = random.choice(potsnp_dict[key]).split('\t')
