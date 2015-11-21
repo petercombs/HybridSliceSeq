@@ -417,7 +417,7 @@ elif args.mode == 'single':
 				#Remember that, for now, we're not allowing reads that overlap insertions/deletions.
 				
 				chr = references[line.rname]
-				pos = line.pos - 1
+				pos = line.pos
 				read = line.seq
 				
 				read_seq = ''
@@ -458,7 +458,7 @@ elif args.mode == 'single':
 					MD_start = 0
 
 				#Get the genomic positions corresponding to each base-pair of the read
-				read_genomic_positions = CIGAR_to_Genomic_Positions(cigar_types,cigar_vals,line.pos)
+				read_genomic_positions = CIGAR_to_Genomic_Positions(cigar_types,cigar_vals,line.pos+1)
 
 				#Get the tag data
 				MD_split = re.findall('\d+|\D+', tagval)
