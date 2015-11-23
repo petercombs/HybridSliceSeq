@@ -40,6 +40,7 @@ import textwrap		#Add text block wrapping properties
 from time import sleep	#Allow system pausing
 #import common		#My custom common python scripts
 from pysam import Samfile
+from os.path import basename
 
 ##########################
 # COMMAND-LINE ARGUMENTS #
@@ -189,7 +190,7 @@ file_check = args.reads.split('.')
 file_check[-1] = file_check[-1].lower()
 if file_check[-1] == 'bam' or args.bam is True:
 	wasbam = True
-	mode = 'br'
+	mode = 'rb'
 
 
 ##################
@@ -200,7 +201,7 @@ if file_check[-1] == 'bam' or args.bam is True:
 if args.mode == 'multi':
 	
 	#Determine how many reads will be in each split sam file.
-	num_lines = count_reads(samfile)
+	num_lines = count_reads(sam_file)
 	num_reads = int(num_lines/args.jobs)+1
 	
 	#Subset the SAM file into X number of jobs
@@ -208,36 +209,38 @@ if args.mode == 'multi':
 	currjob = 1
 	suffix = '.split_sam_' + str(currjob).zfill(4)
 
-	sam_split = open(prefix + sam_file + suffix, 'w')
+	in_sam =  Samfile(sam_file, mode)
+	sam_split = Samfile(prefix + basename(sam_file) + suffix,
+                'wb' if wasbam else 'w',
+                template=in_sam,
+                )
 	
-	in_sam =  open(sam_file, 'r')
 	for line in in_sam:
 		cnt += 1
 		if cnt < num_reads:
 			sam_split.write(line)
 		elif cnt == num_reads:
-			line_t = line.split('\t')
-			
 			#Check if next line is mate-pair. If so, don't split across files.
 			line2 = next(in_sam)
-			line2_t = line2.split('\t')
 
-			if line_t[0] == line2_t[0]:
+			currjob += 1
+			suffix = '.split_sam_' + str(currjob).zfill(4)
+			new_sam = Samfile(prefix + basename(sam_file) + suffix,
+				'wb' if wasbam else 'w',
+				template=in_sam,
+				)
+
+			if line.qname == line2.qname:
 				sam_split.write(line)
 				sam_split.write(line2)
 				sam_split.close()
-				currjob += 1
-				suffix = '.split_sam_' + str(currjob).zfill(4)
-				sam_split = open(prefix + sam_file + suffix, 'w')
 				cnt = 0
 			else:
 				sam_split.write(line)
 				sam_split.close()
-				currjob += 1
-				suffix = '.split_sam_' + str(currjob).zfill(4)
-				sam_split = open(prefix + sam_file + suffix, 'w')
-				sam_split.write(line2)
+				new_sam.write(line2)
 				cnt = 0
+			sam_split = new_sam
 
 	in_sam.close()
 	sam_split.close()
@@ -251,7 +254,7 @@ if args.mode == 'multi':
 
 	for i in range(1, args.jobs+1):
 		suffix = str(i).zfill(4)
-		reads_file = prefix + sam_file + '.split_sam_' + suffix
+		reads_file = prefix + basename(sam_file) + '.split_sam_' + suffix
 
 		#qsub script modify as necessary
 		qsub_script = """\
@@ -298,7 +301,7 @@ if args.mode == 'multi':
 	#Once the jobs are done, concatenate all of the counts into one file.
 	#Initialize dictionaries
 
-	os.system('rm *_done')	#Remove the 'done' files in case we want to run again.
+	os.system('rm {prefix}*_done'.format(prefix=prefix))	#Remove the 'done' files in case we want to run again.
 
 	tot_pos_counts = {}
 	tot_neg_counts = {}
@@ -367,9 +370,7 @@ if args.mode == 'multi':
 
 	#Clean up intermediate files.
 	if args.noclean is False:
-		os.system('rm *err.txt *out.txt *COUNTS_* *split_sam_* qsub.txt')
-		if wasbam == True:
-			os.system('rm ' + sam_file)
+		os.system('rm {prefix}*err.txt {prefix}*out.txt {prefix}*COUNTS_* {prefix}*split_sam_* qsub.txt'.format(prefix=prefix))
 
 ###############
 # SINGLE MODE #
