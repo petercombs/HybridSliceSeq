@@ -82,6 +82,7 @@ $(MELGTF): $(MELALLGTF) | $(REFDIR)
 $(SIMGTF): $(SIMALLGTF) | $(REFDIR)
 	cat $< \
 		| grep -vP '(snoRNA|CR[0-9]{4}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
+		| grep -vP 'dsim_Scf_NODE_(108665)' \
 		| grep 'gene_id' \
 		> $@
 
@@ -313,4 +314,15 @@ $(REFDIR)/lav/melsec: $(REFDIR)/dmel_masked/done $(REFDIR)/dsec_masked/done $(RE
 	python ChromSizes.py $<
 	bamToBed -i $< -bed12 | bed12ToBed6 -i stdin | genomeCoverageBed -bga -i stdin -g $<.chromsizes > $(basename $@).bed
 	bedGraphToBigWig $(basename $@).bed $<.chromsizes $@
+
+%.cxb : %.bam
+	./qsubber --job-name $(@F)_cuffquant --queue batch --keep-temporary tmp -t 8 \
+	cuffquant \
+		--output-dir $(*D)/$(*F) \
+		--num-thread 8 \
+		--multi-read-correct \
+		--frag-bias-correct $($(call uc,$(call substr,$(notdir $(*D)),4,6))FASTA2) \
+		$($(call uc,$(call substr,$(notdir $(*D)),4,6))GTF) \
+		$<
+	cp $(*D)/$(*F)/abundances.cxb $@
 
