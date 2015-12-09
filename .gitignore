@@ -7,3 +7,4 @@ prereqs/*
 *[Ll]og*
 tmp*
 *.pkl
+__pycache__
