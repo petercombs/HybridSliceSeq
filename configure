@@ -78,6 +78,7 @@ glob_specs = [
     '{seqdir}/*index{index}/*_{{read}}*.fastq*',
     '{seqdir}/Sample_{index}/{index}_{index_seq}_L{id:03}_{{read}}_*.fastq*',
     '{seqdir}/Sample_{index}/*L{id:03}_{{read}}*.fastq*',
+    '{seqdir}/MBEPC{id}_index{index}_{{read}}.fastq*',
 ]
 
 index_converter = {
@@ -118,7 +119,7 @@ index_converter = {
 def parse_arguments():
     from argparse import ArgumentParser
     p = ArgumentParser(description='Configuration script for SliceSeq data processing')
-    p.add_argument('parameters', type=file, nargs='?',
+    p.add_argument('parameters', type=open, nargs='?',
                    default=open('Parameters/RunConfig.cfg'),
                    help='Configuration table for the sequences')
     p.add_argument('--seqdir', type=str, default='sequence*',
@@ -191,7 +192,7 @@ sample_species = {}
 genotypes = {}
 for i, row in config_file.iterrows():
     label = row['Label']
-    index = row['Index']
+    index = str(row['Index'])
     mbepc = int(row['MBEPC'])
     the_carrier_species = '---'
     the_genotype = ''
@@ -271,7 +272,7 @@ for label in reads:
 yeasts = ' '.join(path.join('$(ANALYSIS_DIR)',
                             label,
                             '+'.join(carriers)+'.bam')
-                  for label, carriers in carriers.iteritems())
+                  for label, carriers in carriers.items())
 
 out.write("yeasts : " + yeasts +
           "\n\ttar -cvf $(ANALYSIS_DIR)/yeast.tar "
