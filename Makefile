@@ -7,9 +7,9 @@ ANALYSIS_DIR = analysis
 
 # Reference FASTA and GFF files from FlyBase
 MEL5RELEASE= r5.57_FB2014_03
-MELRELEASE = r6.06_FB2015_03
-SIMRELEASE = r2.01_FB2015_01
-SECRELEASE = r1.3_FB2015_01
+MELRELEASE = r6.09_FB2016_01
+SIMRELEASE = r2.01_FB2016_01
+SECRELEASE = r1.3_FB2016_01
 
 MELMAJORVERSION = $(word 1, $(subst ., , $(MELRELEASE)))
 MELVERSION = $(word 1, $(subst _FB, ,$(MELRELEASE)))
@@ -67,6 +67,61 @@ genomes: Reference/Dmel/Genome $(SIMFASTA2) $(MELFASTA2) $(SECFASTA2)
 # Read the per-project make-file
 include config.make
 include analyze.make
+
+$(ANALYSIS_DIR)/summary.tsv : MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) Makefile | $(ANALYSIS_DIR)
+	@echo '============================='
+	@echo 'Making summary table'
+	@echo '============================='
+	python MakeSummaryTable.py \
+       --params $(RUNCONFIG) \
+	   --strip-low-reads 500000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 70 \
+	   --map-stats analysis/map_stats.tsv \
+	   --filename $(QUANT_FNAME) \
+	   --key $(QUANT_KEY) \
+	   --column $(QUANT_COL) \
+		$(ANALYSIS_DIR) \
+		| tee analysis/mst.log
+
+%/genes.fpkm_tracking : %/assigned_dmelR.bam $(MELGTF) $(MELFASTA2) $(MELBADGTF)
+	@echo '============================='
+	@echo 'Calculating Abundances'
+	@echo '============================='
+	touch $@
+	cufflinks \
+		--num-threads 8 \
+		--output-dir $(@D) \
+		--multi-read-correct \
+		--frag-bias-correct $(MELFASTA2) \
+		--GTF $(MELGTF) \
+		--mask-file $(MELBADGTF) \
+		$<
+
+%/assigned_dmelR.bam : %/accepted_hits.bam AssignReads2.py
+	samtools view -H $< \
+		| grep -Pv 'SN:(?!dmel)' \
+		> $(@D)/mel_only.header.sam
+	samtools view -H $< \
+		| grep -oP 'SN:....' \
+		| cut -c 4- \
+		| sort -u \
+		> $(@D)/species_present
+	ns=`wc -l $(@D)/species_present | cut -f 1`
+	if [ `wc -l $(@D)/species_present | cut -d ' ' -f 1` -eq "1" ]; then \
+		samtools sort $< $(basename $@); \
+	else \
+		python AssignReads2.py $(@D)/accepted_hits.bam; \
+		samtools sort $(@D)/assigned_dmel.bam \
+			$(@D)/assigned_dmel_sorted; \
+		samtools view $(@D)/assigned_dmel_sorted.bam \
+			| cat $(@D)/mel_only.header.sam - \
+			| samtools view -bS -o $@ -; \
+		rm $(@D)/assigned_dmel_sorted.bam; \
+	fi
+	samtools index $@
 
 $(MELALLGTF): $(MELGFF) | $(REFDIR)
 	gffread $< -C -E -T -o- | \
