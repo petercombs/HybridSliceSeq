@@ -7,7 +7,8 @@ comma := ,
 space := $(null) #
 
 
-sim_gdna = sequence/SRR520334 sequence/SRR520351
+sim_gdna = sequence/SRR520334
+mel_gdna = sequence/SRR835939
 sec_gdna = sequence/SRR869587
 
 oemale = sequence/150812_BRISCOE_0250_AC7K8CACXX_L2_OEmale
@@ -67,7 +68,10 @@ $(ANALYSIS_DIR)/on_%_bowtie2.bam: $$(basename $$($$(call uc,$$(subst /,,$$(dir $
 
 
 $(ANALYSIS_DIR)/%_dedup.bam: $(ANALYSIS_DIR)/%.bam
-	picard MarkDuplicates MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 INPUT=$< OUTPUT=$@ METRICS_FILE=$(basename $@)_metrics.txt
+	picard MarkDuplicates \
+		MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 \
+		READ_NAME_REGEX=null \
+		INPUT=$< OUTPUT=$@ METRICS_FILE=$(basename $@)_metrics.txt
 	picard BuildBamIndex INPUT=$@
 
 $(ANALYSIS_DIR)/on_sim/%_raw_variants_uncalibrated.vcf: $(ANALYSIS_DIR)/on_sim/%_dedup.bam $(SIMFASTA2).fai $(basename $(SIMFASTA2)).dict

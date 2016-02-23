@@ -58,7 +58,7 @@ GENEMAPTABLE = $(PREREQDIR)/gene_map_table_fb_$(MELDATE).tsv
 .SECONDARY:
 
 
-all :  $(REFDIR)/mel_$(MELMAJORVERSION) $(REFDIR)/mel_$(MELVERSION)
+all :  $(REFDIR)/mel_$(MELMAJORVERSION) $(REFDIR)/mel_$(MELVERSION) $(FPKMS)
 
 genomes: Reference/Dmel/Genome $(SIMFASTA2) $(MELFASTA2) $(SECFASTA2)
 	echo "Genomes Made"
