@@ -135,10 +135,11 @@ $(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call u
 		--output_mode EMIT_ALL_SITES \
 		--emitRefConfidence GVCF \
 		-GQB 10 -GQB 20 -GQB 30 -GQB 50 \
-		-fixMisencodedQuals \
+		$(if $(findstring mel,$*), ,-fixMisencodedQuals) \
 		-stand_emit_conf 10 \
 		-stand_call_conf 30 \
 		-o $@
+
 
 $(ANALYSIS_DIR)/on_%_STAR_RNASEQ.bam: $$(@D)/masked/Genome $$($$(notdir $$*))
 	rm -rf $(basename $@)_tmp/
