@@ -1,6 +1,5 @@
 include gmsl
 
-all: analysis/on_sim/simsec_variants.tsv
 
 .SECONDEXPANSION:
 
@@ -49,7 +48,7 @@ $(ANALYSIS_DIR)/on_sim/%_bowtie.bam: $(%) $(basename $(SIMFASTA2)).1.ebwt | $(AN
 
 $(ANALYSIS_DIR)/on_%_bowtie2.bam: $$(basename $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2)).1.bt2 $$($$(notdir $$*)) | $(ANALYSIS_DIR)
 	mkdir -p $(@D)
-	./qsubber --job-name $*_bowtie2 --queue batch --keep-temporary tmp -t 8 \
+	./qsubber --job-name $*_bowtie2 --queue batch --keep-temporary tmp -t 4 \
 		-l mem=2gb -l pmem=2gb --log-base $(basename $@) \
 	bowtie2 \
 		--very-sensitive \
@@ -123,7 +122,7 @@ $(ANALYSIS_DIR)/on_sec/%_raw_variants_uncalibrated.g.vcf: $(ANALYSIS_DIR)/on_sec
 
 
 $(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2).fai $$(basename $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2)).dict $(ANALYSIS_DIR)/on_%_bowtie2_dedup.bam 
-	./qsubber $(QSUBBER_ARGS) -t 8  \
+	./qsubber $(QSUBBER_ARGS) -t 4  \
 	gatk -T HaplotypeCaller \
 		-R $(basename $<) \
 		-I $(ANALYSIS_DIR)/on_$*_bowtie2_dedup.bam \
@@ -139,7 +138,7 @@ $(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call u
 
 $(ANALYSIS_DIR)/on_%_STAR_RNASEQ.bam: $$(@D)/masked/Genome $$($$(notdir $$*))
 	rm -rf $(basename $@)_tmp/
-	./qsubber  $(QSUBBER_ARGS) --resource "mem=2gb" -t 8 \
+	./qsubber  $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 \
 	STAR \
 		--parametersFiles $(STARCONFIG) \
 		--genomeDir $(dir $@)masked \
@@ -179,7 +178,7 @@ $(ANALYSIS_DIR)/on_sec/%_STAR.bam: $(%) $(REFDIR)/Dsec_unspliced/Genome | $(ANAL
 $(ANALYSIS_DIR)/on_%_STAR.bam: $(REFDIR)/D$$(subst /,,$$(dir $$*))_unspliced/Genome 
 	mkdir -p $(@D)
 	rm -rf $(basename $@)_tmp
-	./qsubber $(QSUBBER_ARGS) -t 8 \
+	./qsubber $(QSUBBER_ARGS) -t 4 \
 	STAR \
 		--parametersFiles $(STARCONFIG) \
 		--genomeDir $(patsubst %/,%,$(dir $<)) \
@@ -335,7 +334,7 @@ $(ANALYSIS_DIR)/on_%/masked:
 
 %/genes.fpkm_tracking: %_STAR_RNASEQ.bam
 	mkdir -p $(@D)
-	./qsubber $(QSUBBER_ARGS)_$(*F) -t 8 \
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 4 \
 	cufflinks \
 		--GTF $($(call uc,$(call substr,$(notdir $(*D)),4,6))GTF) \
 		--num-threads 8 \
