@@ -252,6 +252,13 @@ $(ANALYSIS_DIR)/on_%/masked/Genome: $(ANALYSIS_DIR)/on_%/simsec_masked.fasta | $
 		--genomeFastaFiles $< \
 		--sjdbGTFfile $($(call uc,$*)GTF)
 
+Reference/melsim/Genome: $(ANALYSIS_DIR)/on_mel/melsim_masked.fasta
+	rm -rf $(@D)/_tmp
+	STAR --runMode genomeGenerate --genomeDir $(dir $@) \
+		--outTmpDir $(@D)/_tmp/ \
+		--genomeFastaFiles $< \
+		--sjdbGTFfile $(MELGTF)
+
 $(ANALYSIS_DIR)/on_%/masked/transcriptome: $(ANALYSIS_DIR)/on_%/simsec_masked.1.bt2 | $(ANALYSIS_DIR)/on_%/masked
 	mkdir -p $(@D)
 	tophat2 --transcriptome-index $@ \
