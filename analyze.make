@@ -135,7 +135,6 @@ $(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call u
 		--output_mode EMIT_ALL_SITES \
 		--emitRefConfidence GVCF \
 		-GQB 10 -GQB 20 -GQB 30 -GQB 50 \
-		$(if $(findstring mel,$*), ,-fixMisencodedQuals) \
 		-stand_emit_conf 10 \
 		-stand_call_conf 30 \
 		-o $@
@@ -303,43 +302,40 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		\| python RestoreQuals.py - - \
 		\| samtools sort -n -@ 3 - $(basename $@)
 
-%_wasp_dup_removed.bam : %_STAR_RNASEQ.bam
-	./qsubber $(QSUBBER_ARGS) -t 4 \
-	python2 rmdup_pe.py $< - \
-		\| samtools sort -n -@ 3 - $(basename $@)
-
-%_SNP_COUNTS.txt : %_STAR_RNASEQ_wasp_dedup.bam $$(@D)/simsec_variant.bed
-	mkdir -p $*_countsnpase_tmp
+%/melsim_SNP_COUNTS.txt : %/accepted_hits_wasp_dedup.bam $(ANALYSIS_DIR)/on_mel/melsim_variant.bed
+	mkdir -p $*/melsim_countsnpase_tmp
 	./qsubber $(QSUBBER_ARGS) \
 	python2 CountSNPASE.py \
 		--mode single \
 		--reads $< \
-		--snps $(@D)/simsec_variant.bed \
-		--prefix $*_countsnpase_tmp/
-	mv $*_countsnpase_tmp/_SNP_COUNTS.txt $@
+		--snps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		$(if $(wildcard $*/is_single), -t) \
+		--prefix $*/melsim_countsnpase_tmp/
+	mv $*/melsim_countsnpase_tmp/_SNP_COUNTS.txt $@
 
 %_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py analyze.make
+	@echo	--gff $(call uc,$(call substr,$(notdir $@),1,3))GTF 
 	python2 GetGeneASE.py \
 		--snpcounts $< \
-		--phasedsnps $(@D)/simsec_variant.bed \
+		--phasedsnps analysis/on_mel/melsim_variant.bed \
 		--allele-min 2 \
-		--true-hets analysis/on_sim/true_hets.tsv \
-		--gff $($(call uc,$(call substr,$(notdir $(@D)),4,6))GTF) \
+		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
 		-o $@ \
 		--writephasedsnps
+		#--true-hets analysis/on_sim/true_hets.tsv \
 
 %_gene_ase.tsv : $$(firstword $$(subst _counts_, ,$$@))_SNP_COUNTS.txt GetGeneASE.py analyze.make
 	echo $(firstword $(subst _counts_, ,$*))_SNP_COUNTS.txt
 	echo $(lastword $(subst _counts_, ,$*))
 	python2 GetGeneASE.py \
 		--snpcounts $< \
-		--phasedsnps $(@D)/simsec_variant.bed \
+		--phasedsnps analysis/on_mel/melsim_variant.bed \
 		--allele-min 2 \
 		--min $(lastword $(subst _counts_, ,$*)) \
-		--true-hets analysis/on_sim/true_hets.tsv \
-		--gff $($(call uc,$(call substr,$(notdir $(@D)),4,6))GTF) \
+		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
 		-o $@ \
 		--writephasedsnps
+		#--true-hets analysis/on_sim/true_hets.tsv \
 
 $(ANALYSIS_DIR)/on_%/masked:
 	mkdir -p $@

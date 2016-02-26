@@ -238,6 +238,7 @@ for label in reads:
     reads1, reads2 = reads[label]
     out.write('$(ANALYSIS_DIR)/{label}: | $(ANALYSIS_DIR)\n'
               '\t mkdir $(ANALYSIS_DIR)/{label}\n'.format(label=label))
+    out.write('\n')
     out.write( args.mapper_str
              .format(rf1=','.join(reads1),
                      rf2=','.join(reads2),
@@ -248,6 +249,12 @@ for label in reads:
                      genome=(sample_species.get(label, 'Dmel')
                              + carrier_species.get(label, ''))
                     ))
+    if not reads2:
+        out.write('\ttouch $(ANALYSIS_DIR)/{label}/is_single\n'.format(label=label))
+    else:
+        out.write('\trm -f $(ANALYSIS_DIR)/{label}/is_single\n'.format(label=label))
+
+    out.write('\n')
     out.write('$(ANALYSIS_DIR)/{label}/{yeast}.bam:  '
               '$(ANALYSIS_DIR)/{label}/assigned_scer.bam\n'
               '\t@echo {yeast} \n'
@@ -270,6 +277,7 @@ for label in reads:
               # Remove temporary
               "\t rm $(ANALYSIS_DIR)/{label}/assigned_scer_sorted.bam\n"
               .format(label=label, yeast='+'.join(carriers[label])))
+    out.write('\n')
 
 
 yeasts = ' '.join(path.join('$(ANALYSIS_DIR)',
