@@ -1,4 +1,5 @@
 #!/usr/bin/python
+# vim: set fileencoding=utf-8 :
 
 # Created on: 2015.03.16 
 # Author: Carlo Artieri
@@ -6,6 +7,9 @@
 ##############################
 # HISTORY AND THINGS TO FIX  #
 ##############################
+#
+#IMPORTANT!  - Check the changes in instructions in 2015-07-20.  Not updated in the pipeline instructions on github. 
+#
 #2015.03.16 - Initial script
 # - Check if reads input are in SAM or BAM format and act accordingly.
 #
@@ -22,6 +26,19 @@
 #   fixed so that QSUB script will always call the correct name.
 # - Found another bug with the suffix code - must have introduced it 
 #	during earlier revision. Fixed the args.suffix location.
+#
+#2015.07.20
+#Change 1: Change in instructions. READ READ READ READ READ
+#    - For both CountSNPASE and GetGeneAse - only supply masked SNPs that are heterozygous sites for that sample AND that can contribute to gene level counts. i.e. Don't include homozygous sites (even if they are masked) and don't include sites that do not overlap any of your genes in the GetGeneAse step.
+#
+#Change 2: Change in the code:
+#   - If a read overlaps multiple sites, only choose among the sites that you supplied.  Do not consider any masked site that was not supplied by the user.  
+#
+#Change 3: (minor bug)
+#   - Added conditional so that paired end reads are not considered twice if both ends overlap the same site. 
+#
+#Change 4: Single-end only.
+#   - Added the bitwise flag for the single-end reads. 
 
 ###########
 # MODULES #
@@ -413,7 +430,7 @@ elif args.mode == 'single':
 
 				if args.single == True:
 					flag = int(line_t[1])
-					if flag & mask_single:
+					if flag & 0b10000:  #RYO UPDATED HERE
 						orientation = '-'
 					else:
 						orientation = '+'
@@ -467,9 +484,15 @@ elif args.mode == 'single':
 						genome_start += int(i)
 
 				for i in snp_pos:
+
+                                        #RYO: START EDIT - Implemented Filter
+                                        posVal = str(line_t[2]) + '|' + str(i)
+                                        if posVal not in snps: continue
+                                        #RYO: END EDIT - Implmented Filter 
+
 					snp = str(line_t[2]) + '|' + str(i) + '\t' + str(snp_pos[i]) + '\t' + orientation
 					if str(line_t[0]) in potsnp_dict:
-						potsnp_dict[str(line_t[0])].append(snp)
+                                                if snp not in potsnp_dict[str(line_t[0])]: potsnp_dict[str(line_t[0])].append(snp)  #RYO EDIT HERE - added conditional so that pairs of reads are not considered twice if they both overlap the same snp. 
 					else:
 						potsnp_dict[str(line_t[0])] = []
 						potsnp_dict[str(line_t[0])].append(snp)
