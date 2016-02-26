@@ -91,6 +91,7 @@ $(ANALYSIS_DIR)/summary.tsv : MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) Makefile
 	@echo 'Calculating Abundances'
 	@echo '============================='
 	touch $@
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 4 \
 	cufflinks \
 		--num-threads 8 \
 		--output-dir $(@D) \
