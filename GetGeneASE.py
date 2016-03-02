@@ -130,6 +130,7 @@ opt.add_argument('-s','--stranded', action="store_true", dest="stranded", help='
 opt.add_argument('-H', '--true-hets', default=None, help="Tab-separated file"
                  'containing validated true hets')
 opt.add_argument('-h', '--help', action="help", help="Show this help message and exit")
+opt.add_argument('-P', '--preference-index', action="store_true", default=False, help="Use preference index for the REF-ALT_RATIO column (range -1 -- 1)")
 args = parser.parse_args()
 
 if args.true_hets:
@@ -447,16 +448,22 @@ for key in keys:
 
 	if key in total_ref:
 		pos = key.split('|')
-		if ref_biased[key] >= alt_biased[key]:
-			if alt_biased[key] == 0:
-				rat = 1
+		if args.preference_index:
+			if ref_biased[key] == 0 and alt_biased[key] == 0:
+				rat = 0
 			else:
-				rat = ref_biased[key]/float(alt_biased[key]+ref_biased[key])
+				rat = (alt_biased[key] - ref_biased[key])/float(ref_biased[key] + alt_biased[key])
 		else:
-			if ref_biased[key] == 0:
-				rat = 1
+			if ref_biased[key] >= alt_biased[key]:
+				if alt_biased[key] == 0:
+					rat = 1
+				else:
+					rat = ref_biased[key]/float(alt_biased[key]+ref_biased[key])
 			else:
-				rat = alt_biased[key]/float(ref_biased[key]+alt_biased[key])
+				if ref_biased[key] == 0:
+					rat = 1
+				else:
+					rat = alt_biased[key]/float(ref_biased[key]+alt_biased[key])
 
 		snp_array_out = ';'.join(snp_array[key])
 
