@@ -289,3 +289,13 @@ out.write("yeasts : " + yeasts +
           "\n\ttar -cvf $(ANALYSIS_DIR)/yeast.tar "
           + yeasts +
           "\n\t@echo 'Done making yeast'\n")
+
+out.write("$(ANALYSIS_DIR)/on_mel/true_hets.tsv: "
+        + ' '.join(path.join('$(ANALYSIS_DIR)', label, 'melsim_SNP_COUNTS.txt')
+            for label in carriers)
+        + '\n\tpython GetTrueHets.py '
+        + ' '.join(path.join('$(ANALYSIS_DIR)', label, 'melsim_SNP_COUNTS.txt')
+            for label in carriers)
+        + '\n\tmv true_hets.tsv $@\n'
+        + '\n'
+       )

@@ -302,7 +302,7 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		\| python RestoreQuals.py - - \
 		\| samtools sort -n -@ 3 - $(basename $@)
 
-%/melsim_SNP_COUNTS.txt : %/accepted_hits_wasp_dedup.bam $(ANALYSIS_DIR)/on_mel/melsim_variant.bed
+%/melsim_SNP_COUNTS.txt : %/assigned_dmelR_wasp_dedup.bam $(ANALYSIS_DIR)/on_mel/melsim_variant.bed
 	mkdir -p $*/melsim_countsnpase_tmp
 	./qsubber $(QSUBBER_ARGS) \
 	python2 CountSNPASE.py \
@@ -313,16 +313,17 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--prefix $*/melsim_countsnpase_tmp/
 	mv $*/melsim_countsnpase_tmp/_SNP_COUNTS.txt $@
 
-%_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py analyze.make
-	@echo	--gff $(call uc,$(call substr,$(notdir $@),1,3))GTF 
+%_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py analyze.make $(ANALYSIS_DIR)/on_mel/true_hets.tsv
 	python2 GetGeneASE.py \
 		--snpcounts $< \
-		--phasedsnps analysis/on_mel/melsim_variant.bed \
+		--phasedsnps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
 		--allele-min 2 \
 		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
 		-o $@ \
+		--preference-index \
+		--true-hets $(ANALYSIS_DIR)/on_mel/true_hets.tsv \
 		--writephasedsnps
-		#--true-hets analysis/on_sim/true_hets.tsv \
+	
 
 %_gene_ase.tsv : $$(firstword $$(subst _counts_, ,$$@))_SNP_COUNTS.txt GetGeneASE.py analyze.make
 	echo $(firstword $(subst _counts_, ,$*))_SNP_COUNTS.txt
