@@ -3,7 +3,7 @@ RUNCONFIG  = Parameters/RunConfig.cfg
 STARCONFIG = Parameters/STAR_params.in
 
 # Other random variables
-ANALYSIS_DIR = analysis
+ANALYSIS_DIR = /godot/peter/hybrids
 
 # Reference FASTA and GFF files from FlyBase
 MEL5RELEASE= r5.57_FB2014_03
@@ -85,6 +85,15 @@ $(ANALYSIS_DIR)/summary.tsv : MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) Makefile
 	   --column $(QUANT_COL) \
 		$(ANALYSIS_DIR) \
 		| tee analysis/mst.log
+
+$(ANALYSIS_DIR)/ase_summary.tsv: $$(subst genes.fpkm_tracking,melsim_gene_ase.tsv,$$(FPKMS))
+	python MakeSummaryTable.py \
+			--params Parameters/RunConfig.cfg \
+			--filename melsim_gene_ase.tsv \
+			--column "REF-ALT_RATIO" \
+			--key "FEATURE" \
+			--out-basename ase_summary \
+			$(ANALYSIS_DIR)
 
 %/genes.fpkm_tracking : %/assigned_dmelR.bam $(MELGTF) $(MELFASTA2) $(MELBADGTF)
 	@echo '============================='

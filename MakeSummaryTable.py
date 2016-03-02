@@ -63,6 +63,8 @@ def parse_args():
                         '(defaults to "summary")')
     parser.add_argument('--map-stats', default=None,
                         help="File containing mapping statistics.")
+    parser.add_argument('--float-format', default='%8.2f',
+            help="Floating point format string")
     parser.add_argument('--make-geo', default=False, action='store_true',
             help="Create a makefile to easily package files for GEO submission")
     parser.add_argument('basedir',
@@ -103,7 +105,7 @@ def get_stagenum(name, series, dir):
 
 def get_expr_values(fname):
     try:
-        table = pandas.read_table(fname, na_values='-', converters={args.key: str},
+        table = pandas.read_table(fname, na_values=['-', 'NA'], converters={args.key: str},
                               keep_default_na=False,
                               header=None if not args.header else 0)
     except Exception as err:
@@ -116,6 +118,7 @@ def get_expr_values(fname):
                   .strip('/'))
     basedir, dirname = path.split(alldir)
     old_dirname = dirname
+    assert args.column in table.columns
     table = (table.drop_duplicates(args.key)
              .dropna(axis=1, how='all')
              .dropna(axis=0, how='any'))
@@ -134,6 +137,8 @@ def get_expr_values(fname):
     else:
         print(dirname)
 
+    if args.column not in table.columns:
+        return (dirname, pandas.np.nan)
     skip = False
     if args.strip_low_reads:
         if (args.map_stats is not None) and dirname in args.map_stats.index:
@@ -199,7 +204,12 @@ def get_expr_values(fname):
             table.ix[:, args.column+"_conf_hi"],
                )
     else:
-        return (dirname+"_FPKM", table.ix[:, args.column])
+        try:
+            ret = table.ix[:, args.column]
+        except Exception as e:
+            print("Problem with ", old_dirname)
+            raise e
+        return (dirname+"_"+ret.name,ret )
 
 if __name__ == "__main__":
     args = parse_args()
@@ -238,7 +248,7 @@ if __name__ == "__main__":
                                               * bool(args.in_subdirectory))
                                            + ('_with_conf' * args.conf)
                                            + '.tsv'),
-                                 float_format='%8.2f',
+                                 float_format=args.float_format,
                                  sep='\t', na_rep='---')
 
     if args.make_geo:
