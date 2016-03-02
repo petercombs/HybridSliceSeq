@@ -131,7 +131,6 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
     import svgwrite as svg
     try:
         import pandas as pd
-        assert False
         has_pandas = isinstance(data, pd.DataFrame)
     except:
         has_pandas = False
@@ -288,6 +287,8 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                          frame.divide(all_data.dropna(how='all', axis=1).abs().max(axis=1),
                                       axis=0)
                         )
+        elif normer is 'center0pre':
+            norm_data = array(0.5 + 0.5 * frame)
         elif index is not None and hasattr(normer, "ix"):
             norm_data = array(frame.divide(normer.ix[index], axis=0))
         elif hasattr(normer, "__len__") and len(normer) == rows:
