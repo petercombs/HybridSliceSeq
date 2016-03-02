@@ -68,7 +68,10 @@ genomes: Reference/Dmel/Genome $(SIMFASTA2) $(MELFASTA2) $(SECFASTA2)
 include config.make
 include analyze.make
 
-$(ANALYSIS_DIR)/summary.tsv : MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) Makefile | $(ANALYSIS_DIR)
+$(ANALYSIS_DIR)/retabulate:
+	touch $@
+
+$(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) | $(ANALYSIS_DIR)
 	@echo '============================='
 	@echo 'Making summary table'
 	@echo '============================='
@@ -86,7 +89,25 @@ $(ANALYSIS_DIR)/summary.tsv : MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) Makefile
 		$(ANALYSIS_DIR) \
 		| tee analysis/mst.log
 
-$(ANALYSIS_DIR)/ase_summary.tsv: $$(subst genes.fpkm_tracking,melsim_gene_ase.tsv,$$(FPKMS))
+$(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) | $(ANALYSIS_DIR)
+	@echo '============================='
+	@echo 'Making summary table'
+	@echo '============================='
+	python MakeSummaryTable.py \
+       --params $(RUNCONFIG) \
+	   --strip-low-reads 500000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 70 \
+	   --map-stats analysis/map_stats.tsv \
+	   --filename $(QUANT_FNAME) \
+	   --key $(QUANT_KEY) \
+	   --column tracking_id \
+		$(ANALYSIS_DIR) \
+		| tee analysis/mst_fb.log
+
+$(ANALYSIS_DIR)/ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase.tsv,$$(FPKMS))
 	python MakeSummaryTable.py \
 			--params Parameters/RunConfig.cfg \
 			--filename melsim_gene_ase.tsv \
