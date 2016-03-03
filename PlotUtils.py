@@ -236,7 +236,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                    colname_tuple)
     if progress_bar:
         from progressbar import ProgressBar
-        pbar = ProgressBar(maxval=len(iterator)*rows).start()
+        pbar = ProgressBar(maxval=len(data)*rows).start()
         pbar_val = 0
 
     for frame, c_cmap, name, normer, spacer, colnames in iterator:
@@ -346,7 +346,10 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                         if (j + 1 < norm_data.shape[1] and isfinite(norm_data[i, j+1])):
                             norm_data[i,j] += norm_data[i, j+1]
                             n += 1
-                        norm_data[i, j] /= n
+                        if n == 0:
+                            norm_data[i, j] = .5 if 'center' in normer else 0
+                        else:
+                            norm_data[i, j] /= n
                     g.add(dwg.rect((x_start + box_size*j, y_start + i*box_height),
                                    (box_size, box_height),
                                    style="fill:#{:02x}{:02x}{:02x}"
