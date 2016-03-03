@@ -4,7 +4,7 @@ from scipy import interpolate
 import collections
 import functools
 import emd
-import fractions
+import math
 from Utils import contains
 
 class memoized(object):
@@ -94,7 +94,7 @@ def earth_mover(points1, points2):
                    points2/np.sum(points2))
 
 def lcm(a,b):
-    return abs(a * b) / fractions.gcd(a,b) if a and b else 0
+    return abs(a * b) / math.gcd(a,b) if a and b else 0
 
 def earth_mover_interp(points1, points2):
     xs1 = np.linspace(0,1,len(points1),
@@ -170,6 +170,7 @@ def pdist(X, metric, p=2, w=None, V=None, VI=None):
         for j in range(i + 1, m):
             dm[k] = metric(X[i], X[j])
             k = k + 1
+    prog.finish()
     return dm
 
 def mp_mapped(args):
@@ -201,6 +202,7 @@ def mp_pdist(X, metric, p=2, w=None, V=None, VI=None):
         inputs = [(X[i], X[j]) for j in range(i+1, m)]
         dm[ks] = pool.map(func, inputs)
         k  = ks[-1] + 1
+    prog.finish()
     pool.close()
     return dm
 
@@ -228,6 +230,7 @@ def mp_pandas_pdist(X, metric, p=2, w=None, V=None, VI=None):
         inputs = [(X.ix[i], X.ix[j]) for j in range(i+1, m)]
         dm[ks] = pool.map(func, inputs)
         k  = ks[-1] + 1
+    prog.finish()
     pool.close()
     return dm
 
@@ -252,8 +255,9 @@ def pandas_pdist(X, metric, p=2, w=None, V=None, VI=None):
         inputs = [(X.ix[i], X.ix[j]) for j in range(i+1, m)]
         print(len(inputs))
         print(ks)
-        dm[ks] = map(func, inputs)
+        dm[ks] = list(map(func, inputs))
         k  = ks[-1] + 1
+    prog.finish()
     return dm
 
 
