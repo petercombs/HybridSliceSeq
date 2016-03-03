@@ -44,6 +44,20 @@ def convert_to_distribution(points):
     retval =  np.cumsum(f(np.linspace(0, 1, 30, endpoint=True)).clip(0,1e5))
     return retval / (sum(retval)+1e-10)
 
+def get_nonuniform_mp(args):
+    gene, row = args
+    temp = pd.Series(data=1, index=row.index)
+    if sum(pd.np.isfinite(row))==0:
+        return pd.np.nan
+    return earth_mover_multi(row + eps, temp)
+
+def get_nonuniform_inv_mp(args):
+    gene, row = args
+    temp = pd.Series(data=1, index=row.index)
+    if sum(pd.np.isfinite(row))==0:
+        return pd.np.nan
+    return earth_mover_multi(eps - row, temp)
+
 def diff_stat(points1, points2):
 
     dist1 = convert_to_distribution(points1)
@@ -264,44 +278,82 @@ def pandas_pdist(X, metric, p=2, w=None, V=None, VI=None):
 if __name__ == "__main__":
     import pandas as pd
     import matplotlib.pyplot as mpl
+    from multiprocessing import Pool
 
-    zld_exp = pd.read_table('analysis/summary.tsv', index_col=0).sort_index()
-    wt_exp = pd.read_table('prereqs/WT5.53_summary.tsv', index_col=0).sort_index()
+    eps = 1.01
+    kwargs = dict(index_col=0,
+            keep_default_na=False, 
+            na_values=['---'])
+    ase = pd.read_table('analysis_godot/ase_summary.tsv', **kwargs) 
+    expr = pd.read_table('analysis_godot/summary_fb.tsv', **kwargs)
+    translate = pd.read_table('analysis_godot/translate.tsv', index_col=0).ix[:,0]
+    with Pool() as p:
+        diff_from_uniform = pd.Series(
+                data=map(
+                    get_nonuniform_mp,
+                    ase.iterrows()),
+                index=ase.index
+                )
+        diff_from_uniform2 = pd.Series(
+                data=map(
+                    get_nonuniform_inv_mp,
+                    ase.iterrows()),
+                index=ase.index
+                )
 
-    zld_bind = pd.read_table('journal.pgen.1002266.s005.xls', skiprows=1)
-    zld_bind.TSS_gene = zld_bind.TSS_gene.apply(str.strip)
-    by_gene = zld_bind.groupby('TSS_gene')
+    good_ase = pd.np.isfinite(ase).sum(axis=1) > 25
+    lott = pd.read_table('prereqs/journal.pbio.1000590.s002', index_col=0)
+    is_mat = {gene for gene, c in lott.CLASS.iteritems() if c == 'mat'}
+    is_mat = translate.apply(is_mat.__contains__)
+
+    diff_from_uniform = diff_from_uniform.ix[~(is_mat.ix[diff_from_uniform.index].replace(pd.np.nan, False)) & good_ase].sort_values(ascending=False)
+    diff_from_uniform2 = diff_from_uniform2.ix[~(is_mat.ix[diff_from_uniform2.index].replace(pd.np.nan, False)) & good_ase].sort_values(ascending=False)
+    diff_from_uniform.to_csv('analysis/results/diff_from_uniform.tsv', sep='\t')
+    diff_from_uniform2.to_csv('analysis/results/diff_from_uniform2.tsv', sep='\t')
 
 
-    types = {'Intergenic':'N', 'Intronic':'I', 'Promoter':'P', 'UTR5':'5',
-             'CDS':'C', 'UTR3':'3'}
-
-    zld_comp = zld_exp.select(lambda x: 'cyc14A' in x, axis=1)
-    wt_comp = wt_exp.select(lambda x: 'cyc14A' in x, axis=1)
-
-    diff_col = pd.Series(index=zld_comp.index)
-    for gene in wt_exp.index:
-        assert gene in zld_exp.index
-        diff_col[gene] = diff_stat(zld_comp.ix[gene], wt_comp.ix[gene])
-
-    zld_exp['diff_col'] = diff_col
-    wt_exp['diff_col'] = diff_col
-
-    zld_exp.sort(column='diff_col', ascending=False, inplace=True)
-    wt_exp.sort(column='diff_col', ascending=False, inplace=True)
-
-    zld_fig_genes = zld_exp.select(lambda x: '14A' in x or '11' in x, axis=1)
-    wt_fig_genes = wt_exp.select(lambda x: '14A' in x or '11' in x, axis=1)
-
-    zld_fig_genes = zld_fig_genes[wt_fig_genes.max(axis=1) > 10][:120]
-    wt_fig_genes = wt_fig_genes[wt_fig_genes.max(axis=1) > 10][:120]
-
-    assert (zld_fig_genes.index == wt_fig_genes.index).all()
     import PlotUtils
 
-    PlotUtils.svg_heatmap((wt_fig_genes, zld_fig_genes),
-                            'analysis/results/cyc13diff.svg',
-                            norm_rows_by=wt_fig_genes.max(axis=1),
-                            draw_row_labels=True,
-                            cmap = (mpl.cm.Blues, mpl.cm.Reds),
-                            box_size=15, total_width=150)
+
+    ix = diff_from_uniform.index[:50].intersection(expr.index)
+    ix2 = diff_from_uniform2.index[:50].intersection(expr.index)
+    plot_kwargs = dict(
+            draw_row_labels=True,
+            box_size=15,total_width=150,
+            split_columns=True, col_sep='_sl',
+            convert=True,
+            progress_bar=True,
+            )
+
+    PlotUtils.svg_heatmap(
+            ase.ix[ix, :-1],
+            'analysis/results/diff_from_uniform.svg',
+            row_labels=translate.ix[ix],
+            norm_rows_by='center0pre',
+            cmap=mpl.cm.RdBu,
+            **plot_kwargs
+            )
+    PlotUtils.svg_heatmap(
+            expr.ix[ix,:-1],
+            'analysis/results/diff_from_uniform_expr.svg',
+            row_labels=translate.ix[ix],
+            norm_rows_by='max',
+            cmap=PlotUtils.ISH,
+            **plot_kwargs
+            )
+    PlotUtils.svg_heatmap(
+            ase.ix[ix2, :-1],
+            'analysis/results/diff_from_uniform2.svg',
+            row_labels=translate.ix[ix2],
+            norm_rows_by='center0pre',
+            cmap=mpl.cm.RdBu,
+            **plot_kwargs
+            )
+    PlotUtils.svg_heatmap(
+            expr.ix[ix2,:-1],
+            'analysis/results/diff_from_uniform2_expr.svg',
+            row_labels=translate.ix[ix2],
+            norm_rows_by='max',
+            cmap=PlotUtils.ISH,
+            **plot_kwargs
+            )
