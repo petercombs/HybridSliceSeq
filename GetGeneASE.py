@@ -449,10 +449,10 @@ for key in keys:
 	if key in total_ref:
 		pos = key.split('|')
 		if args.preference_index:
-			if ref_biased[key] == 0 and alt_biased[key] == 0:
+			if total_ref[key] == 0 and total_alt[key] == 0:
 				rat = 0
 			else:
-				rat = (alt_biased[key] - ref_biased[key])/float(ref_biased[key] + alt_biased[key])
+				rat = (total_alt[key] - total_ref[key])/float(total_ref[key] + total_alt[key])
 		else:
 			if ref_biased[key] >= alt_biased[key]:
 				if alt_biased[key] == 0:
