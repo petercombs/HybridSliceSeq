@@ -13,13 +13,14 @@ except NameError:
 
 bad_cols = {'25u_emb4_sl10_FPKM', '25u_emb7_sl08_FPKM', '25u_emb7_sl09_FPKM'}
 
-gene_map = sorted(glob('prereqs/gene_map_table*.tsv'))[-1]
-fbgn_data = pd.read_table(gene_map, index_col=0,
-                          na_values=['-', 'NaN', ''], keep_default_na=False,
-                          skipfooter=3,
-                            skiprows=5).dropna(how='all', axis=1)
-fbgn_lookup = dict(fbgn_data['primary_FBid'].dropna())
-fbgn_map = dict(fbgn_data['sequence_loc'].dropna())
+if 'gene_map' not in locals():
+    gene_map = sorted(glob('prereqs/gene_map_table*.tsv'))[-1]
+    fbgn_data = pd.read_table(gene_map, index_col=0,
+                              na_values=['-', 'NaN', ''], keep_default_na=False,
+                              skipfooter=3,
+                                skiprows=5).dropna(how='all', axis=1)
+    fbgn_lookup = dict(fbgn_data['primary_FBid'].dropna())
+    fbgn_map = dict(fbgn_data['sequence_loc'].dropna())
 
 def make_treeview_files(basename, data, clusters=None, do_cluster = False):
     if clusters is None and do_cluster:
@@ -112,36 +113,29 @@ if __name__ == "__main__":
         step = 1
 
     expr_min = 15
-    eps = 1
+    eps = 1.01
     read_table_args = dict(index_col=0,
                            keep_default_na=False,
-                           na_values=['---', ''])
+                           na_values=['---', '', 'NA'])
 
-    if 'all_expr' not in locals():
-        all_expr, (wt, bcd, zld, g20, hb), (wts, bcds, zlds, g20s, hbs), by_cycle\
-        = load_to_locals(locals(), expr_min)
+    ase = pd.read_table('analysis_godot/ase_summary.tsv', **read_table_args)
+    all_expr = pd.read_table('analysis_godot/summary_fb.tsv', **read_table_args)
     print("Read expression in")
+
+    ase_rows, ase_cols = ase.shape
+    ase = ase.ix[np.sum(np.isfinite(ase), axis=1) > .75 * ase_cols]
+    ase = ase.ix[ase.index.intersection(all_expr.index)].dropna(axis='columns', how='all')
+    all_expr = all_expr.ix[ase.index]
 
     all_expr_lognorm = np.log(all_expr+1).divide(np.log(all_expr.max( axis=1)+1),
                                                  axis=0)
-    wt_lognorm  = np.log(wt+1) .divide(np.log(all_expr.max( axis=1)+1), axis=0)
-    bcd_lognorm = np.log(bcd+1).divide(np.log(all_expr.max( axis=1)+1), axis=0)
-    g20_lognorm = np.log(g20+1).divide(np.log(all_expr.max( axis=1)+1), axis=0)
-    zld_lognorm = np.log(zld+1).divide(np.log(all_expr.max( axis=1)+1), axis=0)
 
     print("Precalculating distances")
     metric = DistributionDifference.earth_mover_multi
-    dist_mat = DistributionDifference.mp_pandas_pdist(all_expr, metric)
+    dist_mat = DistributionDifference.mp_pandas_pdist(ase+eps, metric)
 
     Z = hierarchy.linkage(dist_mat, method='weighted')
 
-    for mut in 'wt bcd g20 zld'.split():
-        make_treeview_files(
-            "analysis/results/"
-            + "{}{}_log_normed_{}".format(is_sparse, mut, metric.__name__),
-            locals()[mut+"_lognorm"],
-            Z
-        )
 
     make_treeview_files("analysis/results/all_log_normed_"+is_sparse+metric.__name__,
                         all_expr_lognorm,
@@ -150,6 +144,10 @@ if __name__ == "__main__":
     make_treeview_files("analysis/results/all_"+is_sparse+metric.__name__,
                         all_expr,
                         Z)
+
+    make_treeview_files("analysis/results/ase_"+is_sparse+metric.__name__,
+            ase,
+            Z)
 
     make_treeview_files("analysis/results/all_maxnorm_"+is_sparse+metric.__name__,
                         all_expr.divide(all_expr.max(axis=1) + 1, axis=0),
