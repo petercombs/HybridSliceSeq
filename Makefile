@@ -103,9 +103,10 @@ $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py 
 	   --mapped-bamfile assigned_dmelR.bam \
 	   --strip-low-map-rate 70 \
 	   --map-stats analysis/map_stats.tsv \
+	   --out-basename summary_fb \
 	   --filename $(QUANT_FNAME) \
-	   --key $(QUANT_KEY) \
-	   --column tracking_id \
+	   --key tracking_id \
+	   --column $(QUANT_COL) \
 		$(ANALYSIS_DIR) \
 		| tee analysis/mst_fb.log
 
