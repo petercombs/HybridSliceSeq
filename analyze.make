@@ -314,6 +314,7 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 	mv $*/melsim_countsnpase_tmp/_SNP_COUNTS.txt $@
 
 %_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py analyze.make $(ANALYSIS_DIR)/on_mel/true_hets.tsv
+	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python2 GetGeneASE.py \
 		--snpcounts $< \
 		--phasedsnps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \

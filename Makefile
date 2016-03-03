@@ -75,6 +75,7 @@ $(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(F
 	@echo '============================='
 	@echo 'Making summary table'
 	@echo '============================='
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
        --params $(RUNCONFIG) \
 	   --strip-low-reads 500000 \
@@ -93,6 +94,7 @@ $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py 
 	@echo '============================='
 	@echo 'Making summary table'
 	@echo '============================='
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
        --params $(RUNCONFIG) \
 	   --strip-low-reads 500000 \
@@ -108,6 +110,7 @@ $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py 
 		| tee analysis/mst_fb.log
 
 $(ANALYSIS_DIR)/ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase.tsv,$$(FPKMS))
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
 			--params Parameters/RunConfig.cfg \
 			--filename melsim_gene_ase.tsv \
