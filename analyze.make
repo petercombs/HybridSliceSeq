@@ -11,6 +11,8 @@ sim_gdna = sequence/SRR520334
 mel_gdna = sequence/SRR835939
 sec_gdna = sequence/SRR869587
 
+mel_dnase = sequence/SRR060797_se sequence/SRR060797_se sequence/SRR060798_se sequence/SRR060799_se
+
 oemale = sequence/150812_BRISCOE_0250_AC7K8CACXX_L2_OEmale
 oefemale = sequence/150812_BRISCOE_0250_AC7K8CACXX_L2_OEfemale
 fbfemale = sequence/150812_BRISCOE_0250_AC7K8CACXX_L2_FBfemale
@@ -31,6 +33,10 @@ sequence/%:
 	wget -c -P sequence ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$(call substr,$*,1,6)/$*/$*_2.fastq.gz
 	touch $@
 
+sequence/%_se:
+	wget -c -P sequence ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$(call substr,$*,1,6)/$*/$*.fastq.gz
+	touch $@
+
 $(ANALYSIS_DIR)/on_sim/%_bowtie.bam: $(%) $(basename $(SIMFASTA2)).1.ebwt | $(ANALYSIS_DIR)
 	bowtie \
 		--try-hard \
@@ -46,6 +52,24 @@ $(ANALYSIS_DIR)/on_sim/%_bowtie.bam: $(%) $(basename $(SIMFASTA2)).1.ebwt | $(AN
 		-2 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($*)))) \
 		| samtools view -bS -o $(basename $@)_unsorted.bam -
 	samtools sort $(basename $@)_unsorted.bam $(basename $@)
+
+$(ANALYSIS_DIR)/on_%_bowtie2_se.bam: $$(basename $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2)).1.bt2 $$($$(notdir $$*)) | $(ANALYSIS_DIR)
+	mkdir -p $(@D)
+	./qsubber --job-name $*_bowtie2 --queue batch --keep-temporary tmp -t 4 \
+		-l mem=2gb -l pmem=2gb --log-base $(basename $@) \
+	bowtie2 \
+		--very-sensitive \
+		-p 8 \
+		--rg-id $(notdir $*) \
+		--rg "SM:$(notdir $*)" \
+		--rg "PL:illumina" \
+		--rg "LB:lib1"\
+		--rg "PU:unit1" \
+		--no-unal \
+		-x $(basename $(basename $<)) \
+		-U $(subst $(space),$(comma),$(strip $(patsubst %_se, %.fastq.gz, $($(notdir $*))))) \
+		\| samtools view -bS - \
+		\| samtools sort - $(basename $@)
 
 $(ANALYSIS_DIR)/on_%_bowtie2.bam: $$(basename $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2)).1.bt2 $$($$(notdir $$*)) | $(ANALYSIS_DIR)
 	mkdir -p $(@D)
@@ -65,6 +89,8 @@ $(ANALYSIS_DIR)/on_%_bowtie2.bam: $$(basename $$($$(call uc,$$(subst /,,$$(dir $
 		-2 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($(notdir $*))))) \
 		\| samtools view -bS - \
 		\| samtools sort - $(basename $@)
+
+
 
 
 $(ANALYSIS_DIR)/%_dedup.bam: $(ANALYSIS_DIR)/%.bam
