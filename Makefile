@@ -3,7 +3,7 @@ RUNCONFIG  = Parameters/RunConfig.cfg
 STARCONFIG = Parameters/STAR_params.in
 
 # Other random variables
-ANALYSIS_DIR = /godot/peter/hybrids
+ANALYSIS_DIR = analysis_godot
 
 # Reference FASTA and GFF files from FlyBase
 MEL5RELEASE= r5.57_FB2014_03
@@ -403,7 +403,9 @@ $(REFDIR)/lav/melsec: $(REFDIR)/dmel_masked/done $(REFDIR)/dsec_masked/done $(RE
 %.bw : %.bam
 	python ChromSizes.py $<
 	bamToBed -i $< -bed12 | bed12ToBed6 -i stdin | genomeCoverageBed -bga -i stdin -g $<.chromsizes > $(basename $@).bed
-	bedGraphToBigWig $(basename $@).bed $<.chromsizes $@
+	bedSort $(basename $@).bed $(basename $@)_sorted.bed
+	bedGraphToBigWig $(basename $@)_sorted.bed $<.chromsizes $@
+	rm $(basename $@).bed $(basename $@)_sorted.bed
 
 %.cxb : %.bam
 	./qsubber --job-name $(@F)_cuffquant --queue batch --keep-temporary tmp -t 8 \
