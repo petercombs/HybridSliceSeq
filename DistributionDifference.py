@@ -286,7 +286,7 @@ if __name__ == "__main__":
             na_values=['---'])
     ase = pd.read_table('analysis_godot/ase_summary.tsv', **kwargs) 
     expr = pd.read_table('analysis_godot/summary_fb.tsv', **kwargs)
-    translate = pd.read_table('analysis_godot/translate.tsv', index_col=0).ix[:,0]
+    translate = pd.read_table('prereqs/gene_map_table_fb_2016_01.tsv', index_col=1).ix[:,0]
     with Pool() as p:
         diff_from_uniform = pd.Series(
                 data=map(
