@@ -87,6 +87,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 make_hyperlinks = False,
                 progress_bar = False,
                 max_width=np.inf,
+                x_min=10, y_min=10,
                 spacers=None,
                 convert=False,
                 cmap_by_prefix=None,
@@ -229,8 +230,8 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             and 'center0all' in norm_rows_by)):
         all_data = pd.concat(data, axis=1)
 
-    x_start = 0
-    y_start = 0
+    x_start = x_min
+    y_start = y_min
     y_diff = 0
     iterator = zip(data, cmap, data_names, norm_rows_by, spacers,
                    colname_tuple)
@@ -252,7 +253,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 else:
                     x_start += spacer
             if x_start > max_width:
-                x_start = 0
+                x_start = x_min
                 y_start += y_diff
             continue
         if has_pandas:
@@ -462,7 +463,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
 
         y_diff = new_rows * box_height + 30
         if x_start + total_width >= max_width:
-            x_start = 0
+            x_start = x_min
             y_start += new_rows*box_height*(not draw_average_only) + vspacer
             y_start += box_height*(draw_average_only or draw_average)
 
