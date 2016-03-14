@@ -1,4 +1,4 @@
-from numpy import (exp, sqrt, array, isfinite, mean, shape, nan, inf)
+from numpy import (exp, sqrt, array, isfinite, mean, shape, nan, inf, median)
 from scipy.optimize import curve_fit
 from multiprocessing import Pool
 from collections import defaultdict
@@ -12,20 +12,31 @@ def logistic(x, A, k, x0, y0):
 def peak(x, A, w, x0, y0):
     return A * exp(-(x-x0)**2/w**2) - y0
 
-def fit_func(func, index, data, xs):
+def fit_func(func, index, data, xs, p0=None):
     ys = data.ix[index]
     keep = array(isfinite(ys))
     if sum(keep) < len(xs)/2:
         return array([nan, nan, nan, nan])
-    p0 = [0.5, 1, mean(xs), mean(ys)]
-    assert shape(xs[keep]) == shape(ys[keep])
+    if p0 is None:
+        p0 = [ys.max() - ys.median(), 0.5, xs.mean(), ys.median()]
+    if func == peak:
+        w_min = 0
+        w_max = 0.6
+        if (ys.max() - ys.median()) < (ys.median() - ys.min()):
+            p0[0] = ys.median() - ys.min()
+            p0[2] = xs[ys.argmin()]
+        else:
+            p0[2] = xs[ys.argmax()]
+    else:
+        w_min = -inf
+        w_max = inf
     try:
         return curve_fit(func,
                          xs[keep],
                          ys[keep],
                          p0,
-                         bounds=[[-1, -inf, 0.1, -1],
-                                 [1, inf, 0.9, 1]],
+                         bounds=[[-2, w_min, -0.1, -1],
+                                 [2, w_max, 1.1, 1]],
                         )[0]
     except:
         return array([nan, nan, nan, nan])
@@ -43,7 +54,8 @@ if __name__ == "__main__":
         emb = '_'.join(sl[:2])
         max_slice[emb] = max(max_slice[emb], int(sl[2][2:]))
 
-    xs = array([int(a.split('_')[2][2:])/max_slice['_'.join(a.split('_')[:2])] for a in ase.columns if 'sl' in a])
+    xs = pd.Series(index=ase.columns,
+                   data=[int(a.split('_')[2][2:])/max_slice['_'.join(a.split('_')[:2])] for a in ase.columns if 'sl' in a])
     with Pool() as p:
         res_logist = list(p.starmap(fit_func,
                                zip(it.repeat(logistic),
@@ -86,6 +98,7 @@ if __name__ == "__main__":
         )
 
     good_amps_logist = res_logist.Amp[r2_logist>0.5].sort_values(inplace=False)
+    good_amps_peak = res_peak.Amp[r2_peak>0.5].sort_values(inplace=False)
 
 
 
