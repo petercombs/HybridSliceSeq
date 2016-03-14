@@ -408,13 +408,15 @@ $(REFDIR)/lav/melsec: $(REFDIR)/dmel_masked/done $(REFDIR)/dsec_masked/done $(RE
 	rm $(basename $@).bed $(basename $@)_sorted.bed
 
 %.cxb : %.bam
-	./qsubber --job-name $(@F)_cuffquant --queue batch --keep-temporary tmp -t 8 \
+	./qsubber --job-name $(@F)_cuffquant --queue batch --keep-temporary tmp -t 2 \
 	cuffquant \
-		--output-dir $(*D)/$(*F) \
-		--num-thread 8 \
+		--output-dir $(@D) \
+		--num-thread 2 \
 		--multi-read-correct \
-		--frag-bias-correct $($(call uc,$(call substr,$(notdir $(*D)),4,6))FASTA2) \
-		$($(call uc,$(call substr,$(notdir $(*D)),4,6))GTF) \
+		--mask-file $(MELBADGTF) \
+		--frag-bias-correct $(MELFASTA2) \
+		$(MELGTF) \
 		$<
-	cp $(*D)/$(*F)/abundances.cxb $@
+	mv $(@D)/abundances.cxb $@
+	#cp $(*D)/$(*F)/abundances.cxb $@
 
