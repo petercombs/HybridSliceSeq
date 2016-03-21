@@ -120,6 +120,7 @@ def get_expr_values(fname):
     old_dirname = dirname
     assert args.column in table.columns
     table = (table.drop_duplicates(args.key)
+            .drop(labels=['ORIENTATION'], axis=1, errors='ignore')
              .dropna(axis=1, how='all')
              .dropna(axis=0, how='any'))
     table.set_index(args.key, inplace=True, verify_integrity=True)
