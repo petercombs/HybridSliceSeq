@@ -35,10 +35,15 @@ if __name__ == "__main__":
     }
 
 
-    regions = pd.read_table('prereqs/dnase_acc_spatial.tsv').ix[:, 1]
+    regions = pd.read_table('prereqs/dnase_acc_spatial.tsv', header=None)
     vars = pd.read_table('analysis/on_mel/melsim_variants.tsv')
 
-    for region in regions:
+    for region_id in regions.index:
+        region = regions.ix[region_id, 1]
+        name = regions.ix[region_id, 2]
+        if name == pd.np.nan:
+            name = region.replace(':', '_')
+        print(name)
         chrom = region.split(':')[0]
         mel_chr = Seq.MutableSeq(str(mel_genome[chrom]))
         sim_chr = Seq.MutableSeq(str(mel_genome[chrom]))
@@ -59,7 +64,7 @@ if __name__ == "__main__":
 
         SeqIO.write([SeqIO.SeqRecord(mel_chr[start:stop+mel_diff], 'mel_'+region),
                      SeqIO.SeqRecord(sim_chr[start:stop+sim_diff], 'sim_'+region)],
-                    path.join('analysis', 'results', region.replace(':','_')+'.fasta'),
+                    path.join('analysis', 'results', name+'.fasta'),
                     'fasta')
 
 
