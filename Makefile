@@ -88,7 +88,7 @@ $(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(F
 	   --key $(QUANT_KEY) \
 	   --column $(QUANT_COL) \
 		$(ANALYSIS_DIR) \
-		| tee analysis/mst.log
+		\| tee analysis/mst.log
 
 $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) | $(ANALYSIS_DIR)
 	@echo '============================='
@@ -108,7 +108,7 @@ $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py 
 	   --key tracking_id \
 	   --column $(QUANT_COL) \
 		$(ANALYSIS_DIR) \
-		| tee analysis/mst_fb.log
+		\| tee analysis/mst_fb.log
 
 $(ANALYSIS_DIR)/ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase.tsv,$$(FPKMS))
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
