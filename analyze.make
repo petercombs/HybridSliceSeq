@@ -9,7 +9,6 @@ space := $(null) #
 
 sim_gdna = sequence/SRR520334
 mel_gdna = sequence/SRR835939
-sec_gdna = sequence/SRR869587
 
 mel_dnase = sequence/SRR060797_se sequence/SRR060797_se sequence/SRR060798_se sequence/SRR060799_se
 
@@ -24,9 +23,6 @@ fbfemale_r2 = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_CGATGTTT_pf
 fbmale_r2   = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_TAGAACAC_pf
 
 QSUBBER_ARGS = --keep-temporary tmp --log-base $(basename $@)  --job-name $(basename $(@F))
-
-SIMSEC_REFSIMFASTA2 = analysis/on_sim/simsec_variants.fasta
-SIMSEC_REFSECFASTA2 = analysis/on_sec/simsec_variants.fasta
 
 sequence/%:
 	wget -c -P sequence ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$(call substr,$*,1,6)/$*/$*_1.fastq.gz
@@ -125,32 +121,6 @@ $(ANALYSIS_DIR)/on_sim/%_raw_variants_uncalibrated.g.vcf: $(ANALYSIS_DIR)/on_sim
 		-stand_call_conf 30 \
 		-o $@
 
-$(ANALYSIS_DIR)/on_sec/%_raw_variants_uncalibrated.vcf: $(ANALYSIS_DIR)/on_sec/%_dedup.bam $(SECFASTA2).fai $(basename $(SECFASTA2)).dict
-	./qsubber $(QSUBBER_ARGS) -t 1  \
-	gatk -T HaplotypeCaller \
-		-R $(SECFASTA2) \
-		-I $< \
-		--genotyping_mode DISCOVERY \
-		-fixMisencodedQuals \
-		-stand_emit_conf 10 \
-		-stand_call_conf 30 \
-		-o $@
-
-$(ANALYSIS_DIR)/on_sec/%_raw_variants_uncalibrated.g.vcf: $(ANALYSIS_DIR)/on_sec/%_dedup.bam $(SECFASTA2).fai $(basename $(SECFASTA2)).dict
-	./qsubber $(QSUBBER_ARGS) -t 1  \
-	gatk -T HaplotypeCaller \
-		-R $(SECFASTA2) \
-		-I $< \
-		--genotyping_mode DISCOVERY \
-		--output_mode EMIT_ALL_SITES \
-		--emitRefConfidence GVCF \
-		-GQB 10 -GQB 20 -GQB 30 -GQB 50 \
-		-fixMisencodedQuals \
-		-stand_emit_conf 10 \
-		-stand_call_conf 30 \
-		-o $@
-
-
 $(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2).fai $$(basename $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2)).dict $(ANALYSIS_DIR)/on_%_bowtie2_dedup.bam 
 	./qsubber $(QSUBBER_ARGS) -t 4  \
 	gatk -T HaplotypeCaller \
@@ -194,17 +164,6 @@ $(ANALYSIS_DIR)/on_sim/%_STAR.bam: $(%) $(REFDIR)/Dsim_unspliced/Genome | $(ANAL
 	samtools view -bS -o $@ $(@D)/$*Aligned.out.sam
 	rm $(@D)/$*Aligned.out.sam
 
-$(ANALYSIS_DIR)/on_sec/%_STAR.bam: $(%) $(REFDIR)/Dsec_unspliced/Genome | $(ANALYSIS_DIR)/on_sec
-	STAR \
-		--parametersFiles $(STARCONFIG) \
-		--genomeDir $(REFDIR)/Dsec_unspliced \
-		--outFileNamePrefix $(dir $@)$* \
-		--outTmpDir $(basename $@)_tmp \
-		--readFilesIn $(subst $(space),$(comma),$(strip $(patsubst %, %_1.fastq.gz, $($*)))) \
-				 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($*)))) 
-	samtools view -bS -o $@ $(@D)/$*Aligned.out.sam
-	rm $(@D)/$*Aligned.out.sam
-
 $(ANALYSIS_DIR)/on_%_STAR.bam: $(REFDIR)/D$$(subst /,,$$(dir $$*))_unspliced/Genome 
 	mkdir -p $(@D)
 	rm -rf $(basename $@)_tmp
@@ -220,9 +179,6 @@ $(ANALYSIS_DIR)/on_%_STAR.bam: $(REFDIR)/D$$(subst /,,$$(dir $$*))_unspliced/Gen
 	rm $(@D)/$(notdir $*)Aligned.out.sam
 
 $(ANALYSIS_DIR)/on_sim: | $(ANALYSIS_DIR)
-	mkdir $@
-
-$(ANALYSIS_DIR)/on_sec: | $(ANALYSIS_DIR)
 	mkdir $@
 
 $(ANALYSIS_DIR)/on_%/ : | $(ANALYSIS_DIR)
@@ -243,20 +199,6 @@ $(ANALYSIS_DIR)/on_%_variants.tsv: $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2
 		-GF GT \
 		-o $@
 
-$(ANALYSIS_DIR)/on_%/simsec_variants.tsv: $($(call uc,%)FASTA2)   $(ANALYSIS_DIR)/on_%/sim_gdna_raw_variants_uncalibrated.p.g.vcf $(ANALYSIS_DIR)/on_%/sec_gdna_raw_variants_uncalibrated.p.g.vcf
-	gatk -T GenotypeGVCFs \
-		-R $($(call uc,$*)FASTA2) \
-		-V $(@D)/sim_gdna_raw_variants_uncalibrated.p.g.vcf \
-		-V $(@D)/sec_gdna_raw_variants_uncalibrated.p.g.vcf \
-		-o $(@D)/simsec_variants_on_$*.gvcf
-	gatk -T VariantsToTable \
-		-R $($(call uc,$*)FASTA2) \
-		-V $(@D)/simsec_variants_on_$*.gvcf \
-		-F CHROM -F POS -F REF -F ALT -F QUAL \
-		-F HET -F HOM-REF -F HOM-VAR -F NCALLED \
-		-GF GT \
-		-o $@
-
 $(ANALYSIS_DIR)/on_%_masked.fasta $(ANALYSIS_DIR)/on_%_variant.bed: $(ANALYSIS_DIR)/on_%_variants.tsv
 	python MaskReferenceFromGATKTable.py \
 		--target-species $(patsubst %/,%,$(dir $*)) \
@@ -271,7 +213,7 @@ $(ANALYSIS_DIR)/on_mel/masked/Genome: $(ANALYSIS_DIR)/on_mel/melsim_masked.fasta
 		--genomeFastaFiles $< \
 		--sjdbGTFfile $(MELGTF)
 
-$(ANALYSIS_DIR)/on_%/masked/Genome: $(ANALYSIS_DIR)/on_%/simsec_masked.fasta | $(ANALYSIS_DIR)/on_%/masked
+$(ANALYSIS_DIR)/on_%/masked/Genome: $(ANALYSIS_DIR)/on_%/melsim_masked.fasta | $(ANALYSIS_DIR)/on_%/masked
 	STAR --runMode genomeGenerate --genomeDir $(dir $@) \
 		--outTmpDir $(@D)/_tmp/ \
 		--genomeFastaFiles $< \
@@ -284,7 +226,7 @@ Reference/melsim/Genome: $(ANALYSIS_DIR)/on_mel/melsim_masked.fasta
 		--genomeFastaFiles $< \
 		--sjdbGTFfile $(MELGTF)
 
-$(ANALYSIS_DIR)/on_%/masked/transcriptome: $(ANALYSIS_DIR)/on_%/simsec_masked.1.bt2 | $(ANALYSIS_DIR)/on_%/masked
+$(ANALYSIS_DIR)/on_%/masked/transcriptome: $(ANALYSIS_DIR)/on_%/melsim_masked.1.bt2 | $(ANALYSIS_DIR)/on_%/masked
 	mkdir -p $(@D)
 	tophat2 --transcriptome-index $@ \
 		--GTF $($(call uc,$*)GTF) \
@@ -374,7 +316,7 @@ $(ANALYSIS_DIR)/on_%/masked:
 	cufflinks \
 		--GTF $($(call uc,$(call substr,$(notdir $(*D)),4,6))GTF) \
 		--num-threads 8 \
-		--frag-bias-correct $(@D)/../simsec_masked.fasta \
+		--frag-bias-correct $(@D)/../melsim_masked.fasta \
 		--multi-read-correct \
 		--output-dir $(@D) \
 		--verbose \

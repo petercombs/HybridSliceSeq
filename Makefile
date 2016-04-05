@@ -27,13 +27,11 @@ SECDATE = $(word 2, $(subst _FB, ,$(SECRELEASE)))
 PREREQDIR = prereqs
 MELFASTA = $(PREREQDIR)/dmel-all-chromosome-$(MELVERSION).fasta
 SIMFASTA = $(PREREQDIR)/dsim-all-chromosome-$(SIMVERSION).fasta
-SECFASTA = $(PREREQDIR)/dsec-all-chromosome-$(SECVERSION).fasta
 
 REFDIR = Reference
 
 MELFASTA2= $(REFDIR)/dmel_prepend.fasta
 SIMFASTA2= $(REFDIR)/dsim_prepend.fasta
-SECFASTA2= $(REFDIR)/dsec_prepend.fasta
 
 ORTHOLOGS = $(PREREQDIR)/gene_orthologs_fb_$(MELDATE).tsv
 
@@ -46,11 +44,6 @@ SIMGFF   = $(PREREQDIR)/dsim-all-$(SIMVERSION).gff
 SIMGTF   = $(REFDIR)/sim_good.gtf
 SIMALLGTF= $(REFDIR)/sim_all.gtf
 SIMBADGTF= $(REFDIR)/sim_bad.gtf
-
-SECGFF   = $(PREREQDIR)/dsec-all-$(SECVERSION).gff
-SECGTF   = $(REFDIR)/sec_good.gtf
-SECALLGTF= $(REFDIR)/sec_all.gtf
-SECBADGTF= $(REFDIR)/sec_bad.gtf
 
 GENEMAPTABLE = $(PREREQDIR)/gene_map_table_fb_$(MELDATE).tsv
 
@@ -196,11 +189,6 @@ $(SIMBADGTF): $(SIMALLGTF) | $(REFDIR)
 		| grep -v 'gene_id' \
 		> $@
 
-$(SECALLGTF): $(SECGFF) | $(REFDIR)
-	gffread $< -C -E -T -o- | \
-		awk '{print "dsec_"$$0}' > \
-		$@
-
 $(MELFASTA): $(REFDIR)/mel_$(MELMAJORVERSION) | $(REFDIR) $(PREREQDIR)
 	wget -O $@.gz ftp://ftp.flybase.net/genomes/Drosophila_melanogaster/dmel_$(MELRELEASE)/fasta/dmel-all-chromosome-$(MELVERSION).fasta.gz
 	gunzip --force $@.gz
@@ -209,10 +197,6 @@ $(SIMFASTA): $(REFDIR)/sim_$(SIMMAJORVERSION) | $(REFDIR) $(PREREQDIR)
 	wget -O $@.gz ftp://ftp.flybase.net/genomes/Drosophila_simulans/dsim_$(SIMRELEASE)/fasta/dsim-all-chromosome-$(SIMVERSION).fasta.gz
 	gunzip --force $@.gz
 
-$(SECFASTA): $(REFDIR)/sec_$(SECMAJORVERSION) | $(REFDIR) $(PREREQDIR)
-	wget -O $@.gz ftp://ftp.flybase.net/genomes/Drosophila_sechellia/dsec_$(SECRELEASE)/fasta/dsec-all-chromosome-$(SECVERSION).fasta.gz
-	gunzip --force $@.gz
-	
 $(MELTRANSCRIPTS) : $(REFDIR)/mel_$(MELVERSION) | $(REFDIR) $(PREREQDIR)
 	wget -O $@.gz ftp://ftp.flybase.net/genomes/Drosophila_melanogaster/dmel_$(MELRELEASE)/fasta/dmel-all-transcript-$(MELVERSION).fasta.gz
 	gunzip --force $@.gz
@@ -226,19 +210,12 @@ $(SIMGFF): $(REFDIR)/sim_$(SIMVERSION) | $(REFDIR) $(PREREQDIR)
 	wget -O $@.gz ftp://ftp.flybase.net/genomes/Drosophila_simulans/dsim_$(SIMRELEASE)/gff/dsim-all-$(SIMVERSION).gff.gz
 	gunzip --force $@.gz
 
-$(SECGFF): $(REFDIR)/sec_$(SECVERSION) | $(REFDIR) $(PREREQDIR)
-	wget -O $@.gz ftp://ftp.flybase.net/genomes/Drosophila_sechellia/dsec_$(SECRELEASE)/gff/dsec-all-$(SECVERSION).gff.gz
-	gunzip --force $@.gz
-
 $(MELFASTA2): $(MELFASTA) $(REFDIR)/mel_$(MELMAJORVERSION) | $(REFDIR)
 	perl -pe 's/>/>dmel_/' $(MELFASTA) > $@
 
 $(SIMFASTA2): $(SIMFASTA) $(REFDIR)/sim_$(SIMMAJORVERSION) | $(REFDIR)
 	perl -pe 's/>/>dsim_/' $(SIMFASTA) > $@
 
-$(SECFASTA2): $(SECFASTA) $(REFDIR)/sec_$(SECMAJORVERSION) | $(REFDIR)
-	perl -pe 's/>/>dsec_/' $(SECFASTA) > $@
-	
 $(REFDIR)/Dmel/transcriptome : $(MELGTF) |  $(REFDIR)/Dmel
 	tophat --GTF $(MELGTF) \
 		--transcriptome-index $@ \
@@ -299,26 +276,6 @@ $(REFDIR)/Dsim : | $(REFDIR)
 $(REFDIR)/Dsim_unspliced : | $(REFDIR)
 	mkdir $@
 
-##### SEC GENOMES ####
-$(REFDIR)/Dsec/Genome : $(REFDIR)/sec_$(SECMAJORVERSION) | $(SECGTF)  $(REFDIR)/Dsec $(SECFASTA2) $(REFDIR)
-	rm -rf $(@D)/_tmp
-	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsec \
-		--outTmpDir $(@D)/_tmp \
-		--genomeFastaFiles $(SECFASTA2) \
-		--sjdbGTFfile $(SECGTF)
-
-$(REFDIR)/Dsec_unspliced/Genome : $(REFDIR)/sec_$(SECMAJORVERSION) | $(REFDIR)/Dsec_unspliced $(SECFASTA2) $(REFDIR)
-	rm -rf $(@D)/_tmp
-	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsec_unspliced \
-		--outTmpDir $(@D)/_tmp \
-		--genomeFastaFiles $(SECFASTA2) 
-
-
-$(REFDIR)/Dsec : | $(REFDIR)
-	mkdir $@
-
-$(REFDIR)/Dsec_unspliced : | $(REFDIR)
-	mkdir $@
 
 %/: 
 	mkdir $@
@@ -347,18 +304,6 @@ $(REFDIR)/sim_$(SIMVERSION): | $(REFDIR)
 $(REFDIR)/sim_$(SIMMAJORVERSION): | $(REFDIR)
 	touch $@
 
-$(REFDIR)/sec_$(SECVERSION): | $(REFDIR)
-	touch $@
-
-$(REFDIR)/sec_$(SECMAJORVERSION): | $(REFDIR)
-	touch $@
-
-
-$(REFDIR)/lav: | $(REFDIR)
-	mkdir $@
-
-$(REFDIR)/psl: | $(REFDIR)/lav
-	mkdir $@
 
 $(REFDIR)/d%_masked/done: $(REFDIR)/d%_masked.fasta
 	python faSplitter.py $< $(@D)
@@ -391,14 +336,6 @@ $(REFDIR)/d%_masked/done: $(REFDIR)/d%_masked.fasta
 
 $(REFDIR)/d%_masked.fasta: $(REFDIR)/d%_prepend.fasta
 	trfBig $< $@
-
-$(REFDIR)/lav/melsim: $(REFDIR)/dmel_masked/done $(REFDIR)/dsim_masked/done $(REFDIR)/mel_good.gtf $(REFDIR)/sim_good.gtf | $(REFDIR)/lav
-	python SubmitAlignments.py mel sim
-	touch $@
-
-$(REFDIR)/lav/melsec: $(REFDIR)/dmel_masked/done $(REFDIR)/dsec_masked/done $(REFDIR)/mel_good.gtf $(REFDIR)/sec_good.gtf | $(REFDIR)/lav
-	python SubmitAlignments.py mel sec
-	touch $@
 
 %.bw : %.bam
 	python ChromSizes.py $<
