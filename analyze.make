@@ -306,7 +306,7 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--true-hets $(ANALYSIS_DIR)/on_mel/true_hets.tsv \
 		--writephasedsnps
 	
-%_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py analyze.make $(ANALYSIS_DIR)/on_mel/true_hets.tsv
+%_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py $(ANALYSIS_DIR)/recalc_ase $(ANALYSIS_DIR)/on_mel/true_hets.tsv
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python2 GetGeneASE.py \
 		--snpcounts $< \
