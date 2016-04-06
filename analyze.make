@@ -208,12 +208,14 @@ $(ANALYSIS_DIR)/on_%_masked.fasta $(ANALYSIS_DIR)/on_%_variant.bed: $(ANALYSIS_D
 		$< 
 
 $(ANALYSIS_DIR)/on_mel/masked/Genome: $(ANALYSIS_DIR)/on_mel/melsim_masked.fasta | $(ANALYSIS_DIR)/on_%/masked
+	rm -rf $(@D)/_tmp
 	STAR --runMode genomeGenerate --genomeDir $(dir $@) \
 		--outTmpDir $(@D)/_tmp/ \
 		--genomeFastaFiles $< \
 		--sjdbGTFfile $(MELGTF)
 
 $(ANALYSIS_DIR)/on_%/masked/Genome: $(ANALYSIS_DIR)/on_%/melsim_masked.fasta | $(ANALYSIS_DIR)/on_%/masked
+	rm -rf $(@D)/_tmp
 	STAR --runMode genomeGenerate --genomeDir $(dir $@) \
 		--outTmpDir $(@D)/_tmp/ \
 		--genomeFastaFiles $< \
@@ -281,6 +283,29 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--prefix $*/melsim_countsnpase_tmp/
 	mv $*/melsim_countsnpase_tmp/_SNP_COUNTS.txt $@
 
+%/simmel_SNP_COUNTS.txt : %/on_simaccepted_hits_remapped_sorted_wasp_dedup.bam $(ANALYSIS_DIR)/on_sim/melsim_variant.bed
+	mkdir -p $*/melsim_countsnpase_tmp
+	./qsubber $(QSUBBER_ARGS) \
+	python2 CountSNPASE.py \
+		--mode single \
+		--reads $< \
+		--snps $(ANALYSIS_DIR)/on_sim/melsim_variant.bed \
+		$(if $(wildcard $*/is_single), -t) \
+		--prefix $*/simmel_countsnpase_tmp/
+	mv $*/simmel_countsnpase_tmp/_SNP_COUNTS.txt $@
+
+%_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py $(ANALYSIS_DIR)/recalc_ase $(ANALYSIS_DIR)/on_mel/true_hets.tsv
+	./qsubber $(QSUBBER_ARGS) -t 1 \
+	python2 GetGeneASE.py \
+		--snpcounts $< \
+		--phasedsnps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		--allele-min 2 \
+		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
+		-o $@ \
+		--preference-index \
+		--true-hets $(ANALYSIS_DIR)/on_mel/true_hets.tsv \
+		--writephasedsnps
+	
 %_gene_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py analyze.make $(ANALYSIS_DIR)/on_mel/true_hets.tsv
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python2 GetGeneASE.py \
@@ -321,6 +346,10 @@ $(ANALYSIS_DIR)/on_%/masked:
 		--output-dir $(@D) \
 		--verbose \
 		$<
+
+%accepted_hits_remapped.bam: #$$(dir $$*)/accepted_hits.bam #$(ANALYSISDIR)/$$(notdir $$*)/masked/Genome
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 4 \
+	python RemapOnOtherGenome.py $(@D)/accepted_hits.bam $(ANALYSIS_DIR)/$(notdir $*)/masked/Genome
 
 $(REFDIR)/dgrp_%.vcf: prereqs/dgrp2.vcf
 	grep -P '^(#|$*)' $< > $@
