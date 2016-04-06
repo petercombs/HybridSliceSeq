@@ -123,6 +123,16 @@ $(ANALYSIS_DIR)/ase_summary_on_sim.tsv: $(ANALYSIS_DIR)/retabulate $$(subst gene
 			--out-basename ase_summary \
 			$(ANALYSIS_DIR)
 
+$(ANALYSIS_DIR)/cds_ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_cds_ase.tsv,$$(FPKMS))
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
+	python MakeSummaryTable.py \
+			--params Parameters/RunConfig.cfg \
+			--filename melsim_cds_ase.tsv \
+			--column "REF-ALT_RATIO" \
+			--key "FEATURE" \
+			--out-basename cds_ase_summary \
+			$(ANALYSIS_DIR)
+
 %/genes.fpkm_tracking : %/assigned_dmelR.bam $(MELGTF) $(MELFASTA2) $(MELBADGTF)
 	@echo '============================='
 	@echo 'Calculating Abundances'

@@ -318,6 +318,21 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--true-hets $(ANALYSIS_DIR)/on_mel/true_hets.tsv \
 		--writephasedsnps
 	
+%_cds_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py $(ANALYSIS_DIR)/recalc_ase $(ANALYSIS_DIR)/on_mel/true_hets.tsv
+	./qsubber $(QSUBBER_ARGS) -t 1 \
+	python2 GetGeneASE.py \
+		--snpcounts $< \
+		--phasedsnps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		--allele-min 2 \
+		--type CDS \
+		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
+		-o $@ \
+		--preference-index \
+		--true-hets $(ANALYSIS_DIR)/on_mel/true_hets.tsv \
+		--writephasedsnps
+	
+$(ANALYSIS_DIR)/recalc_ase:
+	touch $@
 
 %_gene_ase.tsv : $$(firstword $$(subst _counts_, ,$$@))_SNP_COUNTS.txt GetGeneASE.py analyze.make
 	echo $(firstword $(subst _counts_, ,$*))_SNP_COUNTS.txt
