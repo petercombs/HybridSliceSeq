@@ -38,12 +38,12 @@ def fit_func(func, index, data, xs, p0=None):
                          bounds=[[-2, w_min, -0.1, -1],
                                  [2, w_max, 1.1, 1]],
                         )[0]
-    except:
+    except (ValueError, RuntimeError):
         return array([nan, nan, nan, nan])
 
 if __name__ == "__main__":
     ase = (pd
-           .read_table('ase_summary.tsv',
+           .read_table('analysis_godot/ase_summary.tsv',
                        index_col=0,
                        keep_default_na=False, na_values=['---'],)
            .dropna(how='all', axis=1)
@@ -57,7 +57,7 @@ if __name__ == "__main__":
     xs = pd.Series(index=ase.columns,
                    data=[int(a.split('_')[2][2:])/max_slice['_'.join(a.split('_')[:2])] for a in ase.columns if 'sl' in a])
     with Pool() as p:
-        res_logist = list(p.starmap(fit_func,
+        res_logist_old = list(p.starmap(fit_func,
                                zip(it.repeat(logistic),
                                    ase.index,
                                    it.repeat(ase),
@@ -67,7 +67,7 @@ if __name__ == "__main__":
         res_logist = pd.DataFrame(
             index=ase.index,
             columns=['Amp', 'width', 'center', 'y_offset'],
-            data=res_logist,
+            data=res_logist_old,
         ).dropna()
         res_peak = list(p.starmap(fit_func,
                                zip(it.repeat(peak),
@@ -99,6 +99,10 @@ if __name__ == "__main__":
 
     good_amps_logist = res_logist.Amp[r2_logist>0.5].sort_values(inplace=False)
     good_amps_peak = res_peak.Amp[r2_peak>0.5].sort_values(inplace=False)
+    #good_amps_logist.to_csv('analysis/results/logist.tsv', sep='\t')
+    #good_amps_peak.to_csv('analysis/results/peak.tsv', sep='\t')
+    res_logist.ix[r2_logist > 0.5].to_csv('analysis/results/logist.tsv', sep='t')
+    res_peak.ix[r2_peak > 0.5].to_csv('analysis/results/peak.tsv', sep='t')
 
 
 
