@@ -12,8 +12,10 @@ def logistic(x, A, k, x0, y0):
 def peak(x, A, w, x0, y0):
     return A * exp(-(x-x0)**2/w**2) - y0
 
-def fit_func(func, index, data, xs, p0=None):
+def fit_func(func, index, data, xs, p0=None, randomize=False):
     ys = data.ix[index]
+    if randomize:
+        xs = np.random.permutation(xs)
     keep = array(isfinite(ys))
     if sum(keep) < len(xs)/2:
         return array([nan, nan, nan, nan])
@@ -48,6 +50,11 @@ if __name__ == "__main__":
                        keep_default_na=False, na_values=['---'],)
            .dropna(how='all', axis=1)
           )
+    ase_perm = pd.DataFrame(
+            data=np.random.permutation(ase.T).T,
+            index=ase.index,
+            columns=ase.columns,
+            )
     max_slice = defaultdict(int)
     for sl in ase.columns:
         sl = sl.split('_')
@@ -69,6 +76,18 @@ if __name__ == "__main__":
             columns=['Amp', 'width', 'center', 'y_offset'],
             data=res_logist_old,
         ).dropna()
+        res_logist_perm = list(p.starmap(fit_func,
+                               zip(it.repeat(logistic),
+                                   ase_perm.index,
+                                   it.repeat(ase_perm),
+                                   it.repeat(xs),
+                                  )
+                              ))
+        res_logist_perm = pd.DataFrame(
+            index=ase_perm.index,
+            columns=['Amp', 'width', 'center', 'y_offset'],
+            data=res_logist_perm,
+        ).dropna()
         res_peak = list(p.starmap(fit_func,
                                zip(it.repeat(peak),
                                    ase.index,
@@ -81,9 +100,23 @@ if __name__ == "__main__":
             columns=['Amp', 'width', 'center', 'y_offset'],
             data=list(res_peak),
         ).dropna()
+        res_peak_perm = list(p.starmap(fit_func,
+                               zip(it.repeat(peak),
+                                   ase_perm.index,
+                                   it.repeat(ase_perm),
+                                   it.repeat(xs),
+                                  )
+                              ))
+        res_peak_perm =pd.DataFrame(
+            index=ase_perm.index,
+            columns=['Amp', 'width', 'center', 'y_offset'],
+            data=list(res_peak_perm),
+        ).dropna()
 
     r2_logist = pd.Series(index=res_logist.index, data=np.inf)
+    r2_logist_perm = pd.Series(index=res_logist_perm.index, data=np.inf)
     r2_peak = pd.Series(index=res_peak.index, data=np.inf)
+    r2_peak_perm = pd.Series(index=res_peak_perm.index, data=np.inf)
 
     for ix in r2_logist.index:
         r2_logist.ix[ix] = 1-(
@@ -97,12 +130,27 @@ if __name__ == "__main__":
             / ((ase.ix[ix] - ase.ix[ix].mean())**2).sum()
         )
 
+    for ix in r2_logist_perm.index:
+        r2_logist_perm.ix[ix] = 1-(
+            ((ase_perm.ix[ix] - logistic(xs, *res_logist_perm.ix[ix]))**2).sum()
+            / ((ase_perm.ix[ix] - ase_perm.ix[ix].mean())**2).sum()
+        )
+
+    for ix in r2_peak_perm.index:
+        r2_peak_perm.ix[ix] = 1-(
+            ((ase_perm.ix[ix] -     peak(xs,   *res_peak_perm.ix[ix]))**2).sum()
+            / ((ase_perm.ix[ix] - ase_perm.ix[ix].mean())**2).sum()
+        )
+
+    print("Found {: 4} {:<10} of which {} are likely false".format(sum(r2_logist > 0.5), 'logistic', sum(r2_logist_perm > .5)))
+    print("Found {: 4} {:<10} of which {} are likely false".format(sum(r2_peak > 0.5), 'peak', sum(r2_peak_perm > .5)))
+
     good_amps_logist = res_logist.Amp[r2_logist>0.5].sort_values(inplace=False)
     good_amps_peak = res_peak.Amp[r2_peak>0.5].sort_values(inplace=False)
     #good_amps_logist.to_csv('analysis/results/logist.tsv', sep='\t')
     #good_amps_peak.to_csv('analysis/results/peak.tsv', sep='\t')
-    res_logist.ix[r2_logist > 0.5].to_csv('analysis/results/logist.tsv', sep='t')
-    res_peak.ix[r2_peak > 0.5].to_csv('analysis/results/peak.tsv', sep='t')
+    res_logist.ix[r2_logist > 0.5].to_csv('analysis/results/logist.tsv', sep='\t')
+    res_peak.ix[r2_peak > 0.5].to_csv('analysis/results/peak.tsv', sep='\t')
 
 
 
