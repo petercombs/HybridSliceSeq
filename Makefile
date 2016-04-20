@@ -377,3 +377,10 @@ $(REFDIR)/d%_masked.fasta: $(REFDIR)/d%_prepend.fasta
 	mv $(@D)/abundances.cxb $@
 	#cp $(*D)/$(*F)/abundances.cxb $@
 
+Reference/tss: $(MELGTF)
+	cat $< \
+		| python FindTSSs.py \
+	    | rev \
+	    | uniq -f 1 \
+	    | rev \
+	    > $@
