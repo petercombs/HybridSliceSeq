@@ -13,11 +13,15 @@ def parse_record(delta_file, return_names=True):
     line = next(delta_file)
     while not line.startswith('>'):
         line = next(delta_file)
-    line = line.strip().split()
-    n1 = line[0][1:]
+    # The first line is
+    #  >seq1 seq2 length1 length2
+    line = line.strip().strip('>').split()
+    n1 = line[0]
     n2 = line[1]
     l1 = int(line[-2])
     l2 = int(line[-1])
+    # The next line is
+    # start1 end1 start2 end2 ??? ???
     line = next(delta_file).strip().split()
     i1 = int(line[0])-1
     p1 = i1
@@ -26,6 +30,7 @@ def parse_record(delta_file, return_names=True):
     e2 = int(line[3])
     p2 = i2
 
+    offset = i2 - i1
     deltas = []
     while line:
         line = next(delta_file)
@@ -33,11 +38,15 @@ def parse_record(delta_file, return_names=True):
         deltas.append(line)
     deltas = array(deltas)
 
-    longest = max(l1 + sum(deltas < 0), l2 + sum(deltas > 0))
-    pos1 = zeros(longest)
-    pos2 = zeros(longest)
-    pos1[:i1] = arange(i1)
-    pos2[:i2] = arange(i2)
+    longest = max(l1 + sum(deltas < 0) - offset, l2 + sum(deltas > 0)+offset)
+    pos1 = zeros(longest, dtype=int)
+    pos2 = zeros(longest, dtype=int)
+    offset1 = offset if offset > 0 else 0
+    offset2 = -offset if offset < 0 else 0
+    i1 += offset1
+    i2 += offset2
+    pos1[offset1:i1] = arange(p1)
+    pos2[offset2:i2] = arange(p2)
 
     for d in deltas:
         if d == 0:
