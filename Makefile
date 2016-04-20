@@ -117,10 +117,10 @@ $(ANALYSIS_DIR)/ase_summary_on_sim.tsv: $(ANALYSIS_DIR)/retabulate $$(subst gene
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
 			--params Parameters/RunConfig.cfg \
-			--filename melsim_gene_ase.tsv \
+			--filename simmel_gene_ase.tsv \
 			--column "REF-ALT_RATIO" \
 			--key "FEATURE" \
-			--out-basename ase_summary \
+			--out-basename ase_summary_on_sim \
 			$(ANALYSIS_DIR)
 
 $(ANALYSIS_DIR)/cds_ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_cds_ase.tsv,$$(FPKMS))
@@ -306,6 +306,7 @@ $(GENEMAPTABLE):
 	gunzip --force $(GENEMAPTABLE).gz
 
 %_sorted.bam: %.bam
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 1 \
 	samtools sort $< $*_sorted 
 	samtools index $@
 
