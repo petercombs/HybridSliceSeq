@@ -73,6 +73,8 @@ parser.add_argument('-t', '--threads', default=default_threads,
             "to 1."))
 parser.add_argument('-q', '--queue', default=None,
                     help=''.join(["Queue Choice, Default: ", default_queue]) )
+parser.add_argument('-m', '--load-module', default=False,
+        help="Load a module")
 parser.add_argument('--wait', default=False, action='store_true')
 parser.add_argument('command', nargs=REMAINDER)
 
@@ -89,6 +91,9 @@ scriptfile = tmpf(dir=args.keep_temporary, delete=delete)
 os.chmod(scriptfile.name, 0x777)
 #print( ' '.join(args.command))
 scriptfile.write(bytes('#!/usr/bin/bash \n', 'ascii'))
+if args.load_module:
+    scriptfile.write(bytes('\nmodule load STAR\n', 'ascii'))
+    scriptfile.write(bytes('module load {}\n'.format(args.load_module), 'ascii'))
 scriptfile.write(bytes(' '.join(args.command),'ascii'))
 scriptfile.write(bytes('\n', 'ascii'))
 scriptfile.flush()
