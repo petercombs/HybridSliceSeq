@@ -116,6 +116,7 @@ else:
         call.extend(['-e', args.log_base + '.e.log'])
     node_string = 'nodes=1:ppn={}'.format(args.threads)
     call.extend(['-l', node_string])
+    call.append('-V')
     call.append(scriptfile.name)
     out=sp.PIPE
 

@@ -384,3 +384,15 @@ Reference/tss: $(MELGTF)
 	    | uniq -f 1 \
 	    | rev \
 	    > $@
+
+
+%/unmapped_sample.fasta: %/Unmapped.out.mate1
+	python SampleUnmapped.py $< $@
+
+%/blasted.tsv : %/unmapped_sample.fasta
+	./qsubber --job-name $(basename $(@D))_blast --load-module blast --keep-temporary tmp -t 4 --log-base $(basename $@) \
+	blastn -db nt \
+		-query $< \
+		-outfmt \"6 qseqid staxids sskingdoms sblastnames sscinames\" \
+		-num_threads 8  -max_target_seqs 1 \
+		-out $@
