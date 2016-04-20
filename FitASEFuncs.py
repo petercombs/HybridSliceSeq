@@ -20,17 +20,24 @@ def fit_func(func, index, data, xs, p0=None, randomize=False):
     if sum(keep) < len(xs)/2:
         return array([nan, nan, nan, nan])
     if p0 is None:
-        p0 = [ys.max() - ys.median(), 0.5, xs.mean(), ys.median()]
+        pos_amp = ys.max() - ys.median()
+        neg_amp = ys.min() - ys.median()
+        if pos_amp > -neg_amp:
+            amp = pos_amp
+        else:
+            amp = neg_amp
+        p0 = [amp, 20, xs.mean(), ys.median()]
     if func == peak:
-        w_min = 0
+        w_min = 0.15
         w_max = 0.6
+        p0[1] = 0.4
         if (ys.max() - ys.median()) < (ys.median() - ys.min()):
             p0[0] = ys.median() - ys.min()
             p0[2] = xs[ys.argmin()]
         else:
             p0[2] = xs[ys.argmax()]
     else:
-        w_min = -inf
+        w_min = 1
         w_max = inf
     try:
         return curve_fit(func,
