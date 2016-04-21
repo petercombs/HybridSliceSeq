@@ -1,6 +1,7 @@
 from os import path
 from numpy import shape, linspace, sum, isfinite
 import pandas as pd
+from collections import defaultdict
 
 
 def get_bam_length(samfile):
@@ -78,8 +79,31 @@ def center_of_mass_onerep(data):
     data_clean += 0.01
     return sum(data_clean * xs, axis=len(dims)-1)/sum(data_clean, axis=len(dims)-1)
 
+def get_synonyms():
+    gn_to_fbgn = defaultdict(lambda : 'NOTPRESENT')
+    file = [path.join(dirname, fname)
+            for fname in ['fbgn_synonyms.tsv', 'synonyms.tsv']
+            for dirname in ['.', 'Reference', 'prereqs']
+            if path.exists(path.join(dirname, fname))
+           ][0]
+    secondaries = {}
+    for line in open(file):
+        line = line.strip().split('\t')
+        fbgn = line[0]
+        gn_to_fbgn[line[1]] = fbgn
+        if len(line) == 3 or len(line) == 4:
+            continue
+        for synonym in line[-1].split(','):
+            secondaries[synonym] = fbgn
+    for synonym in secondaries:
+        if synonym in gn_to_fbgn:
+            # Don't clobber primary names with the synonym
+            continue
+        gn_to_fbgn[synonym] = secondaries[synonym]
+    gn_to_fbgn['Dec1'] = gn_to_fbgn['dec-1']
+    return pd.Series(gn_to_fbgn)
 
-def load_to_locals(locals, expr_min=15, fname='analysis/summary.tsv'):
+def load_to_locals(locals, expr_min=15):
     read_table_args = dict(keep_default_na=False, na_values=['---', ''], index_col=0)
 
     # These are manually, and empirically determined.
@@ -87,11 +111,11 @@ def load_to_locals(locals, expr_min=15, fname='analysis/summary.tsv'):
         'bcd_cyc14D_rep2_sl06_FPKM',
         'bcd_cyc14D_rep2_sl16_FPKM',
         'bcd_cyc14D_rep1_sl14_FPKM',
-        #'WT_cyc14D_sl15_FPKM',
+        'WT_cyc14D_sl15_FPKM',
         'G20_cyc14D_rep1_sl08_FPKM',
     )
 
-    all_expr = (pd.read_table(fname, **read_table_args)
+    all_expr = (pd.read_table('analysis/summary.tsv', **read_table_args)
                 .sort_index())
     for col in bad_cols:
         if col in all_expr.columns:
