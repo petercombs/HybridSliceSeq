@@ -2,7 +2,7 @@ import pandas as pd
 from collections import Counter, defaultdict
 from numpy import isfinite, int64, int32, int16, int8, sign, abs, nan
 import Utils
-from progressbar import ProgressBar()
+from progressbar import ProgressBar
 
 def slices_per_embryo(ase):
     return Counter(i.split('_sl')[0] for i in ase.columns)
@@ -27,7 +27,7 @@ def get_class(gene, ase, subset='', slices_with_expr=None, expr=None):
         return nan
     ase_vals = (abs(sample) > ASE_MIN) * sign(sample)
     if slices_with_expr < len(sample) * .90:
-        return nan
+        return 99
     if sum(ase_vals == 1) > slices_with_expr * FRAC_FOR_MATERNAL:
         return 1
     if sum(ase_vals == -1) > slices_with_expr * FRAC_FOR_MATERNAL:
@@ -71,7 +71,7 @@ if __name__ == "__main__":
         classes = pd.DataFrame(index=ase.index, columns=['melXsim', 'simXmel'], data=pd.np.nan)
         for ix in ProgressBar()(classes.index):
             for col in classes.columns:
-                classes.ix[ix, col] = gas.get_class(ix, ase, subset=col, expr=expr)
+                classes.ix[ix, col] = get_class(ix, ase, subset=col, expr=expr)
 
     in_both = ase.index.intersection(expr.index)
     ase = ase.ix[in_both]
