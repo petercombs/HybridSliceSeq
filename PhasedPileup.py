@@ -112,7 +112,7 @@ def draw_read(read, dwg, x_start_coord, y_coord, phase_color, snps=None,
             ],
             style='stroke-width=0;fill:'+phase_color,
         ))
-        last_stop = blocks[0][0]
+        last_stop = block_start
 
     for i in range(slice_start, slice_end):
         block_start, block_stop = blocks[i]
@@ -130,6 +130,7 @@ def draw_read(read, dwg, x_start_coord, y_coord, phase_color, snps=None,
                          style='stroke-width=0;fill:'+phase_color,
                          id=read.qname,
                         ))
+        last_stop = block_stop
     if snps:
         for read_pos, ref_pos in snp_locs:
             alleles = snps[ref_pos + 1]
