@@ -121,7 +121,7 @@ $(ANALYSIS_DIR)/on_sim/%_raw_variants_uncalibrated.g.vcf: $(ANALYSIS_DIR)/on_sim
 		-stand_call_conf 30 \
 		-o $@
 
-$(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2).fai $$(basename $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2)).dict $(ANALYSIS_DIR)/on_%_bowtie2_dedup.bam 
+$(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2).fai $$(basename $$($$(subst /,,$$(call uc,$$(dir $$*)))FASTA2)).dict $(ANALYSIS_DIR)/on_%_bowtie2_dedup.bam
 	./qsubber $(QSUBBER_ARGS) -t 4  \
 	gatk -T HaplotypeCaller \
 		-R $(basename $<) \
@@ -147,7 +147,7 @@ $(ANALYSIS_DIR)/on_%_STAR_RNASEQ.bam: $$(@D)/masked/Genome $$($$(notdir $$*))
 		--outSAMattributes MD NH --clip5pNbases 6 \
 		--outTmpDir $(basename $@)_tmp/ \
 		--readFilesIn $(subst $(space),$(comma),$(strip $(patsubst %, %_1.fastq.gz, $($(notdir $*))))) \
-				 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($(notdir $*))))) 
+				 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($(notdir $*)))))
 	./qsubber $(QSUBBER_ARGS) -t 4 \
 	samtools view -bS $(@D)/$(notdir $*)Aligned.out.sam \| samtools sort -@ 4 - $(basename $@)
 	rm $(@D)/$(notdir $*)Aligned.out.sam
@@ -160,11 +160,11 @@ $(ANALYSIS_DIR)/on_sim/%_STAR.bam: $(%) $(REFDIR)/Dsim_unspliced/Genome | $(ANAL
 		--outFileNamePrefix $(dir $@)$* \
 		--outTmpDir $(basename $@)_tmp/ \
 		--readFilesIn $(subst $(space),$(comma),$(strip $(patsubst %, %_1.fastq.gz, $($*)))) \
-				 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($*)))) 
+				 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($*))))
 	samtools view -bS -o $@ $(@D)/$*Aligned.out.sam
 	rm $(@D)/$*Aligned.out.sam
 
-$(ANALYSIS_DIR)/on_%_STAR.bam: $(REFDIR)/D$$(subst /,,$$(dir $$*))_unspliced/Genome 
+$(ANALYSIS_DIR)/on_%_STAR.bam: $(REFDIR)/D$$(subst /,,$$(dir $$*))_unspliced/Genome
 	mkdir -p $(@D)
 	rm -rf $(basename $@)_tmp
 	./qsubber $(QSUBBER_ARGS) -t 4 \
@@ -174,7 +174,7 @@ $(ANALYSIS_DIR)/on_%_STAR.bam: $(REFDIR)/D$$(subst /,,$$(dir $$*))_unspliced/Gen
 		--outFileNamePrefix $(dir $@)$(notdir $*) \
 		--outTmpDir $(basename $@)_tmp \
 		--readFilesIn $(subst $(space),$(comma),$(strip $(patsubst %, %_1.fastq.gz, $($(notdir $*))))) \
-				 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($(notdir $*))))) 
+				 $(subst $(space),$(comma),$(strip $(patsubst %, %_2.fastq.gz, $($(notdir $*)))))
 	samtools view -bS -o $@ $(@D)/$(notdir $*)Aligned.out.sam
 	rm $(@D)/$(notdir $*)Aligned.out.sam
 
@@ -205,7 +205,7 @@ $(ANALYSIS_DIR)/on_%_masked.fasta $(ANALYSIS_DIR)/on_%_variant.bed: $(ANALYSIS_D
 		--emit-bed $(@D)/$(notdir $*)_variant.bed \
 		--outfasta $(@D)/$(notdir $*)_masked.fasta \
 		$($(call uc,$(patsubst %/,%,$(dir $*)))FASTA2) \
-		$< 
+		$<
 
 $(ANALYSIS_DIR)/on_mel/masked/Genome: $(ANALYSIS_DIR)/on_mel/melsim_masked.fasta | $(ANALYSIS_DIR)/on_%/masked
 	rm -rf $(@D)/_tmp
@@ -246,7 +246,7 @@ $(ANALYSIS_DIR)/on_%/masked/index_kal: $(ANALYSIS_DIR)/on_%/masked/transcriptome
 		-i $@ \
 		$<.fa
 
-$(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call split,/,$$*))/masked/index_kal 
+$(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call split,/,$$*))/masked/index_kal
 	mkdir -p $(@D)
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	kallisto quant \
@@ -256,7 +256,7 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		$(foreach F,$($(notdir $*)), $F_1.fastq.gz $F_2.fastq.gz)
 
 
-$(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call split,/,$$*))/masked/index_kal 
+$(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call split,/,$$*))/masked/index_kal
 	mkdir -p $(@D)
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	kallisto quant \
@@ -318,7 +318,7 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--preference-index \
 		--true-hets $(ANALYSIS_DIR)/on_mel/true_hets.tsv \
 		--writephasedsnps
-	
+
 $(ANALYSIS_DIR)/recalc_ase:
 	touch $@
 

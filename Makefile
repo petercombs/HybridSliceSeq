@@ -83,6 +83,7 @@ $(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(F
 		$(ANALYSIS_DIR) \
 		\| tee analysis/mst.log
 
+
 $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) | $(ANALYSIS_DIR)
 	@echo '============================='
 	@echo 'Making summary table'
@@ -288,7 +289,7 @@ $(REFDIR)/Dsim_unspliced/Genome : $(REFDIR)/sim_$(SIMMAJORVERSION) | $(REFDIR)/D
 	rm -rf $(@D)/_tmp
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsim_unspliced \
 		--outTmpDir $(@D)/_tmp \
-		--genomeFastaFiles $(SIMFASTA2) 
+		--genomeFastaFiles $(SIMFASTA2)
 
 $(REFDIR)/Dsim : | $(REFDIR)
 	mkdir $@
@@ -297,7 +298,7 @@ $(REFDIR)/Dsim_unspliced : | $(REFDIR)
 	mkdir $@
 
 
-%/: 
+%/:
 	mkdir $@
 
 $(GENEMAPTABLE):
@@ -307,7 +308,7 @@ $(GENEMAPTABLE):
 
 %_sorted.bam: %.bam
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 1 \
-	samtools sort $< $*_sorted 
+	samtools sort $< $*_sorted
 	samtools index $@
 
 %.bam.bai: %.bam
