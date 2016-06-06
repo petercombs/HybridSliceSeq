@@ -118,7 +118,9 @@ def get_expr_values(fname):
                   .strip('/'))
     basedir, dirname = path.split(alldir)
     old_dirname = dirname
-    assert args.column in table.columns
+    if args.column not in table.columns:
+        raise ValueError("argument {} not in table {} columns: {}".format(
+            args.column, fname, table.columns))
     table = (table.drop_duplicates(args.key)
             .drop(labels=['ORIENTATION'], axis=1, errors='ignore')
              .dropna(axis=1, how='all')
