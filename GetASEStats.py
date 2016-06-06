@@ -6,7 +6,7 @@ from progressbar import ProgressBar
 
 def slices_per_embryo(ase):
     return Counter(i.split('_sl')[0] for i in ase.columns)
-    
+
 def create_latex_command(name, value, numeric=False, frac=False):
     name = name.upper().replace('_', '')
     if frac:
@@ -26,17 +26,20 @@ def get_class(gene, ase, subset='', slices_with_expr=None, expr=None):
     else:
         return nan
     ase_vals = (abs(sample) > ASE_MIN) * sign(sample)
+    slices_with_ase = isfinite(sample).sum()
     if slices_with_expr < len(sample) * .90:
         return 99
-    if sum(ase_vals == 1) > slices_with_expr * FRAC_FOR_MATERNAL:
+    if slices_with_ase < .5 * slices_with_expr:
+        return 999
+    if sum(ase_vals == 1) > slices_with_ase * FRAC_FOR_MATERNAL:
         return 1
-    if sum(ase_vals == -1) > slices_with_expr * FRAC_FOR_MATERNAL:
+    if sum(ase_vals == -1) > slices_with_ase * FRAC_FOR_MATERNAL:
         return -1
     return 0
 
 
 
-    
+
 
 
 EXPR_MIN = 10
@@ -46,13 +49,13 @@ FRAC_FOR_MATERNAL = 0.65
 
 if __name__ == "__main__":
     kwargs = dict(index_col=0,
-            keep_default_na=False, 
+            keep_default_na=False,
             na_values=['---'])
 
 
     if 'ase' not in locals() or ('reload_ase' in locals() and locals()['reload_ase']):
         print("Reloading data")
-        ase = pd.read_table('analysis_godot/ase_summary.tsv', **kwargs).dropna(how='all', axis=1)
+        ase = pd.read_table('analysis_godot/ase_summary_by_read.tsv', **kwargs).dropna(how='all', axis=1)
         expr = pd.read_table('analysis_godot/summary_fb.tsv', **kwargs).dropna(how='all', axis=1)
         lott = pd.read_table('prereqs/journal.pbio.1000590.s002', index_col=0, keep_default_na=False, na_values=[''])
         reload_ase = False
@@ -64,7 +67,7 @@ if __name__ == "__main__":
         lott.index = lott.fbgn
 
         paris = pd.read_table('prereqs/GSE68062_Gene_CLASS_after_FPKM_normalization.txt', index_col=1,
-                header=0, 
+                header=0,
                 names=['gn', 'FBgn', 'yak', 'pse', 'vir']+[s+'_'+n for s in 'mel yak pse vir'.split() for n in 'class prob'.split()],
                 )
 
