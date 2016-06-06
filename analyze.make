@@ -283,6 +283,18 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--prefix $*/melsim_countsnpase_tmp/
 	mv $*/melsim_countsnpase_tmp/_SNP_COUNTS.txt $@
 
+%/melsim_wasp_SNP_COUNTS.txt : %/accepted_hits.remap.keep.sorted_wasp_dedup.bam
+	mkdir -p $*/melsim_countsnpase_tmp
+	./qsubber $(QSUBBER_ARGS) \
+	python2 CountSNPASE.py \
+		--mode single \
+		--reads $< \
+		--snps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		$(if $(wildcard $*/is_single), -t) \
+		--prefix $*/melsim_countsnpase_tmp/
+	mv $*/melsim_countsnpase_tmp/_SNP_COUNTS.txt $@
+
+
 %/simmel_SNP_COUNTS.txt : %/on_simaccepted_hits_remapped_sorted_wasp_dedup.bam $(ANALYSIS_DIR)/on_sim/melsim_variant.bed
 	mkdir -p $*/simmel_countsnpase_tmp
 	./qsubber $(QSUBBER_ARGS) \
@@ -365,3 +377,36 @@ $(ANALYSIS_DIR)/on_%/masked:
 
 $(REFDIR)/dgrp_%.vcf: prereqs/dgrp2.vcf
 	grep -P '^(#|$*)' $< > $@
+
+WASPMAP = $(HOME)/FWASP/mapping
+
+%.remap.fq1.gz %.remap.fq2.gz %.keep.bam %.to.remap.bam : %.bam
+	./qsubber $(QSUBBER_ARGS) -t 1 python $(WASPMAP)/find_intersecting_snps_2.py -p $< analysis/on_mel
+
+%.remap.bam: %.remap.fq1.gz %.remap.fq2.gz
+	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 --load-module STAR \
+		STAR --parametersFiles $(STARCONFIG) \
+		--genomeDir Reference/melsim --outFileNamePrefix $(@D)/ \
+		--outSAMattributes MD NH --clip5pNbases 6 \
+		--readFilesIn $^
+	samtools view -bS -o $@ $(@D)/Aligned.out.sam
+	rm $(@D)/Aligned.out.sam
+
+%.remap.kept.bam: %.remap.bam %.to.remap.num.gz
+	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 1 \
+	python2 $(WASPMAP)/filter_remapped_reads.py \
+		-p \
+		$*.to.remap.bam \
+		$*.remap.bam \
+		$*.remap.kept.bam \
+		$*.to.remap.num.gz
+
+%.to.remap.num.gz: %.remap.fq1.gz
+	python $(WASPMAP)/make_num_from_fq.py $<
+
+%.keep.merged.bam: %.keep.bam %.remap.keep.bam
+	samtools merge -f $@ $^
+
+%.sorted.bam: %.bam
+	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 \
+	samtools sort $(SORT_OPTS) -@ 4 $< $*.sorted
