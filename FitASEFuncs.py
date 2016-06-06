@@ -1,10 +1,13 @@
 from numpy import (exp, sqrt, array, isfinite, mean, shape, nan, inf, median)
 from scipy.optimize import curve_fit
+from scipy.stats import linregress
 from multiprocessing import Pool
 from collections import defaultdict
 import pandas as pd
 import itertools as it
 import numpy as np
+import inspect
+from progressbar import ProgressBar
 
 def logistic(x, A, k, x0, y0):
     return A/(1+exp(k*(x-x0))) - y0
@@ -50,12 +53,56 @@ def fit_func(func, index, data, xs, p0=None, randomize=False):
     except (ValueError, RuntimeError):
         return array([nan, nan, nan, nan])
 
+def fit_all_ase(ase, func, xs, colnames=None, pool=None):
+    if colnames is None:
+        colnames = inspect.getargspec(func).args
+        colnames.pop('x')
+    if pool is not None:
+        res = list(pool.starmap(
+            fit_func,
+            zip(
+                it.repeat(func),
+                ase.index,
+                it.repeat(ase),
+                it.repeat(xs)
+                )
+            ))
+    else:
+        res = list(it.starmap(
+            fit_func,
+            zip(
+                it.repeat(func),
+                ase.index,
+                it.repeat(ase),
+                it.repeat(xs)
+                )
+            ))
+
+    return pd.DataFrame(
+            index=ase.index,
+            columns=colnames,
+            data=res
+            )
+
+
+def calculate_variance_explained(ase, xs, func, params):
+    r2 = pd.Series(index=params.index, data=np.inf)
+    for ix in params.index:
+        r2.ix[ix] = 1-(
+            ((ase.ix[ix] - func(xs, *params.ix[ix]))**2).sum()
+            / ((ase.ix[ix] - ase.ix[ix].mean())**2).sum()
+        )
+
+    return r2
+
+
 if __name__ == "__main__":
     ase = (pd
-           .read_table('analysis_godot/ase_summary.tsv',
+           .read_table('analysis_godot/ase_summary_by_read.tsv',
                        index_col=0,
                        keep_default_na=False, na_values=['---'],)
            .dropna(how='all', axis=1)
+           .dropna(how='all', axis=0)
           )
     ase_perm = pd.DataFrame(
             data=np.random.permutation(ase.T).T,
@@ -70,84 +117,38 @@ if __name__ == "__main__":
 
     xs = pd.Series(index=ase.columns,
                    data=[int(a.split('_')[2][2:])/max_slice['_'.join(a.split('_')[:2])] for a in ase.columns if 'sl' in a])
+    colnames = ['Amp', 'width', 'center', 'y_offset']
     with Pool() as p:
-        res_logist_old = list(p.starmap(fit_func,
-                               zip(it.repeat(logistic),
-                                   ase.index,
-                                   it.repeat(ase),
-                                   it.repeat(xs),
-                                  )
-                              ))
-        res_logist = pd.DataFrame(
-            index=ase.index,
-            columns=['Amp', 'width', 'center', 'y_offset'],
-            data=res_logist_old,
-        ).dropna()
-        res_logist_perm = list(p.starmap(fit_func,
-                               zip(it.repeat(logistic),
-                                   ase_perm.index,
-                                   it.repeat(ase_perm),
-                                   it.repeat(xs),
-                                  )
-                              ))
-        res_logist_perm = pd.DataFrame(
-            index=ase_perm.index,
-            columns=['Amp', 'width', 'center', 'y_offset'],
-            data=res_logist_perm,
-        ).dropna()
-        res_peak = list(p.starmap(fit_func,
-                               zip(it.repeat(peak),
-                                   ase.index,
-                                   it.repeat(ase),
-                                   it.repeat(xs),
-                                  )
-                              ))
-        res_peak =pd.DataFrame(
-            index=ase.index,
-            columns=['Amp', 'width', 'center', 'y_offset'],
-            data=list(res_peak),
-        ).dropna()
-        res_peak_perm = list(p.starmap(fit_func,
-                               zip(it.repeat(peak),
-                                   ase_perm.index,
-                                   it.repeat(ase_perm),
-                                   it.repeat(xs),
-                                  )
-                              ))
-        res_peak_perm =pd.DataFrame(
-            index=ase_perm.index,
-            columns=['Amp', 'width', 'center', 'y_offset'],
-            data=list(res_peak_perm),
-        ).dropna()
+        res_logist = fit_all_ase(ase, logistic, xs, colnames, p).dropna()
+        res_logist_perm = fit_all_ase( ase_perm, logistic, xs, colnames, p).dropna()
+        res_peak = fit_all_ase(ase, peak, xs, colnames, p).dropna()
+        res_peak_perm = fit_all_ase( ase_perm, peak, xs, colnames, p).dropna()
 
-    r2_logist = pd.Series(index=res_logist.index, data=np.inf)
-    r2_logist_perm = pd.Series(index=res_logist_perm.index, data=np.inf)
-    r2_peak = pd.Series(index=res_peak.index, data=np.inf)
-    r2_peak_perm = pd.Series(index=res_peak_perm.index, data=np.inf)
+        res_lin = pd.DataFrame(
+                index=ase.index,
+                columns=['slope', 'intercept', 'pval', 'r'],
+                data=np.nan
+                )
+        res_lin_perm = res_lin.copy()
 
-    for ix in r2_logist.index:
-        r2_logist.ix[ix] = 1-(
-            ((ase.ix[ix] - logistic(xs, *res_logist.ix[ix]))**2).sum()
-            / ((ase.ix[ix] - ase.ix[ix].mean())**2).sum()
-        )
+        for gene in ProgressBar()(ase.index):
+            cols = isfinite(ase.ix[gene])
+            linreg = linregress(xs[cols], ase.ix[gene, cols])
+            if linreg.pvalue < .05:
+                res_lin.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
 
-    for ix in r2_peak.index:
-        r2_peak.ix[ix] = 1-(
-            ((ase.ix[ix] -     peak(xs,   *res_peak.ix[ix]))**2).sum()
-            / ((ase.ix[ix] - ase.ix[ix].mean())**2).sum()
-        )
+            cols = isfinite(ase_perm.ix[gene])
+            linreg = linregress(xs[cols], ase_perm.ix[gene, cols])
+            if linreg.pvalue < .05:
+                res_lin_perm.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
 
-    for ix in r2_logist_perm.index:
-        r2_logist_perm.ix[ix] = 1-(
-            ((ase_perm.ix[ix] - logistic(xs, *res_logist_perm.ix[ix]))**2).sum()
-            / ((ase_perm.ix[ix] - ase_perm.ix[ix].mean())**2).sum()
-        )
 
-    for ix in r2_peak_perm.index:
-        r2_peak_perm.ix[ix] = 1-(
-            ((ase_perm.ix[ix] -     peak(xs,   *res_peak_perm.ix[ix]))**2).sum()
-            / ((ase_perm.ix[ix] - ase_perm.ix[ix].mean())**2).sum()
-        )
+
+    r2_logist = calculate_variance_explained(ase, xs, logistic, res_logist)
+    r2_logist_perm = calculate_variance_explained(ase_perm, xs, logistic, res_logist_perm)
+    r2_peak = calculate_variance_explained(ase, xs, peak, res_peak)
+    r2_peak_perm = calculate_variance_explained(ase_perm, xs, peak, res_peak_perm)
+
 
     print("Found {: 4} {:<10} of which {} are likely false".format(sum(r2_logist > 0.5), 'logistic', sum(r2_logist_perm > .5)))
     print("Found {: 4} {:<10} of which {} are likely false".format(sum(r2_peak > 0.5), 'peak', sum(r2_peak_perm > .5)))
