@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # vim: set noexpandtab tabstop=4
 
-# Created on: 2015.03.19 
+# Created on: 2015.03.19
 # Author: Carlo Artieri
 
 ##############################
@@ -27,7 +27,7 @@
 ###########
 import sys			#Access to simple command-line arguments
 sys.path.append('/Users/carloartieri/bin/python') #Set python path for common functions
-import argparse		#Access to long command-line parsing	
+import argparse		#Access to long command-line parsing
 import datetime		#Access to calendar/clock functions
 import re			#Access to REGEX splitting
 import math			#Access to math functions
@@ -44,21 +44,21 @@ from collections import defaultdict
 
 epilog = """\
 NOTE:	SNPs that overlap multiple features on the same strand (or counting from unstranded
-	libraries) will be counted in EVERY feature that they overlap. It is important to 
-	filter the annotation to count features of interest!  
+	libraries) will be counted in EVERY feature that they overlap. It is important to
+	filter the annotation to count features of interest!
 
 Detailed description of inputs/outputs follows:
 
--p/--phasedsnps 
+-p/--phasedsnps
 	A tab-delimited BED file with positions of masked SNPs of interest as follows:
 
 	[CHR]	[0 POSITION]	[1 POSITION]	[REF|ALT]
 
-	The fourth column MUST contain the phased SNPs alleles. 
+	The fourth column MUST contain the phased SNPs alleles.
 
 -g/--gff
 	The script accepts both GTF and GFF annotation files. This should be combined with
-	the -i/--identifier option specifying the identifier in the info column (column 9) 
+	the -i/--identifier option specifying the identifier in the info column (column 9)
 	that will be used for grouping counts. For example, in a GTF 'gene_id' will group
 	counts by gene with 'transcript_id' with group counts by transcript. In addition,
 	the -t/--type option sets the feature type (column 3) from which to pull features
@@ -77,19 +77,19 @@ Detailed description of inputs/outputs follows:
 -s/--stranded
 	If the data come from a stranded library prep, then this option will only count reads
 	mapped to the corresponding strand.
-	
+
 OUTPUT:
 
-The output of the script is a tab-delimited text file set by -o/--outfile, which contains 
+The output of the script is a tab-delimited text file set by -o/--outfile, which contains
 the following columns:
 
-FEATURE 		Name of the counted feature	
+FEATURE 		Name of the counted feature
 CHROMOSOME 		Chromosome where feature is found
 ORIENTATION 		Orientation of feature (+/-)
 START-STOP 		Ultimate 5' and 3' 1-based start and stop positions
 REFERENCE_COUNTS 	Total reference allele counts across SNPS (or first allele in the REF|ALT phasing)
 ALT_COUNTS 		Total alternate allele counts across SNPs (or second allele in the REF|ALT phasing)
-TOTAL_SNPS 		The total number of SNPs overlapped by the feature 
+TOTAL_SNPS 		The total number of SNPs overlapped by the feature
 REF_BIASED 		Number of REF biased SNPs passing the -m/--min threshold
 ALT_BIASED 		Number of ALT biased SNPs passing the -m/--min threshold
 REF-ALT_RATIO 		The proportion of SNPs agreeing in direction (0.5 - 1)
@@ -97,7 +97,7 @@ SNPS 			A list of all SNPs overlapped by the feature separated by ';' and of the
 
 	[1-based position],[REF_ALLELE]|[ALT_ALLELE],[REF_COUNTS]|[ALT_COUNTS];
 
-If the -w/--writephasedsnps option has been set, it will produce a tab-delimited table with the 
+If the -w/--writephasedsnps option has been set, it will produce a tab-delimited table with the
 following columns:
 
 CHROMOSOME 		Chromosome where SNP is found
@@ -109,7 +109,7 @@ ALTERNATE_ALLELE 	Alternate base
 REF_COUNTS 		Reference base counts
 ALT_COUNTS 		Alternate base counts
 
-	
+
 """
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
@@ -233,14 +233,14 @@ for line in gff_file:
 					name = i2[1]
 
 	else:
-		print 'ID attribute "' + args.id + '" doesn\'t exist or GFF/GTF file not properly formatted.' 
+		print 'ID attribute "' + args.id + '" doesn\'t exist or GFF/GTF file not properly formatted.'
 		print 'GFF info column format is: attribute=value;'
 		print 'GTF info column format is: attribute "value";\n'
-		sys.exit(1)  
+		sys.exit(1)
 
 	features[name] = 1
 	chromosome[name] = line_t[0]
-	
+
 	ori[name] = line_t[6]
 	orientation = line_t[6]
 
@@ -303,7 +303,7 @@ for line in gff_file:
 					if ref_pos_counts + alt_pos_counts >= args.min:
 						if ref_pos_counts > alt_pos_counts:
 							ref_biased[name] += 1
-							
+
 						elif ref_pos_counts < alt_pos_counts:
 							alt_biased[name] += 1
 
@@ -386,7 +386,7 @@ for line in gff_file:
 					total_alt[name] += int(alt_neg_counts)
 				else:
 					total_alt[name] = 0
-					total_alt[name] += int(alt_pos_counts)				
+					total_alt[name] += int(alt_pos_counts)
 					total_alt[name] += int(alt_neg_counts)
 
 				#Determine if ref or alt biased
@@ -421,14 +421,14 @@ for line in gff_file:
 						if name in ref_biased:
 							pass
 						else:
-							ref_biased[name] = 0				
+							ref_biased[name] = 0
 
 				#Add it to the total SNP array
 				if name in snp_array:
 					snp_array[name].append(str(i) + ',' + str(snp_phase_dict[pos]) + ',' + str(int(tot_ref)) + '|' + str(int(tot_alt)))
 				else:
 					snp_array[name] = []
-					snp_array[name].append(str(i) + ',' + str(snp_phase_dict[pos]) + ',' + str(int(tot_ref)) + '|' + str(int(tot_alt)))			
+					snp_array[name].append(str(i) + ',' + str(snp_phase_dict[pos]) + ',' + str(int(tot_ref)) + '|' + str(int(tot_alt)))
 
 gff_file.close()
 
@@ -471,7 +471,7 @@ for key in keys:
 	else:	#No counts for this feature
 		if key in snp_array:
 			outfile.write(str(key) + '\t' + str(chromosome[key]) + '\t' + str(ori[key]) + '\t' + str(posit) + '\tNA\tNA\tNA\tNA\tNA\tNA\t'+';'.join(snp_array[key])+'\n')
-		else: 
+		else:
 			outfile.write(str(key) + '\t' + str(chromosome[key]) + '\t' + str(ori[key]) + '\t' + str(posit) + '\tNA\tNA\tNA\tNA\tNA\tNA\tNA\n')
 
 outfile.close()
@@ -483,6 +483,6 @@ if args.write is True:
 	outfile.write('CHROMOSOME\tPOSITION\tFEATURE\tORIENTATION\tREFERENCE_ALLELE\tALTERNATE_ALLELE\tREF_COUNTS\tALT_COUNTS\n')
 
 	for i in phased_snp_array:
-		outfile.write(i + '\n')		
+		outfile.write(i + '\n')
 
 	outfile.close()
