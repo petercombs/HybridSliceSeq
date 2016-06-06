@@ -311,7 +311,8 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 	python2 GetGeneASE.py \
 		--snpcounts $< \
 		--phasedsnps $(ANALYSIS_DIR)/on_$(call substr,$(notdir $@),1,3)/melsim_variant.bed \
-		--allele-min 2 \
+		--allele-min 0 \
+		--min 1 \
 		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
 		-o $@ \
 		--preference-index \
@@ -332,7 +333,8 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 	python2 GetGeneASE.py \
 		--snpcounts $< \
 		--phasedsnps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
-		--allele-min 2 \
+		--allele-min 0 \
+		--min 1 \
 		--type CDS \
 		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
 		-o $@ \
@@ -349,7 +351,8 @@ $(ANALYSIS_DIR)/recalc_ase:
 	python2 GetGeneASE.py \
 		--snpcounts $< \
 		--phasedsnps analysis/on_mel/melsim_variant.bed \
-		--allele-min 2 \
+		--allele-min 0 \
+		--min 1 \
 		--min $(lastword $(subst _counts_, ,$*)) \
 		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
 		-o $@ \
