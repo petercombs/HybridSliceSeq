@@ -104,11 +104,46 @@ $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py 
 		$(ANALYSIS_DIR) \
 		\| tee analysis/mst_fb.log
 
+$(ANALYSIS_DIR)/ase_summary_by_read.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase_by_read.tsv,$$(FPKMS))
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
+	python MakeSummaryTable.py \
+			--params Parameters/RunConfig.cfg \
+			--filename melsim_gene_ase_by_read.tsv \
+			--column "ase_value" \
+			--strip-low-reads 3000000 \
+			--strip-on-unique \
+			--strip-as-nan \
+			--map-stats analysis/map_stats.tsv \
+			--key "gene" \
+			--out-basename ase_summary_by_read \
+			--float-format "%0.6f" \
+			$(ANALYSIS_DIR)
+
+$(ANALYSIS_DIR)/ase_summary_by_read_in_%subset.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,$$(*)subset/melsim_gene_ase_by_read.tsv,$$(FPKMS))
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
+	python MakeSummaryTable.py \
+			--params Parameters/RunConfig.cfg \
+			--filename melsim_gene_ase_by_read.tsv \
+			--in-subdirectory $*subset \
+			--column "ase_value" \
+			--strip-low-reads 90000 \
+			--strip-on-unique \
+			--strip-as-nan \
+			--map-stats analysis/map_stats.tsv \
+			--key "gene" \
+			--out-basename ase_summary_by_read \
+			--float-format "%0.6f" \
+			$(ANALYSIS_DIR)
+
 $(ANALYSIS_DIR)/ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase.tsv,$$(FPKMS))
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
 			--params Parameters/RunConfig.cfg \
 			--filename melsim_gene_ase.tsv \
+			--strip-low-reads 3000000 \
+			--strip-on-unique \
+			--strip-as-nan \
+			--map-stats analysis/map_stats.tsv \
 			--column "REF-ALT_RATIO" \
 			--key "FEATURE" \
 			--out-basename ase_summary \
@@ -398,3 +433,9 @@ Reference/tss: $(MELGTF)
 		-outfmt \"6 qseqid staxids sskingdoms sblastnames sscinames\" \
 		-num_threads 8  -max_target_seqs 1 \
 		-out $@
+
+%subset/accepted_hits.bam: $$(dir $$(*))/assigned_dmelR_wasp_dedup.sorted.bam
+	mkdir -p $(dir $*)/subset$(notdir $*)M/
+	ln -f -s subset$(notdir $*)M/ $(@D)
+	./qsubber --job-name $(notdir $(*D))_subset$(notdir $*) --keep-temporary tmp -t 1 --log-base $(basename $@) \
+	python ./SubSample.py $(dir $*)/assigned_dmelR_wasp_dedup.sorted.bam $(notdir $*)

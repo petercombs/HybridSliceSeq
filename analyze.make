@@ -305,7 +305,16 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--preference-index \
 		--true-hets $(ANALYSIS_DIR)/on_$(call substr,$(notdir $@),1,3)/true_hets.tsv \
 		--writephasedsnps
-	
+
+%/melsim_gene_ase_by_read.tsv : %/assigned_dmelR_wasp_dedup.sorted.bam %/assigned_dmelR_wasp_dedup.sorted.bam.bai $(ANALYSIS_DIR)/on_mel/melsim_variant.bed
+	./qsubber $(QSUBBER_ARGS) -t 1 \
+	python ~/ASEr/bin/GetGeneASEbyReads.py \
+		--outfile $@ \
+		--ase-function pref_index \
+		$(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		$(MELGTF) \
+		$<
+
 %_cds_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py $(ANALYSIS_DIR)/recalc_ase $(ANALYSIS_DIR)/on_mel/true_hets.tsv
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python2 GetGeneASE.py \
