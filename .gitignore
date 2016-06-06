@@ -9,3 +9,4 @@ tmp*
 *.pkl
 __pycache__
 config.make
+godot

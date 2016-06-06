@@ -347,7 +347,7 @@ $(GENEMAPTABLE):
 	samtools index $@
 
 %.bam.bai: %.bam
-	samtools index $@
+	samtools index $<
 
 $(REFDIR)/mel_$(MELVERSION): | $(REFDIR)
 	touch $@
