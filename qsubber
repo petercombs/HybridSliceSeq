@@ -131,6 +131,19 @@ if args.local:
     status = popen.wait()
 else:
     output, _ = popen.communicate()
+    if popen.returncode:
+        for i in range(5):
+            sleep(2**(i))
+            popen = sp.Popen(call, stdin=stdin, stdout=out, stderr=stderr)
+            output, _ = popen.communicate()
+            if popen.returncode == 0:
+                break
+        else:
+            # Note the for-else construct.  Raise exception if after 5 more
+            # tries we can't submit the job.
+            raise OSError("Unknown issue with the queue")
+
+
     id = output.decode().split('.')[0]
     print("ID: '''{}'''".format(id))
     while check_job(id) != 'C':
