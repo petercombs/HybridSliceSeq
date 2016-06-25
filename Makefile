@@ -64,7 +64,7 @@ include analyze.make
 $(ANALYSIS_DIR)/retabulate:
 	touch $@
 
-$(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) | $(ANALYSIS_DIR)
+$(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) $(ANALYSIS_DIR)/map_stats.tsv| $(ANALYSIS_DIR)
 	@echo '============================='
 	@echo 'Making summary table'
 	@echo '============================='
@@ -76,15 +76,15 @@ $(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(F
 	   --strip-as-nan \
 	   --mapped-bamfile assigned_dmelR.bam \
 	   --strip-low-map-rate 70 \
-	   --map-stats analysis/map_stats.tsv \
+	   --map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 	   --filename $(QUANT_FNAME) \
 	   --key $(QUANT_KEY) \
 	   --column $(QUANT_COL) \
 		$(ANALYSIS_DIR) \
-		\| tee analysis/mst.log
+		\| tee $(ANALYSIS_DIR)/mst.log
 
 
-$(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) | $(ANALYSIS_DIR)
+$(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) $(ANALYSIS_DIR)/map_stats.tsv | $(ANALYSIS_DIR)
 	@echo '============================='
 	@echo 'Making summary table'
 	@echo '============================='
@@ -96,15 +96,15 @@ $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py 
 	   --strip-as-nan \
 	   --mapped-bamfile assigned_dmelR.bam \
 	   --strip-low-map-rate 70 \
-	   --map-stats analysis/map_stats.tsv \
+	   --map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 	   --out-basename summary_fb \
 	   --filename $(QUANT_FNAME) \
 	   --key tracking_id \
 	   --column $(QUANT_COL) \
 		$(ANALYSIS_DIR) \
-		\| tee analysis/mst_fb.log
+		\| tee $(ANALYSIS_DIR)/mst_fb.log
 
-$(ANALYSIS_DIR)/ase_summary_by_read.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase_by_read.tsv,$$(FPKMS))
+$(ANALYSIS_DIR)/ase_summary_by_read.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase_by_read.tsv,$$(FPKMS)) $(ANALYSIS_DIR)/map_stats.tsv
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
 			--params Parameters/RunConfig.cfg \
@@ -113,13 +113,13 @@ $(ANALYSIS_DIR)/ase_summary_by_read.tsv: $(ANALYSIS_DIR)/retabulate $$(subst gen
 			--strip-low-reads 3000000 \
 			--strip-on-unique \
 			--strip-as-nan \
-			--map-stats analysis/map_stats.tsv \
+			--map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 			--key "gene" \
 			--out-basename ase_summary_by_read \
 			--float-format "%0.6f" \
 			$(ANALYSIS_DIR)
 
-$(ANALYSIS_DIR)/ase_summary_by_read_in_%subset.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,$$(*)subset/melsim_gene_ase_by_read.tsv,$$(FPKMS))
+$(ANALYSIS_DIR)/ase_summary_by_read_in_%subset.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,$$(*)subset/melsim_gene_ase_by_read.tsv,$$(FPKMS)) $(ANALYSIS_DIR)/map_stats.tsv
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
 			--params Parameters/RunConfig.cfg \
@@ -129,13 +129,13 @@ $(ANALYSIS_DIR)/ase_summary_by_read_in_%subset.tsv: $(ANALYSIS_DIR)/retabulate $
 			--strip-low-reads 90000 \
 			--strip-on-unique \
 			--strip-as-nan \
-			--map-stats analysis/map_stats.tsv \
+			--map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 			--key "gene" \
 			--out-basename ase_summary_by_read \
 			--float-format "%0.6f" \
 			$(ANALYSIS_DIR)
 
-$(ANALYSIS_DIR)/ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase.tsv,$$(FPKMS))
+$(ANALYSIS_DIR)/ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase.tsv,$$(FPKMS)) $(ANALYSIS_DIR)/map_stats.tsv
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
 			--params Parameters/RunConfig.cfg \
@@ -143,7 +143,7 @@ $(ANALYSIS_DIR)/ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_
 			--strip-low-reads 3000000 \
 			--strip-on-unique \
 			--strip-as-nan \
-			--map-stats analysis/map_stats.tsv \
+			--map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 			--column "REF-ALT_RATIO" \
 			--key "FEATURE" \
 			--out-basename ase_summary \
@@ -174,6 +174,7 @@ $(ANALYSIS_DIR)/map_stats.tsv: $$(subst genes.fpkm_tracking,assigned_dmelR.mapst
 		--params Parameters/RunConfig.cfg \
 		-u \
 		--count-all \
+		-T \
 		$(ANALYSIS_DIR)
 
 %.mapstats: %.bam

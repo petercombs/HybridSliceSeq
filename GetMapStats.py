@@ -43,6 +43,8 @@ def parse_args():
                         'more accurate, but also potentially slower than using '
                         'the heuristic that all but the last files are capped at '
                         '4M reads')
+    parser.add_argument('--translate-labels', '-T', default=False,
+                        action='store_true')
     parser.add_argument('basedir',
                         help='The directory containing directories, which '
                         'contain genes.fpkm_tracking files')
@@ -146,13 +148,13 @@ if __name__ == "__main__":
                                      params.ix[i, 'Direction']))
             else:
                 new_dirname = dirname
-            print(dirname, '=', new_dirname)
             new_fdirs.append(new_dirname)
-        fdirs = new_fdirs
-        df = pd.DataFrame(index=fdirs,
-                      data=res,
+    df = pd.DataFrame(index=fdirs,
+                      data=pd.np.array(res),
                       columns=['UniqueMapped', 'AllMapped', 'RawReads'],
                      )
+    if args.translate_labels:
+        df['LongName'] = new_fdirs
     df.sort_index().to_csv(path.join(args.basedir,
                                      'map_stats.tsv'),
                            sep='\t',
