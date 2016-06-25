@@ -63,7 +63,11 @@ def get_stagenum(name, series, dir):
 def mp_count_reads(args):
     return count_reads(*args)
 
-def count_reads(bamname, has_carrier=False, count_unique=False, count_all=False):
+def count_reads(bamname, has_carrier=False, count_unique=False, count_all=False,
+               force_count=False):
+    mapfile = path.splitext(bamname)[0]+'.mapstats'
+    if path.exists(mapfile) and not force_count:
+        return list(pd.read_table(mapfile).ix[0])
     sf = Samfile(bamname)
     u_mapped = pd.np.nan
     if count_unique:

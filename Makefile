@@ -169,6 +169,18 @@ $(ANALYSIS_DIR)/cds_ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.f
 			--out-basename cds_ase_summary \
 			$(ANALYSIS_DIR)
 
+$(ANALYSIS_DIR)/map_stats.tsv: $$(subst genes.fpkm_tracking,assigned_dmelR.mapstats,$$(FPKMS))
+	python GetMapStats.py \
+		--params Parameters/RunConfig.cfg \
+		-u \
+		--count-all \
+		$(ANALYSIS_DIR)
+
+%.mapstats: %.bam
+	./qsubber $(QSUBBER_ARGS) -t 1 \
+	python GetSingleMapStats.py $<
+
+
 %/genes.fpkm_tracking : %/assigned_dmelR.bam $(MELGTF) $(MELFASTA2) $(MELBADGTF)
 	@echo '============================='
 	@echo 'Calculating Abundances'
