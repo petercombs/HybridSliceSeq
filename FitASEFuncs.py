@@ -1,4 +1,4 @@
-from numpy import (exp, sqrt, array, isfinite, mean, shape, nan, inf, median)
+from numpy import (exp, array, isfinite, nan, inf)
 from scipy.optimize import curve_fit
 from scipy.stats import linregress
 from multiprocessing import Pool
@@ -53,18 +53,26 @@ def fit_func(func, index, data, xs, p0=None, randomize=False):
     except (ValueError, RuntimeError):
         return array([nan, nan, nan, nan])
 
-def fit_all_ase(ase, func, xs, colnames=None, pool=None):
+def fit_all_ase(ase, func, xs, colnames=None, pool=None, progress=False):
     if colnames is None:
         colnames = inspect.getargspec(func).args
         colnames.pop('x')
     if pool is not None:
-        res = list(pool.starmap(
-            fit_func,
-            zip(
-                it.repeat(func),
-                ase.index,
-                it.repeat(ase),
-                it.repeat(xs)
+        if progress:
+            results = [pool.apply_async(fit_func, (func, i, ase, xs, median_in))
+                       for i in ase.index]
+            res = []
+            for r in ProgressBar()(results):
+                res.append(r.get())
+        else:
+            res = list(pool.starmap(
+                fit_func,
+                zip(
+                    it.repeat(func),
+                    ase.index,
+                    it.repeat(ase),
+                    it.repeat(xs),
+                    it.repeat(median_in),
                 )
             ))
     else:
@@ -74,7 +82,7 @@ def fit_all_ase(ase, func, xs, colnames=None, pool=None):
                 it.repeat(func),
                 ase.index,
                 it.repeat(ase),
-                it.repeat(xs)
+                it.repeat(xs),
                 )
             ))
 
