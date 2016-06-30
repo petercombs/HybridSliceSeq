@@ -9,6 +9,11 @@ close('all')
 num_rows, num_cols = min(len(tfs), 4), int(ceil(len(tfs) / 4))
 box_size = 2.5
 
+if 'fbgn' not in locals():
+    fbgns = pd.read_table('prereqs/gene_map_table_fb_2016_01.tsv', index_col=1,skiprows=5).ix[:, 0]
+    gns = pd.read_table('prereqs/gene_map_table_fb_2016_01.tsv', index_col=0,skiprows=5).ix[:, 0]
+
+
 ase_vals = {0.1:'11:9', 0.2: '3:2', 0.3: '13:7', 0.4: '7:3'}
 
 def ase_val(input):
