@@ -371,15 +371,12 @@ $(ANALYSIS_DIR)/on_%/masked:
 		--frag-bias-correct $(@D)/../melsim_masked.fasta \
 		--multi-read-correct \
 		--output-dir $(@D) \
-		--verbose \
+		--quiet \
 		$<
 
 %accepted_hits_remapped.bam: #$$(dir $$*)/accepted_hits.bam #$(ANALYSISDIR)/$$(notdir $$*)/masked/Genome
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 4 \
 	python RemapOnOtherGenome.py $(@D)/accepted_hits.bam $(ANALYSIS_DIR)/$(notdir $*)/masked/Genome $@
-
-$(REFDIR)/dgrp_%.vcf: prereqs/dgrp2.vcf
-	grep -P '^(#|$*)' $< > $@
 
 WASPMAP = $(HOME)/FWASP/mapping
 
@@ -413,3 +410,29 @@ WASPMAP = $(HOME)/FWASP/mapping
 %.sorted.bam: %.bam
 	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 \
 	samtools sort $(SORT_OPTS) -@ 4 $< $*.sorted
+
+%/mel_only.bam %/sim_only.bam: %/assigned_dmelR_wasp_dedup.sorted.bam
+	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 \
+	 python PartitionReads.py \
+		 --reference-species mel --alt-species sim \
+		 --paired \
+		 $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		 $<
+	mv $(@D)/assigned_dmelR_wasp_dedup.sorted_sim.bam $(@D)/sim_only.bam
+	mv $(@D)/assigned_dmelR_wasp_dedup.sorted_mel.bam $(@D)/mel_only.bam
+	mv $(@D)/assigned_dmelR_wasp_dedup.sorted_ambig.bam $(@D)/ambig_only.bam
+
+
+%_only/genes.fpkm_tracking: %_only_sorted.bam
+	mkdir -p $(@D)
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 4 --load-module cufflinks \
+	cufflinks \
+		--GTF-guide $(MELGTF) \
+		--num-threads 8 \
+		--frag-bias-correct $(ANALYSIS_DIR)/on_mel/melsim_masked.fasta \
+		--multi-read-correct \
+		--output-dir $(@D) \
+		--quiet \
+		$<
+	
+
