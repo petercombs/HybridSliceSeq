@@ -12,6 +12,7 @@ from os import path
 from glob import glob
 from pysam import Samfile
 import gzip
+import sys
 
 
 def parse_args():
@@ -109,7 +110,8 @@ def get_expr_values(fname):
                               keep_default_na=False,
                               header=None if not args.header else 0)
     except Exception as err:
-        print(fname)
+        print(fname, file=sys.stderr)
+        sys.stderr.flush()
         raise err
     alldir, fname = path.split(fname)
     if args.in_subdirectory:
@@ -147,6 +149,9 @@ def get_expr_values(fname):
         if (args.map_stats is not None) and dirname in args.map_stats.index:
             col = 'UniqueMapped' if args.strip_on_unique else 'AllMapped'
             reads = args.map_stats.ix[dirname, col]
+        elif (args.map_stats is not None) and old_dirname in args.map_stats.index:
+            col = 'UniqueMapped' if args.strip_on_unique else 'AllMapped'
+            reads = args.map_stats.ix[old_dirname, col]
         else:
             if (args.map_stats is not None):
                 print("Missing {} in mapping stats".format(dirname))
