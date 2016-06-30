@@ -53,7 +53,7 @@ parser = ArgumentParser(prefix_chars='-')
 
 parser.add_argument('--sleep-random', type=float, default=3,
         metavar='time',
-        help='sleep for a random period of time up to %(metavar) before running the job')
+        help='sleep for a random period of time up to %(metavar)s before running the job')
 parser.add_argument('--job-name', default=None)
 parser.add_argument('--resource', '-l', default=None, nargs='*')
 parser.add_argument('--local', '-L', action='store_true',
