@@ -1,7 +1,9 @@
 from matplotlib.pyplot import (figure, subplot, scatter, hlines, plot, ylabel,
                                xlim, title, close, tight_layout, xticks, yticks,
                               ylim, vlines)
-from numpy import ceil
+from numpy import ceil, log, array
+import fractions
+
 tfs = ['cad', 'D', 'gt', 'hb', 'kni', 'prd', 'run', 'slp1']
 close('all')
 num_rows, num_cols = min(len(tfs), 4), int(ceil(len(tfs) / 4))
@@ -11,6 +13,8 @@ ase_vals = {0.1:'11:9', 0.2: '3:2', 0.3: '13:7', 0.4: '7:3'}
 
 def ase_val(input):
     input = abs(float(input))
+    if not isfinite(input):
+        return '---'
     if input == 0:
         return 'unbiased'
     A = 5 -5 * input
@@ -18,7 +22,7 @@ def ase_val(input):
     A2 = fractions.Fraction.from_float(round(100*A))
     B2 = fractions.Fraction.from_float(round(100*B))
     f = A2 / B2
-    return '{}:{}'.format(f.numerator, f.denominator)
+    return '{}:{}'.format(f.denominator, f.numerator)
 
 for gene in good_amps_peak.index.difference(good_amps_logist.index)[1:]:
     figure(figsize=(1.8*box_size*num_cols, box_size*(1+num_rows)))
