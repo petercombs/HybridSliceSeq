@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as mpl
 from collections import defaultdict
-from Utils import sel_startswith, startswith
+from Utils import sel_startswith, startswith, sel_contains
 from scipy.stats import spearmanr
 from progressbar import ProgressBar as pb
 
@@ -56,6 +56,7 @@ if __name__ == "__main__":
            .read_table('analysis_godot/ase_summary_by_read.tsv',
                        index_col=0,
                        keep_default_na=False, na_values=['---'],)
+           .select(**sel_contains('X'))
            .dropna(how='all', axis=1)
            .dropna(how='all', axis=0)
           )
