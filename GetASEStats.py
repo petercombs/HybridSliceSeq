@@ -1,8 +1,11 @@
 import pandas as pd
-from collections import Counter, defaultdict
+from collections import Counter
 from numpy import isfinite, int64, int32, int16, int8, sign, abs, nan
+from scipy.stats import ttest_1samp
 import Utils
+import PlotUtils as pu
 from Utils import startswith, fbgns, pd_kwargs
+from matplotlib import cm
 from progressbar import ProgressBar
 
 def slices_per_embryo(ase):
@@ -81,6 +84,9 @@ if __name__ == "__main__":
 
 
 
+    # Mutliplying your ASE values by parent of origin should make it so that
+    # maternal alleles are positive and paternal allels are negative
+
     parent_of_origin = pd.Series(
             index=ase.columns,
             data=[-1 if c.startswith('m') else 1 for c in ase.columns]
@@ -103,10 +109,30 @@ if __name__ == "__main__":
     slices_with_aseval = slices_with_aseval.where(slices_with_aseval>5, 5)
 
     maternal = (ase.multiply(parent_of_origin) > ASE_MIN).sum(axis=1) > (FRAC_FOR_MATERNAL * slices_with_aseval)
-    paternal = (ase.multiply(parent_of_origin) < -ASE_MIN).sum(axis=1) > (FRAC_FOR_MATERNAL * slices_with_aseval)
+    #paternal = (ase.multiply(parent_of_origin) < -ASE_MIN).sum(axis=1) > (FRAC_FOR_MATERNAL * slices_with_aseval)
+    paternal_mxs = pd.Series(index=ase.index, data=pd.np.nan)
+    paternal_sxm = pd.Series(index=ase.index, data=pd.np.nan)
+    samedir = pd.Series(index=ase.index, data=pd.np.nan)
+    for gene in paternal_sxm.index:
+        if expr.ix[gene].max() < EXPR_MIN:
+            continue
+        gene_ase = ase.ix[gene].multiply(parent_of_origin).dropna()
+        per_sample = Counter(col.split('_')[0] for col in gene_ase.index)
+        if len(per_sample) < 2 or per_sample.most_common(2)[1][1] < 5:
+            continue
+
+        tstat, pval = ttest_1samp(gene_ase.select(startswith('melXsim')), 0)
+        paternal_mxs.ix[gene] = pval/2 if tstat < 0 else 1-pval/2
+        tstat, pval = ttest_1samp(gene_ase.select(startswith('simXmel')), 0)
+        paternal_sxm.ix[gene] = pval/2 if tstat < 0 else 1-pval/2
+        #tstat, pval = ttest_ind(gene_ase.select('melXsim'),
+                                #gene_ase.select('simXmel'))
+    paternal = paternal_mxs.where(paternal_mxs > paternal_sxm, paternal_sxm).dropna().sort_values(ascending=False)
+
+
 
     data['num_maternal'] = sum(maternal)
-    data['num_paternal'] = sum(paternal)
+    data['num_paternal'] = sum(paternal < .05)
 
     low_expr_lott = slices_with_expr[lott.index[lott.CLASS == 'mat']] < FRAC_FOR_MATERNAL * len(expr.columns)
     data['lott_maternal_low'] = sum(low_expr_lott)
@@ -131,3 +157,22 @@ if __name__ == "__main__":
             numeric =  isinstance(val, (float, int, int64, int32, int8))
             frac = var.lower().startswith('frac')
             outf.write(create_latex_command(var, val, numeric, frac))
+
+
+    plot_kwargs = {'box_height': 25,
+                    'col_sep': '_sl',
+                    'convert': True,
+                    'draw_box': True,
+                    'draw_name': True,
+                    'draw_row_labels': True,
+                    'make_hyperlinks': True,
+                    'progress_bar': False,
+                    'split_columns': True,
+                    'total_width': 200}
+    if data['num_paternal']:
+        pu.svg_heatmap(ase.ix[paternal.index[paternal < .05]],
+                       'analysis/results/paternal.svg',
+                       norm_rows_by='center0pre', cmap=cm.RdBu,
+                       hatch_nan=True,hatch_size=1,
+                       row_labels=fbgns[paternal.index],
+                       **plot_kwargs)
