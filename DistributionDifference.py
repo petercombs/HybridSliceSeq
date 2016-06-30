@@ -96,7 +96,7 @@ def tang_stat(points1, points2):
 #
 #    return np.sqrt(stat)
 
-def earth_mover(points1, points2):
+def earth_mover(points1, points2, normer=np.sum):
     xs1 = np.linspace(0,1,len(points1),
                       endpoint=True)[np.array(np.isfinite(points1))]
     xs2 = np.linspace(0,1,len(points2),
@@ -104,13 +104,13 @@ def earth_mover(points1, points2):
     points1 = points1[np.isfinite(points1)]
     points2 = points2[np.isfinite(points2)]
     return emd.emd(xs1, xs2,
-                   points1/np.sum(points1),
-                   points2/np.sum(points2))
+                   points1/normer(points1),
+                   points2/normer(points2))
 
 def lcm(a,b):
     return abs(a * b) / math.gcd(a,b) if a and b else 0
 
-def earth_mover_interp(points1, points2):
+def earth_mover_interp(points1, points2, normer=np.sum):
     xs1 = np.linspace(0,1,len(points1),
                       endpoint=True)[np.array(np.isfinite(points1))]
     xs2 = np.linspace(0,1,len(points2),
@@ -122,13 +122,13 @@ def earth_mover_interp(points1, points2):
     points1 = np.interp(xs, xs1, points1[np.isfinite(points1)])
     points2 = np.interp(xs, xs2, points2[np.isfinite(points2)])
     return emd.emd(xs, xs,
-                   points1/np.sum(points1),
-                   points2/np.sum(points2))
+                   points1/normer(points1),
+                   points2/normer(points2))
 
 
 startswith = lambda x: lambda y: y.startswith(x)
 
-def earth_mover_multi_rep(points1, points2, abs_expr=False):
+def earth_mover_multi_rep(points1, points2, normer=np.sum):
     dist = 0.0
     reps1 = {col.split('sl')[0] for col in
              points1.index
@@ -139,7 +139,8 @@ def earth_mover_multi_rep(points1, points2, abs_expr=False):
     for rep1 in reps1:
         for rep2 in reps2:
             dist += (earth_mover_interp(points1.select(contains(rep1)),
-                                        points2.select(contains(rep2)))**2
+                                        points2.select(contains(rep2)),
+                                        normer=normer)**2
                      / (len(reps1)*len(reps2)))
     return dist**.5
 
@@ -282,9 +283,9 @@ if __name__ == "__main__":
 
     eps = 1.01
     kwargs = dict(index_col=0,
-            keep_default_na=False, 
+            keep_default_na=False,
             na_values=['---'])
-    ase = pd.read_table('analysis_godot/ase_summary.tsv', **kwargs) 
+    ase = pd.read_table('analysis_godot/ase_summary.tsv', **kwargs)
     expr = pd.read_table('analysis_godot/summary_fb.tsv', **kwargs)
     translate = pd.read_table('prereqs/gene_map_table_fb_2016_01.tsv', index_col=1).ix[:,0]
     with Pool() as p:
