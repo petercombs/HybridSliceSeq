@@ -79,6 +79,9 @@ def center_of_mass_onerep(data):
     data_clean += 0.01
     return sum(data_clean * xs, axis=len(dims)-1)/sum(data_clean, axis=len(dims)-1)
 
+fbgns = pd.read_table('prereqs/gene_map_table_fb_2016_01.tsv',
+                      index_col=1,skiprows=5).ix[:, 0]
+
 def get_synonyms():
     gn_to_fbgn = defaultdict(lambda : 'NOTPRESENT')
     file = [path.join(dirname, fname)
@@ -150,3 +153,19 @@ def load_to_locals(locals, expr_min=15):
             [wt, bcd, zld, g20, hb, ],
             [locals[i] for i in 'wts bcds zlds g20s hbs'.split()],
             by_cycle)
+
+
+pd_kwargs = dict(
+    index_col=0, keep_default_na=False, na_values=['---'],
+)
+
+def get_xs(dataframe):
+    max_slice = defaultdict(int)
+    for sl in dataframe.columns:
+        sl = sl.split('_sl')
+        emb = sl[0]
+        max_slice[emb] = max(max_slice[emb], int(sl[1][0:2]))
+
+    return pd.Series(index=dataframe.columns,
+                   data=[(int(a.split('_sl')[1][:2])-1)/(max_slice[a.split('_sl')[0]]-1)
+                         for a in dataframe.columns if 'sl' in a])

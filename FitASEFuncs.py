@@ -3,6 +3,7 @@ from scipy.optimize import curve_fit
 from scipy.stats import linregress
 from multiprocessing import Pool
 from collections import defaultdict
+from Utils import sel_startswith, get_xs, pd_kwargs, fbgns
 import pandas as pd
 import itertools as it
 import numpy as np
@@ -105,26 +106,22 @@ def calculate_variance_explained(ase, xs, func, params):
 
 
 if __name__ == "__main__":
+    expr = pd.read_table('analysis_godot/summary_fb.tsv', **pd_kwargs).dropna(how='all', axis=1)
     ase = (pd
            .read_table('analysis_godot/ase_summary_by_read.tsv',
-                       index_col=0,
-                       keep_default_na=False, na_values=['---'],)
+                       **pd_kwargs
+                       )
            .dropna(how='all', axis=1)
            .dropna(how='all', axis=0)
+           .select(**sel_startswith(('melXsim', 'simXmel')))
           )
     ase_perm = pd.DataFrame(
             data=np.random.permutation(ase.T).T,
             index=ase.index,
             columns=ase.columns,
             )
-    max_slice = defaultdict(int)
-    for sl in ase.columns:
-        sl = sl.split('_')
-        emb = '_'.join(sl[:2])
-        max_slice[emb] = max(max_slice[emb], int(sl[2][2:]))
 
-    xs = pd.Series(index=ase.columns,
-                   data=[int(a.split('_')[2][2:])/max_slice['_'.join(a.split('_')[:2])] for a in ase.columns if 'sl' in a])
+    xs = get_xs(ase)
     colnames = ['Amp', 'width', 'center', 'y_offset']
     with Pool() as p:
         res_logist = fit_all_ase(ase, logistic, xs, colnames, p).dropna()

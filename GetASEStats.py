@@ -2,6 +2,7 @@ import pandas as pd
 from collections import Counter, defaultdict
 from numpy import isfinite, int64, int32, int16, int8, sign, abs, nan
 import Utils
+from Utils import startswith, fbgns, pd_kwargs
 from progressbar import ProgressBar
 
 def slices_per_embryo(ase):
@@ -17,12 +18,12 @@ def create_latex_command(name, value, numeric=False, frac=False):
 
 def get_class(gene, ase, subset='', slices_with_expr=None, expr=None):
     sample = ase.ix[gene]
-    sample = sample.select(Utils.startswith(subset))
+    sample = sample.select(startswith(subset))
 
     if slices_with_expr is not None and gene in slices_with_expr.index:
         slices_with_expr = slices_with_expr.ix[gene]
     elif slices_with_expr is None and expr is not None and gene in expr.index:
-        slices_with_expr = (expr.ix[gene].select(Utils.startswith(subset)) > EXPR_MIN).sum()
+        slices_with_expr = (expr.ix[gene].select(startswith(subset)) > EXPR_MIN).sum()
     else:
         return nan
     ase_vals = (abs(sample) > ASE_MIN) * sign(sample)
@@ -48,15 +49,13 @@ ASE_MIN = (FRAC_FOR_ASE - (1-FRAC_FOR_ASE))/1
 FRAC_FOR_MATERNAL = 0.65
 
 if __name__ == "__main__":
-    kwargs = dict(index_col=0,
-            keep_default_na=False,
-            na_values=['---'])
-
-
     if 'ase' not in locals() or ('reload_ase' in locals() and locals()['reload_ase']):
         print("Reloading data")
-        ase = pd.read_table('analysis_godot/ase_summary_by_read.tsv', **kwargs).dropna(how='all', axis=1)
-        expr = pd.read_table('analysis_godot/summary_fb.tsv', **kwargs).dropna(how='all', axis=1)
+        ase = (pd.read_table('analysis_godot/ase_summary_by_read.tsv', **pd_kwargs)
+               .dropna(how='all', axis=1)
+               .select(**Utils.sel_startswith(('melXsim', 'simXmel')))
+              )
+        expr = pd.read_table('analysis_godot/summary_fb.tsv', **pd_kwargs).dropna(how='all', axis=1)
         lott = pd.read_table('prereqs/journal.pbio.1000590.s002', index_col=0, keep_default_na=False, na_values=[''])
         reload_ase = False
         to_gn = pd.read_table('prereqs/gene_map_table_fb_2016_01.tsv', index_col=1, skiprows=4).ix[:,0]
