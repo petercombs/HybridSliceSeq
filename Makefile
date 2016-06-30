@@ -60,6 +60,7 @@ genomes: Reference/Dmel/Genome $(SIMFASTA2) $(MELFASTA2) $(SECFASTA2)
 # Read the per-project make-file
 include config.make
 include hybrids.make
+include processing.make
 
 $(ANALYSIS_DIR)/retabulate:
 	touch $@
