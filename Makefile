@@ -188,7 +188,7 @@ $(ANALYSIS_DIR)/map_stats.tsv: $$(subst genes.fpkm_tracking,assigned_dmelR.mapst
 	@echo 'Calculating Abundances'
 	@echo '============================='
 	touch $@
-	./qsubber $(QSUBBER_ARGS)_$(*F) -t 4 \
+	./qsubber $(QSUBBER_ARGS)_$(*F) --load-module cufflinks -t 4 \
 	cufflinks \
 		--num-threads 8 \
 		--output-dir $(@D) \
@@ -208,16 +208,16 @@ $(ANALYSIS_DIR)/map_stats.tsv: $$(subst genes.fpkm_tracking,assigned_dmelR.mapst
 		| sort -u \
 		> $(@D)/species_present
 	ns=`wc -l $(@D)/species_present | cut -f 1`
-	if [ `wc -l $(@D)/species_present | cut -d ' ' -f 1` -eq "1" ]; then \
-		samtools sort $< $(basename $@); \
+	./qsubber $(QSUBBER_ARGS)_$(*F) --load-module samtools -t 3 \
+	if [ `wc -l $(@D)/species_present | cut -d ' ' -f 1` -eq "1" ]\; then \
+		samtools sort -@ 3 -o $@ $< \; \
 	else \
-		python AssignReads2.py $(@D)/accepted_hits.bam; \
-		samtools sort $(@D)/assigned_dmel.bam \
-			$(@D)/assigned_dmel_sorted; \
+		python AssignReads2.py $(@D)/accepted_hits.bam\; \
+		samtools sort -o $@ $(@D)/assigned_dmel.bam \; \
 		samtools view $(@D)/assigned_dmel_sorted.bam \
-			| cat $(@D)/mel_only.header.sam - \
-			| samtools view -bS -o $@ -; \
-		rm $(@D)/assigned_dmel_sorted.bam; \
+			\| cat $(@D)/mel_only.header.sam - \
+			\| samtools view -bS -o $@ -\; \
+		rm $(@D)/assigned_dmel_sorted.bam\; \
 	fi
 	samtools index $@
 
@@ -399,9 +399,10 @@ $(REFDIR)/d%_masked/done: $(REFDIR)/d%_masked.fasta
 %.dict : %.fa
 	picard CreateSequenceDictionary R=$< O=$@
 
-%_transcriptome: %.1.ebwt
+%_transcriptome: %.1.bt2
+	echo $(call uc,$(patsubst Reference/d%_prepend,%,$*))GTF
 	tophat2 --transcriptome-index $@ \
-			--GTF $($(call uc,$*)GTF)
+			--GTF $($(call uc,$(patsubst Reference/d%_prepend,%,$*))GTF) \
 			$*
 
 
