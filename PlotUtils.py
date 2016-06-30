@@ -139,6 +139,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
         assert all_colnames
 
 
+    old_data = data
     colname_tuple = repeat(None)
     if split_columns and has_pandas:
         from Utils import sel_startswith
@@ -175,9 +176,10 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
 
     if total_width is not None and max_width is not np.inf:
         dwg = svg.Drawing(filename,
-                          size=(max_width,
-                                np.ceil((len(data) * total_width)/max_width +
-                                        (draw_average or draw_average_only))
+                          size=(max_width + 2 * x_min,
+                                2 * y_min
+                                + np.ceil((len(data) * total_width)/max_width +
+                                          (draw_average or draw_average_only))
                                 * (box_height+vspacer)))
     else:
         dwg = svg.Drawing(filename)
@@ -277,6 +279,14 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 norm_data = array(frame.divide(frame.dropna(axis=1, how='all').max(axis=1)+10, axis=0))
             else:
                 norm_data = frame / (frame[:,isfinite(frame[0,:])].max(axis=1) + 10).reshape((rows, 1))
+        elif normer is 'maxall':
+            if has_pandas:
+                norm_data = array(frame.divide(old_data.dropna(axis=1,
+                                                            how='all').max(axis=1)+10,
+                                               axis=0))
+            else:
+                norm_data = frame / (old_data[:, isfinite(old_data[0, :])]
+                                     .max(axis=1) + 10).reshape((rows, 1))
         elif normer is 'center0':
             norm_data = array(0.5 +
                          0.5 * frame.divide(frame.dropna(axis=1).abs().max(axis=1),
