@@ -4,6 +4,7 @@ sequence/*
 prereqs/*
 *.swp
 *.out
+*.pyc
 *[Ll]og*
 tmp*
 *.pkl
