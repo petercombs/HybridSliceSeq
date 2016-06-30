@@ -63,6 +63,7 @@ mapper_version_cmd = {
 }
 
 glob_specs = [
+    '{seqdir}/sequence/{label}*_{{read}}*.fastq*',
     '{seqdir}{genotype}*/Sample_MBE??_{id}?_index{index}/*_{{read}}_*.fastq*',
     '{seqdir}{genotype}*/Sample_MBE_??_{id}?_index{index}/*_{{read}}_*.fastq*',
     '{seqdir}{genotype}*/Sample_MBE??{id}?_index{index}/*_{{read}}_*.fastq*',
@@ -182,11 +183,6 @@ else:
     out.write('QUANT_KEY = gene_short_name \n')
     out.write('QUANT_COL = FPKM\n')
 
-out.write("FPKMS = {}  \n".format(targets))
-for i in range(args.num_servers):
-    out.write('FPKMS{} : {}\n\n'
-              .format(i+1,
-                      ' '.join(targets_list[i::args.num_servers])))
 
 reads = defaultdict(lambda : ([], []))
 carriers = defaultdict(list)
@@ -204,6 +200,8 @@ for i, row in config_file.iterrows():
     if 'CarrierSpecies' in row:
         carrier = row['CarrierID']
         the_carrier_species = row['CarrierSpecies']
+    rf1 = []
+    rf2 = []
     for glob_spec in glob_specs:
         glob_spec = (glob_spec
                      .format(seqdir=args.seqdir,
@@ -213,14 +211,13 @@ for i, row in config_file.iterrows():
                              index_seq=convert_indices(index),
                              id=mbepc,
                             ))
-        rf1 = glob(glob_spec.format(read='R1'))
-        if rf1 != []:
-            assert len(rf1) < 20
-            break
-    else:
-            print("Warning: no sequence for ", label, index)
-            print(glob_spec.format(read='R1'))
-    rf2 = glob(glob_spec.format(read='R2'))
+        rf1.extend(glob(glob_spec.format(read='R1')))
+        rf2.extend(glob(glob_spec.format(read='R2')))
+        assert len(rf1) < 20
+
+    if len(rf1) == 0:
+        print("Warning: no sequence for ", label, index)
+        continue
     if rf2 == []:
         print("Warning: No R2 sequence for ", label, index)
 
@@ -233,9 +230,24 @@ for i, row in config_file.iterrows():
     if 'SampleSpecies' in row:
         sample_species[label] = row['SampleSpecies']
 
+targets_list = [path.join('$(ANALYSIS_DIR)',
+                             label,
+                             ('abundance.txt'
+                              if 'kallisto' in args.mapper.lower() else
+                             'genes.fpkm_tracking'))
+                   for label in reads]
+
+targets = ' '.join(targets_list)
+out.write("FPKMS = {}  \n".format(targets))
+for i in range(args.num_servers):
+    out.write('FPKMS{} : {}\n\n'
+              .format(i+1,
+                      ' '.join(targets_list[i::args.num_servers])))
 
 for label in reads:
     reads1, reads2 = reads[label]
+    if not reads1:
+        continue
     out.write('$(ANALYSIS_DIR)/{label}: | $(ANALYSIS_DIR)\n'
               '\t mkdir $(ANALYSIS_DIR)/{label}\n'.format(label=label))
     out.write('\n')
