@@ -1,7 +1,12 @@
 from matplotlib.pyplot import figure
 import pandas as pd
-from CompareDESeqs import ase_bars2
-from Annote import AnnoteFinder
+try:
+    from CompareDESeqs import ase_bars2
+    from Annote import AnnoteFinder
+    ab2 = True
+except ImportError:
+    ab2 = False
+
 
 startswith = lambda y: lambda x: x.startswith(y)
 
@@ -116,10 +121,13 @@ sim_orthologs['Ortholog_loc_lo'] = [int(loc.split('..')[0]) for loc in sim_ortho
 
 
 
-ab2 = lambda x: [figure(figsize=(3,2)),
-                 ase_bars2(x, adj_ases+1, 'oefemale', False,
-                           sim_orthologs.drop_duplicates(subset='Ortholog_GeneSymbol').GeneSymbol.get(x, 'No Ortholog'),
-                           expr)]
+if ab2:
+    ab2 = lambda x: [figure(figsize=(3,2)),
+                     ase_bars2(x, adj_ases+1, 'oefemale', False,
+                               sim_orthologs.drop_duplicates(subset='Ortholog_GeneSymbol').GeneSymbol.get(x, 'No Ortholog'),
+                               expr)]
+else:
+    ab2 = lambda x: False
 
 
 if 'map_info' not in locals():
