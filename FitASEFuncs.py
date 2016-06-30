@@ -16,8 +16,14 @@ def logistic(x, A, k, x0, y0):
 def peak(x, A, w, x0, y0):
     return A * exp(-(x-x0)**2/w**2) - y0
 
-def fit_func(func, index, data, xs, p0=None, randomize=False):
+def deriv_peak(x, A, w, x0, y0):
+    return - A * (x-x0) * exp(-(x-x0)**2/w**2) / w**2
+
+def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
+             print_error=False):
     ys = data.ix[index]
+    if median_in and not median_in[0] < ys.median() < median_in[1]:
+        return array([nan, nan, nan, nan])
     if randomize:
         xs = np.random.permutation(xs)
     keep = array(isfinite(ys))
@@ -44,6 +50,8 @@ def fit_func(func, index, data, xs, p0=None, randomize=False):
         w_min = 1
         w_max = inf
     try:
+        if print_error:
+            print(p0)
         return curve_fit(func,
                          xs[keep],
                          ys[keep],
@@ -51,20 +59,26 @@ def fit_func(func, index, data, xs, p0=None, randomize=False):
                          bounds=[[-2, w_min, -0.1, -1],
                                  [2, w_max, 1.1, 1]],
                         )[0]
-    except (ValueError, RuntimeError):
+    except (ValueError, RuntimeError) as err:
+        if print_error:
+            print(err)
         return array([nan, nan, nan, nan])
 
-def fit_all_ase(ase, func, xs, colnames=None, pool=None, progress=False):
+def fit_all_ase(ase, func, xs, colnames=None, pool=None, progress=False,
+                median_in=None):
     if colnames is None:
         colnames = inspect.getargspec(func).args
         colnames.pop('x')
     if pool is not None:
         if progress:
-            results = [pool.apply_async(fit_func, (func, i, ase, xs, median_in))
+            results = [pool.apply_async(fit_func, (func, i, ase, xs),
+                                        {'median_in': median_in},)
                        for i in ase.index]
             res = []
-            for r in ProgressBar()(results):
+            pbar = ProgressBar(maxval=len(results))
+            for r in pbar(results):
                 res.append(r.get())
+            pbar.finish()
         else:
             res = list(pool.starmap(
                 fit_func,
@@ -73,9 +87,11 @@ def fit_all_ase(ase, func, xs, colnames=None, pool=None, progress=False):
                     ase.index,
                     it.repeat(ase),
                     it.repeat(xs),
+                    it.repeat(None), # p0
                     it.repeat(median_in),
-                )
+                ),
             ))
+
     else:
         res = list(it.starmap(
             fit_func,
@@ -84,6 +100,8 @@ def fit_all_ase(ase, func, xs, colnames=None, pool=None, progress=False):
                 ase.index,
                 it.repeat(ase),
                 it.repeat(xs),
+                it.repeat(None), # p0
+                it.repeat(median_in),
                 )
             ))
 
@@ -124,10 +142,14 @@ if __name__ == "__main__":
     xs = get_xs(ase)
     colnames = ['Amp', 'width', 'center', 'y_offset']
     with Pool() as p:
-        res_logist = fit_all_ase(ase, logistic, xs, colnames, p).dropna()
-        res_logist_perm = fit_all_ase( ase_perm, logistic, xs, colnames, p).dropna()
-        res_peak = fit_all_ase(ase, peak, xs, colnames, p).dropna()
-        res_peak_perm = fit_all_ase( ase_perm, peak, xs, colnames, p).dropna()
+        res_logist = fit_all_ase(ase, logistic, xs, colnames, p,
+                                 progress=True).dropna()
+        res_logist_perm = fit_all_ase(ase_perm, logistic, xs, colnames, p,
+                                      progress=True).dropna()
+        res_peak = fit_all_ase(ase, peak, xs, colnames, p,
+                               progress=True).dropna()
+        res_peak_perm = fit_all_ase(ase_perm, peak, xs, colnames, p,
+                                    progress=True).dropna()
 
         res_lin = pd.DataFrame(
                 index=ase.index,
@@ -136,8 +158,11 @@ if __name__ == "__main__":
                 )
         res_lin_perm = res_lin.copy()
 
-        for gene in ProgressBar()(ase.index):
+        pbar = ProgressBar()
+        for gene in pbar(ase.index):
             cols = isfinite(ase.ix[gene])
+            if sum(cols) == 0:
+                continue
             linreg = linregress(xs[cols], ase.ix[gene, cols])
             if linreg.pvalue < .05:
                 res_lin.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
@@ -146,6 +171,7 @@ if __name__ == "__main__":
             linreg = linregress(xs[cols], ase_perm.ix[gene, cols])
             if linreg.pvalue < .05:
                 res_lin_perm.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
+        pbar.finish()
 
 
 
