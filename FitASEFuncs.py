@@ -9,6 +9,8 @@ import itertools as it
 import numpy as np
 import inspect
 from progressbar import ProgressBar
+import PlotUtils as pu
+from matplotlib import cm
 
 def logistic(x, A, k, x0, y0):
     return A/(1+exp(k*(x-x0))) - y0
@@ -191,6 +193,45 @@ if __name__ == "__main__":
     res_logist.ix[r2_logist > 0.5].to_csv('analysis/results/logist.tsv', sep='\t')
     res_peak.ix[r2_peak > 0.5].to_csv('analysis/results/peak.tsv', sep='\t')
 
+    kwargs = dict(
+        progress_bar=False,
+        col_sep='_sl',
+        total_width=200,
+        box_height=25,
+        split_columns=True,
+        draw_box=True,
+        draw_row_labels=True,
+        draw_name=True,
+        make_hyperlinks=True,
+        convert=True,
+    )
+
+    pu.svg_heatmap(ase.ix[good_amps_logist.index],
+                   'analysis/results/logist_ase.svg',
+                   norm_rows_by='center0pre',
+                   cmap=cm.RdBu,
+                   row_labels=fbgns.ix[good_amps_logist.index],
+                   **kwargs)
+
+    pu.svg_heatmap(ase.ix[good_amps_peak.index],
+                   'analysis/results/peak_ase.svg',
+                   norm_rows_by='center0pre',
+                   cmap=cm.RdBu,
+                   row_labels=fbgns.ix[good_amps_peak.index],
+                   **kwargs)
+
+
+    pu.svg_heatmap(expr.ix[good_amps_logist.index],
+                   'analysis/results/logist_expr.svg',
+                   norm_rows_by='maxall',
+                   row_labels=fbgns.ix[good_amps_logist.index],
+                   **kwargs)
+
+    pu.svg_heatmap(expr.ix[good_amps_peak.index],
+                   'analysis/results/peak_expr.svg',
+                   norm_rows_by='maxall',
+                   row_labels=fbgns.ix[good_amps_peak.index],
+                   **kwargs)
 
 
 
