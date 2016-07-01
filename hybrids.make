@@ -312,14 +312,14 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--snpcounts $< \
 		--phasedsnps $(ANALYSIS_DIR)/on_$(call substr,$(notdir $@),1,3)/melsim_variant.bed \
 		--allele-min 0 \
-		--min 1 \
+		--min 5 \
 		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
 		-o $@ \
 		--preference-index \
 		--true-hets $(ANALYSIS_DIR)/on_$(call substr,$(notdir $@),1,3)/true_hets.tsv \
 		--writephasedsnps
 
-%/melsim_gene_ase_by_read.tsv : %/assigned_dmelR_wasp_dedup.sorted.bam %/assigned_dmelR_wasp_dedup.sorted.bam.bai $(ANALYSIS_DIR)/on_mel/melsim_variant.bed
+%/melsim_gene_ase_by_read.tsv : %/assigned_dmelR_wasp_dedup.sorted.bam %/assigned_dmelR_wasp_dedup.sorted.bam.bai $(ANALYSIS_DIR)/on_mel/melsim_variant.bed $(ANALYSIS_DIR)/recalc_ase
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python ~/ASEr/bin/GetGeneASEbyReads.py \
 		--outfile $@ \
@@ -334,7 +334,7 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--snpcounts $< \
 		--phasedsnps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
 		--allele-min 0 \
-		--min 1 \
+		--min 5 \
 		--type CDS \
 		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
 		-o $@ \
@@ -352,7 +352,6 @@ $(ANALYSIS_DIR)/recalc_ase:
 		--snpcounts $< \
 		--phasedsnps analysis/on_mel/melsim_variant.bed \
 		--allele-min 0 \
-		--min 1 \
 		--min $(lastword $(subst _counts_, ,$*)) \
 		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
 		-o $@ \
@@ -434,5 +433,5 @@ WASPMAP = $(HOME)/FWASP/mapping
 		--output-dir $(@D) \
 		--quiet \
 		$<
-	
+
 
