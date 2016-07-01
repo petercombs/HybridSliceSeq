@@ -6,6 +6,7 @@ import functools
 import emd
 import math
 from Utils import contains
+import pandas as pd
 
 class memoized(object):
    '''Decorator. Caches a function's return value each time it is called.
@@ -45,6 +46,7 @@ def convert_to_distribution(points):
     return retval / (sum(retval)+1e-10)
 
 def get_nonuniform_mp(args):
+    eps = 1.01
     gene, row = args
     temp = pd.Series(data=1, index=row.index)
     if sum(pd.np.isfinite(row))==0:
@@ -144,13 +146,15 @@ def earth_mover_multi_rep(points1, points2, normer=np.sum):
                      / (len(reps1)*len(reps2)))
     return dist**.5
 
-def earth_mover_multi(points1, points2):
+def earth_mover_multi(points1, points2, normer=np.sum):
     dist = 0.0
     embs = {col.split('sl')[0] for col in points1.index}
     sums = [[],[]]
     for emb in embs:
         dist += earth_mover_interp(points1.select(startswith(emb))+1e-5,
-                                   points2.select(startswith(emb))+1e-5)**2
+                                   points2.select(startswith(emb))+1e-5,
+                                   normer=normer,
+                                  )**2
         sums[0].append(points1.select(startswith(emb)).mean())
         sums[1].append(points2.select(startswith(emb)).mean())
     dist += earth_mover(np.array(sums[0]), np.array(sums[1]))
