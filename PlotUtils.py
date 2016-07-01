@@ -132,22 +132,49 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
     import svgwrite as svg
     try:
         import pandas as pd
-        has_pandas = isinstance(data, pd.DataFrame)
+        has_pandas = True
     except:
         has_pandas = False
         assert all_indices
         assert all_colnames
+
+    if not isinstance(data, tuple):
+        data = (data,)
+
+    if not isinstance(norm_rows_by, tuple):
+        norm_rows_by = repeat(norm_rows_by)
 
 
     old_data = data
     colname_tuple = repeat(None)
     if split_columns and has_pandas:
         from Utils import sel_startswith
-        colnames = list(sorted(
-            {col.split(col_sep)[0] for col in data.columns}))
-        data = tuple(
-            data.select(**sel_startswith(colname)) for colname in colnames
-        )
+        data = []
+        new_normers = []
+        new_cmaps = []
+        if isinstance(cmap, tuple):
+            cmaps = cmap
+        else:
+            cmaps = repeat(cmap)
+        for dataset, normer, c_cmap in zip(old_data, norm_rows_by, cmaps):
+            if dataset is None:
+                data.append(dataset)
+                new_normers.append(normer)
+                new_cmaps.append(c_cmap)
+                continue
+
+            if not isinstance(dataset, pd.DataFrame):
+                dataset = pd.DataFrame(dataset).T
+            colnames = list(sorted(
+                {col.split(col_sep)[0] for col in dataset.columns}))
+            data.extend(
+                dataset.select(**sel_startswith(colname)) for colname in colnames
+            )
+            new_normers.extend(normer for colname in colnames)
+            new_cmaps.extend(c_cmap for colname in colnames)
+        data = tuple(data)
+        norm_rows_by = tuple(new_normers)
+        cmap = tuple(new_cmaps)
     elif split_columns and all_colnames:
         colnames = list(sorted(
             {col.split(col_sep)[0] for col in all_colnames}))
@@ -165,10 +192,8 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             [c for c in all_colnames if c.startswith(dataname)]
             for dataname in internal_datanames
         )
-    elif not isinstance(data, tuple):
-        data = (data,)
 
-    rows, cols = np.shape(data[0])
+    rows, cols = np.shape([ds for ds in data if ds is not None][0])
     if index is not None:
         rows = len(index)
     if box_height is None:
@@ -221,9 +246,6 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
     while len(spacers) < len(data):
         spacers.append(spacers[-1])
 
-    if not isinstance(norm_rows_by, tuple):
-        norm_rows_by = repeat(norm_rows_by)
-
     if ((isinstance(norm_rows_by, repeat)
          and isinstance(next(norm_rows_by), str)
          and next(norm_rows_by) == 'center0all')
@@ -244,6 +266,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
 
     for frame, c_cmap, name, normer, spacer, colnames in iterator:
         if frame is None:
+            dwg.add(dwg.text(normer, (x_start, y_start + box_height/2)))
             if total_width is not None:
                 if spacer is None:
                     x_start += total_width * 1.1
@@ -281,9 +304,11 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 norm_data = frame / (frame[:,isfinite(frame[0,:])].max(axis=1) + 10).reshape((rows, 1))
         elif normer == 'maxall':
             if has_pandas:
-                norm_data = array(frame.divide(old_data.dropna(axis=1,
-                                                            how='all').max(axis=1)+10,
-                                               axis=0))
+                maxall = frame.max(axis=1)
+                for old_frame in data:
+                    old_frame = old_frame.max(axis=1)
+                    maxall = maxall.where(maxall > old_frame, old_frame)
+                norm_data = array(frame.divide(maxall + 10, axis=0))
             else:
                 norm_data = frame / (old_data[:, isfinite(old_data[0, :])]
                                      .max(axis=1) + 10).reshape((rows, 1))
@@ -471,7 +496,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             else:
                 x_start += new_cols * box_size + spacer
 
-        y_diff = new_rows * box_height + 30
+        y_diff = new_rows * box_height + vspacer
         if x_start + total_width >= max_width:
             x_start = x_min
             y_start += new_rows*box_height*(not draw_average_only) + vspacer
