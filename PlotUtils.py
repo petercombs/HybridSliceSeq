@@ -274,12 +274,12 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 norm_data = array(frame.divide(frame.dropna(axis=1, how='all').mean(axis=1)+10, axis=0))
             else:
                 norm_data = frame / (frame[:,isfinite(frame[0,:])].mean(axis=1) + 10).reshape((rows, 1))
-        elif normer is 'max':
+        elif normer == 'max':
             if has_pandas:
                 norm_data = array(frame.divide(frame.dropna(axis=1, how='all').max(axis=1)+10, axis=0))
             else:
                 norm_data = frame / (frame[:,isfinite(frame[0,:])].max(axis=1) + 10).reshape((rows, 1))
-        elif normer is 'maxall':
+        elif normer == 'maxall':
             if has_pandas:
                 norm_data = array(frame.divide(old_data.dropna(axis=1,
                                                             how='all').max(axis=1)+10,
@@ -287,18 +287,18 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             else:
                 norm_data = frame / (old_data[:, isfinite(old_data[0, :])]
                                      .max(axis=1) + 10).reshape((rows, 1))
-        elif normer is 'center0':
+        elif normer == 'center0':
             norm_data = array(0.5 +
                          0.5 * frame.divide(frame.dropna(axis=1).abs().max(axis=1),
                                       axis=0)
                         )
-        elif normer is 'center0all':
+        elif normer == 'center0all':
             norm_data = array(0.5 +
                          0.5 *
                          frame.divide(all_data.dropna(how='all', axis=1).abs().max(axis=1),
                                       axis=0)
                         )
-        elif normer is 'center0pre':
+        elif normer == 'center0pre':
             norm_data = array(0.5 + 0.5 * frame)
         elif index is not None and hasattr(normer, "ix"):
             norm_data = array(frame.divide(normer.ix[index], axis=0))
