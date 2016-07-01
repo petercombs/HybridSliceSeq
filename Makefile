@@ -72,11 +72,11 @@ $(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(F
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
        --params $(RUNCONFIG) \
-	   --strip-low-reads 500000 \
+	   --strip-low-reads 1000000 \
 	   --strip-on-unique \
 	   --strip-as-nan \
 	   --mapped-bamfile assigned_dmelR.bam \
-	   --strip-low-map-rate 70 \
+	   --strip-low-map-rate 65 \
 	   --map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 	   --filename $(QUANT_FNAME) \
 	   --key $(QUANT_KEY) \
@@ -92,11 +92,11 @@ $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py 
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
        --params $(RUNCONFIG) \
-	   --strip-low-reads 500000 \
+	   --strip-low-reads 1000000 \
 	   --strip-on-unique \
 	   --strip-as-nan \
 	   --mapped-bamfile assigned_dmelR.bam \
-	   --strip-low-map-rate 70 \
+	   --strip-low-map-rate 65 \
 	   --map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 	   --out-basename summary_fb \
 	   --filename $(QUANT_FNAME) \

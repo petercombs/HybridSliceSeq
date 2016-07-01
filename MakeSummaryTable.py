@@ -177,9 +177,14 @@ def get_expr_values(fname):
                  and params.ix[old_dirname, 'CarrierSpecies'] != '---')
        ):
 
-        if (not (args.map_stats is None) and (dirname in args.map_stats.index)
+        if (not (args.map_stats is None)
+            and (dirname in args.map_stats.index)
             and (args.map_stats.ix[dirname, 'RawReads'] > 0)):
             total_reads = args.map_stats.ix[dirname, 'RawReads']
+        elif (not (args.map_stats is None)
+              and (old_dirname in args.map_stats.index)
+              and (args.map_stats.ix[old_dirname, 'RawReads'] > 0)):
+            total_reads = args.map_stats.ix[old_dirname, 'RawReads']
         else:
             rfs = [entry for entry in
                    sf.header['PG'][0]['CL'].split()
@@ -189,9 +194,12 @@ def get_expr_values(fname):
             for i, line in enumerate(gzip.open(rfs[-1])):
                 pass
             total_reads += i//4
-        skip += (reads / total_reads) < (args.strip_low_map_rate / 100)
+        map_rate = reads / total_reads
+        if map_rate > 1: # Quick and dirty correction for paired end reads
+            map_rate /= 2
+        skip += map_rate < (args.strip_low_map_rate / 100)
         if skip:
-            print(reads, total_reads, reads/total_reads,
+            print(reads, total_reads, map_rate,
                   args.strip_low_map_rate / 100)
 
     if skip:
