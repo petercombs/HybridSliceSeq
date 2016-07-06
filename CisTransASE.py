@@ -26,6 +26,37 @@ from matplotlib import cm
 import PlotUtils as pu
 import DistributionDifference as dd
 
+def wilson95_pref(ref, alt):
+    """Lower bound of the 95% confidence interval
+
+    Calculate the 95% confidence interval of the p, assuming a Bernoulli trial
+    that gave the results REF and ALT.  Then, if that interval contains 50%,
+    just use that, otherwise take the bound closer to 50%.  Finally, convert to
+    a preference index [-1, 1], instead of a probability [0, 1] by multiplying
+    by 2, and subtracting 1.
+
+    See https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval.
+    """
+
+    z = 1.96
+    n = ref + alt
+    phat = alt/n
+
+    plusminus = z * np.sqrt(1/n * phat * (1-phat) + 1/(4 * n**2) * z**2)
+
+    p_plus = 1/(1+z**2/n) * (phat + z**2/(2*n) + plusminus)
+    p_minus = 1/(1+z**2/n) * (phat + z**2/(2*n) - plusminus)
+
+    if p_minus < 0.5 < p_plus:
+        p = 0.5
+    elif p_minus > 0.5:
+        p = p_minus
+    elif p_plus < 0.5:
+        p = p_plus
+    else:
+        raise ValueError("I think I really screwed the pooch on this one")
+
+    return 2 * p - 1
 
 def fit_all_splines(expr, pool=None, progress=False):
     xs = get_xs(expr)
@@ -99,8 +130,8 @@ if __name__ == "__main__":
         data=[1 if col.startswith('simXmel') else -1 for col in ase_xs.index]
     )
     ase_avgs = pd.DataFrame(
-        data=dict(emd=np.nan, exprclass='?', avg_actual=np.nan,
-                  avg_predicted=np.nan, bias=np.nan),
+        data=dict(emd=np.nan, exprclass='?', actual=np.nan,
+                  predicted=np.nan, bias=np.nan, n_good_slices=np.nan),
         index=mel.index,
     )
 
@@ -109,6 +140,7 @@ if __name__ == "__main__":
     for gene in prog(ase_avgs.index):
         good_ase = np.isfinite(ase.ix[gene]) & ~(ase.ix[gene] == ase_maternals)
         xg = ase_xs[good_ase]
+        ase_avgs.ix[gene, 'n_good_slices'] = len(xg)
         ase_avgs.ix[gene, 'actual'] = ase.ix[gene].mean()
         sim_pred = pd.Series(sim_splines[gene](ase_xs).clip(0.1, 1e10),
                              name='predicted_sim_'+gene,
@@ -121,10 +153,10 @@ if __name__ == "__main__":
         #print(gene)
         #print("Sim", min(sim_pred), max(sim_pred))
         #print("Mel", min(mel_pred), max(mel_pred))
-        pred_ase = (
-            ((sim_pred - mel_pred) /(sim_pred + mel_pred))
-        )
+        pred_ase = ((sim_pred - mel_pred) /(sim_pred + mel_pred))
         pred_ase.name='predicted_ase'
+        pred_ase_nan = pred_ase.where(np.isfinite(ase.ix[gene]), np.nan)
+
         '''
         print(pd.DataFrame([
             pd.Series(sim_pred, index=xg.index),
@@ -143,6 +175,14 @@ if __name__ == "__main__":
         ase_avgs.ix[gene, 'bias'] = (
             (ase.ix[gene, good_ase] - pred_ase[good_ase])
         ).mean()
+
+        ase_avgs.ix[gene, 'emd'] = dd.earth_mover_multi(
+            (pd.rolling_mean(ase.ix[gene], 3, min_periods=1, center=True)
+             / 2 + .5),
+            pred_ase_nan/ 2 + .5,
+            #normer=lambda x: 1,
+            normer=pd.np.sum,
+        )
 
         pu_kwargs = {
             'box_height': 60,
@@ -164,7 +204,7 @@ if __name__ == "__main__":
                 None, sim.ix[gene], None, None, None, None,
                 None, sim_pred,
                 None, ase.ix[gene],
-                None, pred_ase,
+                None, pred_ase_nan,
                 None, hyb.ix[gene],
             ),
             'analysis_godot/results/ase_preds/{}.svg'.format(gene),
@@ -173,7 +213,7 @@ if __name__ == "__main__":
                           'sim expression', 'max', '', '', '', '',
                           'predicted sim expression', 'max',
                           'ASE', 'center0pre',
-                          'predicted ASE', 'center0pre',
+                          'predicted ASE - EMD {:.03f}'.format(ase_avgs.ix[gene, 'emd']), 'center0pre',
                           'hybrid expression', 'max',
                          ),
             cmap=(None, pu.ISH, None, None, None, None,
@@ -186,14 +226,6 @@ if __name__ == "__main__":
                  ),
             **pu_kwargs
         )
-        '''
-        if len(xg):
-            ase_avgs.ix[gene, 'emd'] = dd.earth_mover_multi(
-                ase.ix[gene, good_ase],
-                pred_ase,
-                #normer=lambda x: 1,
-            )
-            '''
         if gene in paris.index:
             ase_avgs.ix[gene, 'exprclass'] = paris[gene]
 
