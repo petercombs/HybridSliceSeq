@@ -38,35 +38,37 @@ if __name__ == "__main__":
         data=[1 if col.startswith('simXmel') else -1 for col in ase_xs.index]
     )
 
-    with Pool() as p:
-        logistic_females = fit_all_ase(ase_females, logistic,
+    if 'logistic_females' in locals() and locals().get('recalculate', True):
+        with Pool() as p:
+            logistic_females = fit_all_ase(ase_females, logistic,
+                                           ase_xs.ix[ase_females.columns],
+                                           pool=p, progress=True)
+            peak_females = fit_all_ase(ase_females, peak,
                                        ase_xs.ix[ase_females.columns],
                                        pool=p, progress=True)
-        peak_females = fit_all_ase(ase_females, peak,
-                                   ase_xs.ix[ase_females.columns],
-                                   pool=p, progress=True)
 
-    female_logistic_r2 = calculate_variance_explained(
-        ase_females, ase_xs.ix[ase_females.columns],
-        logistic,
-        logistic_females,
-    )
-    female_peak_r2 = calculate_variance_explained(
-        ase_females, ase_xs.ix[ase_females.columns],
-        peak,
-        peak_females
-    )
+        female_logistic_r2 = calculate_variance_explained(
+            ase_females, ase_xs.ix[ase_females.columns],
+            logistic,
+            logistic_females,
+        )
+        female_peak_r2 = calculate_variance_explained(
+            ase_females, ase_xs.ix[ase_females.columns],
+            peak,
+            peak_females
+        )
 
-    male_logistic_r2 = calculate_variance_explained(
-        ase_males, ase_xs.ix[ase_males.columns],
-        logistic,
-        logistic_females,
-    ).clip(0, 1)
-    male_peak_r2 = calculate_variance_explained(
-        ase_males, ase_xs.ix[ase_males.columns],
-        peak,
-        peak_females
-    ).clip(0, 1)
+        male_logistic_r2 = calculate_variance_explained(
+            ase_males, ase_xs.ix[ase_males.columns],
+            logistic,
+            logistic_females,
+        ).clip(0, 1)
+        male_peak_r2 = calculate_variance_explained(
+            ase_males, ase_xs.ix[ase_males.columns],
+            peak,
+            peak_females
+        ).clip(0, 1)
+        recalculate = False
 
     pu_kwargs = {
         'box_height': 60,
