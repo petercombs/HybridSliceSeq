@@ -132,7 +132,7 @@ if __name__ == "__main__":
     pbar = pb.ProgressBar()
     for gene in pbar(r2_peak_diff.select(pzyg.__contains__).index[-50:]):
         val = r2_peak_diff.ix[gene]
-        pu.svg_heatmap(ase.ix[[gene]],
+        pu.svg_heatmap(ase.ix[gene],
                        'analysis/results/transdiff/pd_mxs_{:.02f}-{}.svg'.format(val,
                                                                          fbgns[gene]),
                        **kwargs
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     pbar = pb.ProgressBar()
     for gene in pbar(r2_logist_diff.select(pzyg.__contains__).index[-50:]):
         val = r2_logist_diff.ix[gene]
-        pu.svg_heatmap(ase.ix[[gene]],
+        pu.svg_heatmap(ase.ix[gene],
                        'analysis/results/transdiff/ld_mxs_{:.02f}-{}.svg'.format(val,
                                                                          fbgns[gene]),
                        **kwargs
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     pbar = pb.ProgressBar()
     for gene in pbar(r2_sxm_peak_diff.select(pzyg.__contains__).index[-50:]):
         val = r2_sxm_peak_diff.ix[gene]
-        pu.svg_heatmap(ase.ix[[gene]],
+        pu.svg_heatmap(ase.ix[gene],
                        'analysis/results/transdiff/pd_sxm_{:.02f}-{}.svg'.format(val,
                                                                          fbgns[gene]),
                        **kwargs
@@ -166,7 +166,7 @@ if __name__ == "__main__":
     pbar = pb.ProgressBar()
     for gene in pbar(r2_sxm_logist_diff.select(pzyg.__contains__).index[-50:]):
         val = r2_sxm_logist_diff.ix[gene]
-        pu.svg_heatmap(ase.ix[[gene]],
+        pu.svg_heatmap(ase.ix[gene],
                        'analysis/results/transdiff/ld_sxm_{:.02f}-{}.svg'.format(val,
                                                                          fbgns[gene]),
                        **kwargs
