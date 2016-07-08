@@ -186,17 +186,18 @@ if __name__ == "__main__":
 
         pu_kwargs = {
             'box_height': 60,
-             'col_sep': '_sl',
-             'convert': True,
-             'draw_box': True,
-             'draw_name': False,
-             'draw_row_labels': True,
-             'make_hyperlinks': True,
-             'max_width': 1320,
-             'progress_bar': False,
-             'split_columns': True,
-             'total_width': 200,
-             'vspacer': 0}
+            'col_sep': '_sl',
+            'convert': True,
+            'draw_box': True,
+            'draw_name': False,
+            'draw_row_labels': True,
+            'make_hyperlinks': True,
+            'max_width': 1320,
+            'progress_bar': False,
+            'split_columns': True,
+            'total_width': 200,
+            'nan_replace' : 0.5,
+            'vspacer': 0}
         pu.svg_heatmap(
             (
                 None, mel.ix[gene], None, None, None, None,
