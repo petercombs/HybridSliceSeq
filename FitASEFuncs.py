@@ -70,7 +70,7 @@ def fit_all_ase(ase, func, xs, colnames=None, pool=None, progress=False,
                 median_in=None):
     if colnames is None:
         colnames = inspect.getargspec(func).args
-        colnames.pop('x')
+        colnames.remove('x')
     if pool is not None:
         if progress:
             results = [pool.apply_async(fit_func, (func, i, ase, xs),
