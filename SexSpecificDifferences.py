@@ -14,6 +14,15 @@ if __name__ == "__main__":
            .dropna(how='all', axis=0)
           )
 
+    chrom_of = {}
+    for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
+        if row.startswith('#') or not row.strip():
+            continue
+        data = row.split()
+        chrom_of[data[1]] = data[-1].split(':')[0]
+
+    ase = ase.select(lambda x: chrom_of[x] != 'X')
+
     ase_males = ase.select(**sel_startswith(male_hybrid_embryos))
     ase_females = ase.select(**sel_startswith(female_hybrid_embryos))
 
