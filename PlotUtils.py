@@ -97,6 +97,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 split_columns=False,
                 vspacer=30,
                 hatch_nan=True, hatch_size=20,
+                nan_replace=None,
                 first_col='', last_col=''):
     """
     Draw heatmap as an SVG file stored in filename
@@ -373,7 +374,9 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                                                                  col_labels[j],
                                                                  val)))
                     hatch = not isfinite(norm_data[i,j])
-                    if hatch:
+                    if hatch and nan_replace is not None:
+                        norm_data[i, j] = nan_replace
+                    elif hatch:
                         n = 0
                         norm_data[i, j] = 0
                         if (j > 0 and isfinite(norm_data[i, j-1])):
