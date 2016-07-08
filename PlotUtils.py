@@ -238,7 +238,8 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
         data_names = ["" for frame in data]
 
     if len(cmap) != len(data):
-        raise ValueError("cmap and data should be the same length")
+        raise ValueError("cmap and data should be the same length ({} vs {})"
+                        .format(len(cmap), len(data)))
 
     if not hasattr(spacers, "__len__"):
         spacers = [spacers]
@@ -336,6 +337,9 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
 
 
         elif hasattr(normer, "__len__"):
+            print('\n'*5)
+            print(len(normer), normer, normer=='max')
+            print(frame.shape)
             raise TypeError("norm_rows_by should be the same shape "
                             "as the number of rows")
         else:
