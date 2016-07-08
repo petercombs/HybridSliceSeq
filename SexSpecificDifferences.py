@@ -3,6 +3,9 @@ from Utils import sel_startswith, pd_kwargs, get_xs
 from FitASEFuncs import (fit_all_ase, logistic, peak,
                          calculate_variance_explained)
 from multiprocessing import Pool
+import PlotUtils as pu
+from matplotlib import cm
+from progressbar import ProgressBar as pb
 
 male_hybrid_embryos = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
 female_hybrid_embryos = ('melXsim_cyc14C_rep1', 'melXsim_cyc14C_rep2',
@@ -22,6 +25,9 @@ if __name__ == "__main__":
         chrom_of[data[1]] = data[-1].split(':')[0]
 
     ase = ase.select(lambda x: chrom_of[x] != 'X')
+
+    expr_males = expr.select(**sel_startswith(male_hybrid_embryos))
+    expr_females = expr.select(**sel_startswith(female_hybrid_embryos))
 
     ase_males = ase.select(**sel_startswith(male_hybrid_embryos))
     ase_females = ase.select(**sel_startswith(female_hybrid_embryos))
@@ -61,5 +67,59 @@ if __name__ == "__main__":
         peak,
         peak_females
     ).clip(0, 1)
+
+    pu_kwargs = {
+        'box_height': 60,
+        'col_sep': '_sl',
+        'convert': True,
+        'draw_box': True,
+        'draw_name': False,
+        'draw_row_labels': True,
+        'make_hyperlinks': True,
+        'max_width': 880,
+        'progress_bar': False,
+        'split_columns': True,
+        'total_width': 200,
+        'nan_replace' : 0.5,
+        'vspacer': 0}
+
+    diffs = set()
+    for gene, diff in (female_logistic_r2 - male_logistic_r2).items():
+        if female_logistic_r2[gene] > .4 and abs(diff) > .25:
+            diffs.add(gene)
+    for gene, diff in (female_peak_r2 - male_peak_r2).items():
+        if female_peak_r2[gene] > .4 and abs(diff) > .25:
+            diffs.add(gene)
+
+    for gene in pb()(diffs):
+        pu.svg_heatmap(
+            (
+                None, expr_females.ix[[gene]],
+                None, ase_females.ix[gene],
+                None, ase_males.select(**sel_startswith('melXsim')).ix[gene],
+                None, ase_males.select(**sel_startswith('simXmel')).ix[gene],
+                None, expr_males.select(**sel_startswith('melXsim')).ix[[gene]],
+                None, expr_males.select(**sel_startswith('simXmel')).ix[[gene]],
+            ),
+            'analysis_godot/results/sex_diff/{}.svg'.format(gene),
+            norm_rows_by=(
+                'female expression', 'max',
+                'females - L{:.03f} P{:.03f}'.format(female_logistic_r2[gene],
+                                                     female_peak_r2[gene]),
+                'center0pre',
+                'males - L{:.03f} P{:.03f}'.format(male_logistic_r2[gene],
+                                                   male_peak_r2[gene]),
+                'center0pre', '', 'center0pre',
+                'male expression', 'max', '', 'max',
+            ),
+            cmap=(
+                None, pu.ISH,
+                None, cm.RdBu,
+                None, cm.RdBu, None, cm.RdBu,
+                None, pu.ISH, None, pu.ISH,
+            ),
+            **pu_kwargs
+        )
+
 
 
