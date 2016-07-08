@@ -164,8 +164,11 @@ def get_xs(dataframe):
     for sl in dataframe.columns:
         sl = sl.split('_sl')
         emb = sl[0]
-        max_slice[emb] = max(max_slice[emb], int(sl[1][0:2]))
+        if emb == '---':
+            max_slice[emb] = 0
+        else:
+            max_slice[emb] = max(max_slice[emb], int(sl[1][0:2]))
 
-    return pd.Series(index=dataframe.columns,
+    return pd.Series(index=dataframe.select(**sel_contains('sl')).columns,
                    data=[(int(a.split('_sl')[1][:2])-1)/(max_slice[a.split('_sl')[0]]-1)
                          for a in dataframe.columns if 'sl' in a])
