@@ -118,8 +118,8 @@ if __name__ == "__main__":
                            keep_default_na=False,
                            na_values=['---', '', 'NA'])
 
-    ase = pd.read_table('analysis_godot/ase_summary.tsv', **read_table_args)
-    all_expr = pd.read_table('analysis_godot/summary_fb.tsv', **read_table_args)
+    ase = pd.read_table('analysis_godot/ase_summary.tsv', **read_table_args).ix[::step]
+    all_expr = pd.read_table('analysis_godot/summary_fb.tsv', **read_table_args).ix[::step]
     print("Read expression in")
 
     ase_rows, ase_cols = ase.shape
