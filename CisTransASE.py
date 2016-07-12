@@ -210,6 +210,7 @@ if __name__ == "__main__":
         #print("Mel", min(mel_pred), max(mel_pred))
         pred_ase = ((sim_pred - mel_pred) /(sim_pred + mel_pred))
         pred_ase.name='predicted_ase'
+        pred_ase -= (pred_ase.mean() - ase.ix[gene].mean())
         pred_ase_nan = pred_ase.where(np.isfinite(ase.ix[gene]), np.nan)
 
         '''
