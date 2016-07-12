@@ -217,31 +217,43 @@ if __name__ == "__main__":
         convert=True,
     )
 
-    pu.svg_heatmap(ase.ix[good_amps_logist.index],
+    r2_peak_genes = {
+        gene:r2_peak.ix[gene] for gene in r2_peak.index
+        if ((r2_peak.ix[gene] > .5)
+            and not (r2_peak.ix[[gene]] < r2_logist.ix[[gene]]).all())
+    }
+
+    r2_logist_genes = {
+        gene:r2_logist.ix[gene] for gene in r2_logist.index
+        if ((r2_logist.ix[gene] > .5)
+            and not (r2_logist.ix[[gene]] < r2_peak.ix[[gene]]).all())
+    }
+
+    pu.svg_heatmap(ase.ix[r2_logist_genes],
                    'analysis/results/logist_ase.svg',
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
-                   row_labels=fbgns.ix[good_amps_logist.index],
+                   row_labels=fbgns.ix[r2_logist_genes],
                    **kwargs)
 
-    pu.svg_heatmap(ase.ix[good_amps_peak.index],
+    pu.svg_heatmap(ase.ix[r2_peak_genes],
                    'analysis/results/peak_ase.svg',
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
-                   row_labels=fbgns.ix[good_amps_peak.index],
+                   row_labels=fbgns.ix[r2_peak_genes],
                    **kwargs)
 
 
-    pu.svg_heatmap(expr.ix[good_amps_logist.index],
+    pu.svg_heatmap(expr.ix[r2_logist_genes],
                    'analysis/results/logist_expr.svg',
                    norm_rows_by='maxall',
-                   row_labels=fbgns.ix[good_amps_logist.index],
+                   row_labels=fbgns.ix[r2_logist_genes],
                    **kwargs)
 
-    pu.svg_heatmap(expr.ix[good_amps_peak.index],
+    pu.svg_heatmap(expr.ix[r2_peak_genes],
                    'analysis/results/peak_expr.svg',
                    norm_rows_by='maxall',
-                   row_labels=fbgns.ix[good_amps_peak.index],
+                   row_labels=fbgns.ix[r2_peak_genes],
                    **kwargs)
 
 
