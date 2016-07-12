@@ -184,9 +184,19 @@ if __name__ == "__main__":
     )
     ase_avgs = pd.DataFrame(
         data=dict(emd=np.nan, exprclass='?', actual=np.nan,
-                  predicted=np.nan, bias=np.nan, n_good_slices=np.nan),
+                  predicted=np.nan, bias=np.nan, n_good_slices=np.nan,
+                  rmsdiff=np.nan),
         index=mel.index,
     )
+
+    all_pred_ase_nan = pd.DataFrame(
+        data=np.nan,
+        index=ase.index,
+        columns=ase.columns
+    )
+
+    all_mel_pred = all_pred_ase_nan.copy()
+    all_sim_pred = all_pred_ase_nan.copy()
 
     prog = pbar(maxval=len(ase_avgs.index))
     #prog = lambda x: x
@@ -212,6 +222,9 @@ if __name__ == "__main__":
         pred_ase.name='predicted_ase'
         pred_ase -= (pred_ase.mean() - ase.ix[gene].mean())
         pred_ase_nan = pred_ase.where(np.isfinite(ase.ix[gene]), np.nan)
+        all_pred_ase_nan.ix[gene] = pred_ase_nan
+        all_sim_pred.ix[gene] = sim_pred
+        all_mel_pred.ix[gene] = mel_pred
 
         '''
         print(pd.DataFrame([
@@ -228,6 +241,8 @@ if __name__ == "__main__":
             pred_ase[good_ase],
             weights=(sim_pred + mel_pred)[good_ase],
         )
+        ase_avgs.ix[gene, 'rmsdiff'] = np.sqrt((ase.ix[gene, good_ase]- pred_ase[good_ase])
+                                               .apply(np.square).mean())
         ase_avgs.ix[gene, 'bias'] = (
             (ase.ix[gene, good_ase] - pred_ase[good_ase])
         ).mean()
