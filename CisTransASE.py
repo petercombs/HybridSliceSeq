@@ -18,7 +18,7 @@ funny results.
 """
 import numpy as np
 import pandas as pd
-from scipy import interpolate
+from scipy import interpolate, stats
 from multiprocessing import Pool
 from progressbar import ProgressBar as pbar
 from Utils import pd_kwargs, sel_startswith, get_xs
@@ -117,14 +117,53 @@ if __name__ == "__main__":
     paris = pd.read_table('prereqs/GSE68062_Gene_CLASS_after_FPKM_normalization.txt',
                   index_col=1)['mel.CLASS']
     pzyg = paris[paris != 'mat']
+
+    insitu_annots = pd.read_csv('prereqs/insitu_annot.csv', header=None,
+                                names=['name', 'CG', 'FBgn', 'stage', 'annot'])
+    ishzyg = (insitu_annots
+              .query('stage == 2 and (annot in ("segmentally repeated", "gap", "pair rule"))')
+              .FBgn.dropna().unique()
+             )
+
     mel = expr.select(**sel_startswith('mel_'))
     sim = expr.select(**sel_startswith('sim_'))
     hyb = expr.select(**sel_startswith(('melXsim', 'simXmel')))
 
+    ase_melXsim = ase.select(**sel_startswith('melXsim'))
+    ase_simXmel = ase.select(**sel_startswith('simXmel'))
+
+    frac_mXs_ase = pd.np.isfinite(ase_melXsim).sum(axis=1) / len(ase_melXsim.columns)
+    frac_sXm_ase = pd.np.isfinite(ase_simXmel).sum(axis=1) / len(ase_simXmel.columns)
+
+    ase_ks = pd.Series(index=ase.index, data=pd.np.nan)
+    for gene in ase_ks.index:
+        if (frac_mXs_ase[gene] >.2) and (frac_sXm_ase[gene] > .2):
+            ase_ks[gene] = stats.ks_2samp(
+                ase_melXsim.ix[gene].dropna(),
+                ase_simXmel.ix[gene].dropna()).pvalue
+
+    similar_ase = ase_ks.index[ase_ks > .05]
+
+    ase_zyg = pd.Series(index=ase.index, data=np.nan)
+    for gene in ase_zyg.index:
+        if (frac_mXs_ase[gene] >.2) and (frac_sXm_ase[gene] > .2):
+            tstat, pval = stats.ttest_ind(ase_melXsim.ix[gene].dropna(),
+                                          ase_simXmel.ix[gene].dropna())
+            tstat, pval2 = stats.ttest_ind(ase_melXsim.ix[gene].dropna(),
+                                           -ase_simXmel.ix[gene].dropna())
+            ase_zyg.ix[gene] = pval2/pval
+    zyg_genes = ase_zyg.index[ase_zyg < 1e6]
+
+
+
+
     both_expr = (mel.max(axis=1) > EXPR_MIN) & (sim.max(axis=1) > EXPR_MIN)
+    both_expr &= (frac_mXs_ase > .2) & (frac_sXm_ase > .2)
     both_expr = (both_expr
                  .select(ase.index.__contains__)
-                 .select(pzyg.index.__contains__)
+                 #.select(pzyg.index.__contains__)
+                 .select(zyg_genes.__contains__)
+                 #.select(similar_ase.__contains__)
                 )
     both_expr = both_expr.index[both_expr]
     mel = mel.ix[both_expr]
@@ -136,6 +175,7 @@ if __name__ == "__main__":
             mel_splines = fit_all_splines(mel, p)
             sim_splines = fit_all_splines(sim, p)
         recalc = False
+        redraw = True
 
     ase_xs = get_xs(ase)
     ase_maternals = pd.Series(
@@ -151,6 +191,8 @@ if __name__ == "__main__":
     prog = pbar(maxval=len(ase_avgs.index))
     #prog = lambda x: x
     for gene in prog(ase_avgs.index):
+        if not locals().get('redraw', True):
+            break
         good_ase = np.isfinite(ase.ix[gene]) & ~(ase.ix[gene] == ase_maternals)
         xg = ase_xs[good_ase]
         ase_avgs.ix[gene, 'n_good_slices'] = len(xg)
