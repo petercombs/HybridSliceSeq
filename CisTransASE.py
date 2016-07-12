@@ -90,6 +90,21 @@ def fit_all_splines(expr, pool=None, progress=False):
     pb.finish()
     return out
 
+pu_kwargs = {
+    'box_height': 60,
+    'col_sep': '_sl',
+    'convert': True,
+    'draw_box': True,
+    'draw_name': False,
+    'draw_row_labels': True,
+    'make_hyperlinks': True,
+    'max_width': 1320,
+    'progress_bar': False,
+    'split_columns': True,
+    'total_width': 200,
+    'nan_replace' : 0.5,
+    'vspacer': 10}
+
 
 EXPR_MIN = 10
 if __name__ == "__main__":
@@ -100,6 +115,7 @@ if __name__ == "__main__":
     ase = (pd.read_table('analysis_godot/ase_summary_by_read.tsv', **pd_kwargs)
            .select(**sel_startswith(('melXsim', 'simXmel')))
            .dropna(how='all', axis=0)
+           #.replace(pd.np.nan, 0)
           )
 
     chrom_of = {}
@@ -218,6 +234,10 @@ if __name__ == "__main__":
         #print(gene)
         #print("Sim", min(sim_pred), max(sim_pred))
         #print("Mel", min(mel_pred), max(mel_pred))
+        #pred_ase = pd.Series(index=ase_xs.index, name='predicted_ase',
+                             #data=pd.np.nan)
+        #for ix in pred_ase.index:
+            #pred_ase[ix] = wilson95_pref(10*mel_pred[ix], 10*sim_pred[ix])
         pred_ase = ((sim_pred - mel_pred) /(sim_pred + mel_pred))
         pred_ase.name='predicted_ase'
         pred_ase -= (pred_ase.mean() - ase.ix[gene].mean())
@@ -255,20 +275,6 @@ if __name__ == "__main__":
             normer=pd.np.sum,
         )
 
-        pu_kwargs = {
-            'box_height': 60,
-            'col_sep': '_sl',
-            'convert': True,
-            'draw_box': True,
-            'draw_name': False,
-            'draw_row_labels': True,
-            'make_hyperlinks': True,
-            'max_width': 1320,
-            'progress_bar': False,
-            'split_columns': True,
-            'total_width': 200,
-            'nan_replace' : 0.5,
-            'vspacer': 0}
         pu.svg_heatmap(
             (
                 None, mel.ix[gene], None, None, None, None,
@@ -302,7 +308,77 @@ if __name__ == "__main__":
             ase_avgs.ix[gene, 'exprclass'] = paris[gene]
 
 
+    redraw = False
+
     ase_avgs.to_csv('analysis/results/ase_avgs.tsv', sep='\t')
+    trans = (ase_avgs.predicted - ase_avgs.actual) / 2**.5
+    sorted_trans = abs(trans).sort_values()
+    top_bottom = sorted_trans.index[:50] | sorted_trans.index[-50:]
+    for gene in top_bottom:
+        pu.svg_heatmap(
+            (
+                None, mel.ix[gene], None, None, None, None,
+                None, all_mel_pred.ix[gene],
+                None, sim.ix[gene], None, None, None, None,
+                None, all_sim_pred.ix[gene],
+                None, ase.ix[gene],
+                None, all_pred_ase_nan.ix[gene],
+                None, hyb.ix[gene],
+            ),
+            'analysis_godot/results/ase_preds/by_trans/{:+0.3f}-{}.svg'.format(trans.ix[gene], gene),
+            norm_rows_by=('mel expression', 'max', '', '', '', '',
+                          'predicted mel expression', 'max',
+                          'sim expression', 'max', '', '', '', '',
+                          'predicted sim expression', 'max',
+                          'ASE', 'center0pre',
+                          'predicted ASE - EMD {:.03f}'.format(ase_avgs.ix[gene, 'emd']), 'center0pre',
+                          'hybrid expression', 'max',
+                         ),
+            cmap=(None, pu.ISH, None, None, None, None,
+                  None, cm.Reds,
+                  None, pu.ISH, None, None, None, None,
+                  None, cm.Blues,
+                  None, cm.RdBu,
+                  None, cm.RdBu,
+                  None, pu.ISH,
+                 ),
+            **pu_kwargs
+        )
+
+    rms_sorted = ase_avgs.rmsdiff.sort_values()
+    n = len(rms_sorted) // 10
+
+    for gene in (rms_sorted.index[:n] | rms_sorted.index[-n:]):
+        pu.svg_heatmap(
+            (
+                None, mel.ix[gene], None, None, None, None,
+                None, all_mel_pred.ix[gene],
+                None, sim.ix[gene], None, None, None, None,
+                None, all_sim_pred.ix[gene],
+                None, ase.ix[gene],
+                None, all_pred_ase_nan.ix[gene],
+                None, hyb.ix[gene],
+            ),
+            'analysis_godot/results/ase_preds/by_rms/{:+0.3f}-{}.svg'.format(rms_sorted.ix[gene], gene),
+            norm_rows_by=('mel expression', 'max', '', '', '', '',
+                          'predicted mel expression', 'max',
+                          'sim expression', 'max', '', '', '', '',
+                          'predicted sim expression', 'max',
+                          'ASE', 'center0pre',
+                          'predicted ASE - EMD {:.03f}'.format(ase_avgs.ix[gene, 'emd']), 'center0pre',
+                          'hybrid expression', 'max',
+                         ),
+            cmap=(None, pu.ISH, None, None, None, None,
+                  None, cm.Reds,
+                  None, pu.ISH, None, None, None, None,
+                  None, cm.Blues,
+                  None, cm.RdBu,
+                  None, cm.RdBu,
+                  None, pu.ISH,
+                 ),
+            **pu_kwargs
+        )
+
 
 
 
