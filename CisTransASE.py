@@ -25,6 +25,8 @@ from Utils import pd_kwargs, sel_startswith, get_xs
 from matplotlib import cm
 import PlotUtils as pu
 import DistributionDifference as dd
+import itertools as it
+from collections import defaultdict
 
 def wilson95_pref(ref, alt):
     """Lower bound of the 95% confidence interval
@@ -310,11 +312,39 @@ if __name__ == "__main__":
 
     redraw = False
 
+    recalc_cis_baseline = locals().get('recalc_cis_baseline', True)
+
+    embryos = {col.split('_sl')[0] for col in ase.columns}
+    combos = list(it.combinations(embryos, 2))
+    smoothed_ase_vals = defaultdict(list)
+    actual_ase_vals = defaultdict(list)
+    for emb1, emb2 in pbar()(combos):
+        if not recalc_cis_baseline:
+            break
+        emb1 = ase.select(**sel_startswith(emb1))
+        emb2 = ase.select(**sel_startswith(emb2))
+        for gene in emb1.index:
+            if (
+                gene not in both_expr or
+                sum(np.isfinite(emb1.ix[gene])) < 5 or
+                sum(np.isfinite(emb2.ix[gene])) < 5 or
+                False
+               ):
+                continue
+            smoothed = pd.rolling_mean(emb1.ix[gene], 3,
+                                   center=True, min_periods=1)
+            smoothed_ase_vals[gene].append(smoothed.mean())
+            actual_ase_vals[gene].append(emb2.ix[gene].mean())
+
+
+
+    recalc_cis_baseline = False
+
     ase_avgs.to_csv('analysis/results/ase_avgs.tsv', sep='\t')
     trans = (ase_avgs.predicted - ase_avgs.actual) / 2**.5
     sorted_trans = abs(trans).sort_values()
     top_bottom = sorted_trans.index[:50] | sorted_trans.index[-50:]
-    for gene in top_bottom:
+    for gene in pbar()(top_bottom):
         pu.svg_heatmap(
             (
                 None, mel.ix[gene], None, None, None, None,
