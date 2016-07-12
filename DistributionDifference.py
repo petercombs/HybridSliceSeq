@@ -151,6 +151,9 @@ def earth_mover_multi(points1, points2, normer=np.sum):
     embs = {col.split('sl')[0] for col in points1.index}
     sums = [[],[]]
     for emb in embs:
+        if ((sum(np.isfinite(points1.select(startswith(emb)))) == 0)
+            or sum(np.isfinite(points2.select(startswith(emb))) == 0)):
+            continue
         dist += earth_mover_interp(points1.select(startswith(emb))+1e-5,
                                    points2.select(startswith(emb))+1e-5,
                                    normer=normer,
