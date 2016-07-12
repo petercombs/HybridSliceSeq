@@ -140,6 +140,18 @@ if __name__ == "__main__":
             index=ase.index,
             columns=ase.columns,
             )
+    chrom_of = {}
+    for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
+        if row.startswith('#') or not row.strip():
+            continue
+        data = row.split()
+        chrom_of[data[1]] = data[-1].split(':')[0]
+
+    males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
+    on_x = [chrom_of[gene] == 'X' for gene in ase.index]
+    is_male = [col.startswith(males) for col in ase.columns]
+    ase.ix[on_x, is_male] = np.nan
+
 
     xs = get_xs(ase)
     colnames = ['Amp', 'width', 'center', 'y_offset']
@@ -173,7 +185,6 @@ if __name__ == "__main__":
             linreg = linregress(xs[cols], ase_perm.ix[gene, cols])
             if linreg.pvalue < .05:
                 res_lin_perm.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
-        pbar.finish()
 
 
 

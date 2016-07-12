@@ -82,6 +82,18 @@ if __name__ == "__main__":
     ase = ase.ix[in_both]
     expr = expr.ix[in_both]
 
+    chrom_of = {}
+    for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
+        if row.startswith('#') or not row.strip():
+            continue
+        data = row.split()
+        chrom_of[data[1]] = data[-1].split(':')[0]
+
+    males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
+    on_x = [chrom_of[gene] == 'X' for gene in ase.index]
+    is_male = [col.startswith(males) for col in ase.columns]
+    ase_nomaleX = ase.copy()
+    ase_nomaleX.ix[on_x, is_male] = pd.np.nan
 
 
     # Mutliplying your ASE values by parent of origin should make it so that
@@ -110,13 +122,13 @@ if __name__ == "__main__":
 
     maternal = (ase.multiply(parent_of_origin) > ASE_MIN).sum(axis=1) > (FRAC_FOR_MATERNAL * slices_with_aseval)
     #paternal = (ase.multiply(parent_of_origin) < -ASE_MIN).sum(axis=1) > (FRAC_FOR_MATERNAL * slices_with_aseval)
-    paternal_mxs = pd.Series(index=ase.index, data=pd.np.nan)
-    paternal_sxm = pd.Series(index=ase.index, data=pd.np.nan)
-    samedir = pd.Series(index=ase.index, data=pd.np.nan)
+    paternal_mxs = pd.Series(index=ase_nomaleX.index, data=pd.np.nan)
+    paternal_sxm = pd.Series(index=ase_nomaleX.index, data=pd.np.nan)
+    samedir = pd.Series(index=ase_nomaleX.index, data=pd.np.nan)
     for gene in paternal_sxm.index:
         if expr.ix[gene].max() < EXPR_MIN:
             continue
-        gene_ase = ase.ix[gene].multiply(parent_of_origin).dropna()
+        gene_ase = ase_nomaleX.ix[gene].multiply(parent_of_origin).dropna()
         per_sample = Counter(col.split('_')[0] for col in gene_ase.index)
         if len(per_sample) < 2 or per_sample.most_common(2)[1][1] < 5:
             continue
