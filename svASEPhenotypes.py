@@ -1,3 +1,4 @@
+from __future__ import print_function
 import pandas as pd
 from collections import defaultdict
 
@@ -10,20 +11,49 @@ if __name__ == "__main__":
     svASE_genes = logist.index.union(peak.index)
     svASE_gns = tuple(fbgns[gene]+'[' for gene in svASE_genes)
 
-    phenotypes = defaultdict(set)
+    phenotypes_by_gene = defaultdict(set)
+    genes_by_phenotype = defaultdict(set)
     poor_phenotypes = ('viable', 'lethal', 'partially lethal', 'some die')
     for line in open('prereqs/allele_phenotypic_data_fb_2016_02.tsv'):
         line = line.split('\t')
-        if (line and line[0].startswith(svASE_gns) and not
-            line[2].startswith(poor_phenotypes)):
+        if line and line[0].startswith(svASE_gns):
+            if 'with' in line[2]:
+                print(line[2])
+                continue
             phenotype = (line[2]
-                         .split('with')[0]
+                         #.split('with')[0]
                          .split('(')[0]
                          .split(',')[0]
                          .split('|')[0]
                          .strip()
                         )
-            phenotypes[line[0].split('[')[0]].add(phenotype)
+            gene = line[0].split('[')[0]
+            if not line[2].startswith(poor_phenotypes):
+                phenotypes_by_gene[gene].add(phenotype)
+            genes_by_phenotype[phenotype].add(gene)
+
+    phenotypes_by_geneset = defaultdict(set)
+    for phenotype in genes_by_phenotype:
+        phenotypes_by_geneset[frozenset(genes_by_phenotype[phenotype])].add(phenotype)
+
+
+    outfile = open('godot/results/phenotypes.dot', 'w')
+    print("graph {", file=outfile)
+    for gene in phenotypes_by_gene:
+        for gene2 in phenotypes_by_gene:
+            if gene == gene2: break
+            intersection = phenotypes_by_gene[gene].intersection(phenotypes_by_gene[gene2])
+            intersection.discard('viable')
+            intersection.discard('visible')
+            intersection.discard('fertile')
+            if len(intersection) > 2:
+                print('\t"{}" -- "{}" [weight={}, tooltip="{}"]; '
+                      .format(gene, gene2, len(intersection),
+                              ','.join(intersection)),
+                      file=outfile)
+    print("}", file=outfile)
+    outfile.close()
+
 
 
 
