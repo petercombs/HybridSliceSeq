@@ -201,10 +201,15 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
         box_height = box_size
 
     if total_width is not None and max_width is not np.inf:
+        boxes_per_row = max_width // (1.1 * total_width)
+        if ((boxes_per_row + 1) * 1.1 * total_width - .1 * total_width
+            < max_width):
+            boxes_per_row += 1
+
         dwg = svg.Drawing(filename,
-                          size=(max_width + 2 * x_min,
+                          size=(max_width + 2 * x_min + 200 * draw_row_labels,
                                 2 * y_min
-                                + np.ceil((len(data) * total_width)/max_width +
+                                + np.ceil(len(data) / boxes_per_row +
                                           (draw_average or draw_average_only))
                                 * (box_height+vspacer)))
     else:
