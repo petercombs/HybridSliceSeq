@@ -22,7 +22,7 @@ oefemale_r2 = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_TGACAGAC_pf
 fbfemale_r2 = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_CGATGTTT_pf
 fbmale_r2   = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_TAGAACAC_pf
 
-QSUBBER_ARGS = --keep-temporary tmp --log-base $(basename $@)  --job-name $(basename $(@F))
+QSUBBER_ARGS =  $(QSUBBER_LOCAL) --keep-temporary tmp --log-base $(basename $@)  --job-name $(basename $(@F))
 
 sequence/%:
 	wget -c -P sequence ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$(call substr,$*,1,6)/$*/$*_1.fastq.gz
