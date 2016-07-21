@@ -21,7 +21,7 @@ import pandas as pd
 from scipy import interpolate, stats
 from multiprocessing import Pool
 from progressbar import ProgressBar as pbar
-from Utils import pd_kwargs, sel_startswith, get_xs
+from Utils import pd_kwargs, sel_startswith, get_xs, get_nearest_slice
 from matplotlib import cm
 import PlotUtils as pu
 import DistributionDifference as dd
@@ -216,6 +216,8 @@ if __name__ == "__main__":
     all_mel_pred = all_pred_ase_nan.copy()
     all_sim_pred = all_pred_ase_nan.copy()
 
+    all_pred_ase = []
+
     prog = pbar(maxval=len(ase_avgs.index))
     #prog = lambda x: x
     for gene in prog(ase_avgs.index):
@@ -242,11 +244,16 @@ if __name__ == "__main__":
             #pred_ase[ix] = wilson95_pref(10*mel_pred[ix], 10*sim_pred[ix])
         pred_ase = ((sim_pred - mel_pred) /(sim_pred + mel_pred))
         pred_ase.name='predicted_ase'
-        pred_ase -= (pred_ase.mean() - ase.ix[gene].mean())
+        #pred_ase -= (pred_ase.mean() - ase.ix[gene].mean())
         pred_ase_nan = pred_ase.where(np.isfinite(ase.ix[gene]), np.nan)
         all_pred_ase_nan.ix[gene] = pred_ase_nan
         all_sim_pred.ix[gene] = sim_pred
         all_mel_pred.ix[gene] = mel_pred
+        all_pred_ase.extend(
+            (a, b) for  a, b in zip(
+                ase.ix[gene, good_ase],
+                pred_ase_nan[good_ase])
+            if (np.isfinite(a) and np.isfinite(b)))
 
         '''
         print(pd.DataFrame([
@@ -315,14 +322,26 @@ if __name__ == "__main__":
     recalc_cis_baseline = locals().get('recalc_cis_baseline', True)
 
     embryos = {col.split('_sl')[0] for col in ase.columns}
-    combos = list(it.combinations(embryos, 2))
+    combos = list(it.permutations(embryos, 2))
     smoothed_ase_vals = defaultdict(list)
     actual_ase_vals = defaultdict(list)
+    by_nearest = []
     for emb1, emb2 in pbar()(combos):
         if not recalc_cis_baseline:
+            print("Skipping cis comparisons")
             break
         emb1 = ase.select(**sel_startswith(emb1))
         emb2 = ase.select(**sel_startswith(emb2))
+        emb1_xs = get_xs(emb1)
+        emb2_xs = get_xs(emb2)
+        for slice1 in emb1.columns:
+            slice2 = get_nearest_slice(emb1_xs[slice1], emb2)
+            by_nearest.extend(
+                (a, b) for gene, a, b in zip(
+                    emb1.index,
+                    emb1.ix[:, slice1],
+                    emb2.ix[:, slice2])
+                if (np.isfinite(a) and np.isfinite(b) and gene in both_expr))
         for gene in emb1.index:
             if (
                 gene not in both_expr or
@@ -331,10 +350,29 @@ if __name__ == "__main__":
                 False
                ):
                 continue
-            smoothed = pd.rolling_mean(emb1.ix[gene], 3,
-                                   center=True, min_periods=1)
-            smoothed_ase_vals[gene].append(smoothed.mean())
-            actual_ase_vals[gene].append(emb2.ix[gene].mean())
+            yvals = pd.rolling_mean( emb1.ix[gene], 5, center=True, min_periods=1)
+            gx = np.isfinite(yvals)
+            spline = interpolate.UnivariateSpline(
+                emb1_xs[gx],
+                yvals[gx],
+                bbox=[0,1],
+            )
+
+            gx2 = (
+                np.isfinite(emb2.ix[gene])
+                & (emb2_xs > emb1_xs[gx][0])
+                & (emb2_xs < emb1_xs[gx][-1])
+                  )
+            smoothed_vals = spline(emb2_xs[gx2])
+            svnm = np.nanmean(smoothed_vals)
+            if np.isnan(svnm):
+                print(emb1.columns[0].split('_sl')[0],
+                      emb2.columns[0].split('_sl')[0],
+                      gene)
+                assert False
+            smoothed_ase_vals[gene].extend(smoothed_vals)
+
+            actual_ase_vals[gene].extend(emb2.ix[gene,gx2])
 
 
 

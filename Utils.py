@@ -172,3 +172,7 @@ def get_xs(dataframe):
     return pd.Series(index=dataframe.select(**sel_contains('sl')).columns,
                    data=[(int(a.split('_sl')[1][:2])-1)/(max_slice[a.split('_sl')[0]]-1)
                          for a in dataframe.columns if 'sl' in a])
+
+def get_nearest_slice(query, other_frame):
+    other_xs = get_xs(other_frame)
+    return abs(query - other_xs).idxmin()
