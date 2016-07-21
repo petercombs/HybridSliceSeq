@@ -3,7 +3,8 @@ from scipy.optimize import curve_fit
 from scipy.stats import linregress
 from multiprocessing import Pool
 from collections import defaultdict
-from Utils import sel_startswith, get_xs, pd_kwargs, fbgns
+from Utils import (sel_startswith, get_xs, pd_kwargs, fbgns, get_synonyms,
+                   startswith)
 import pandas as pd
 import itertools as it
 import numpy as np
@@ -262,6 +263,43 @@ if __name__ == "__main__":
                    row_labels=fbgns.ix[r2_peak_genes],
                    **kwargs)
 
+    best_r2 = r2_peak.copy()
+    for gene in r2_logist.index:
+        # Note that I use "and not > " rather than "<" to catch nans
+        if ((gene in best_r2 and not best_r2[gene] > r2_logist[gene])
+            or (gene not in best_r2)):
+            best_r2[gene] = r2_logist[gene]
 
+    if locals().get('print_kegg', False):
+        synonyms = get_synonyms()
+        wnt_genes = [line.strip() for line in open('prereqs/wnt.kegg.genes')]
+        wnt_scores = pd.Series(index=synonyms[wnt_genes],
+                               data=best_r2[synonyms[wnt_genes]])
+        wnt_scores.index = ['dme:Dmel_' + CG for CG in wnt_genes]
+        wnt_scores.index.name = '#dme'
+        wnt_scores.name = 'svASE'
+        (wnt_scores
+         .sort_values(na_position='first')
+         .to_csv('analysis/results/wnt_scores.tsv',
+                 sep='\t',
+                 header=True)
+        )
+
+        all_cgs = synonyms.select(startswith(('CG1', 'CG2', 'CG3', 'CG4', 'CG5',
+                                              'CG6', 'CG7', 'CG8', 'CG9')))
+        all_scores = pd.Series(index=all_cgs,
+                               data=best_r2[all_cgs])
+        all_scores.index = ['dme:Dmel_' + CG for CG in all_cgs.index]
+        all_scores.index.name = '#dme'
+        all_scores.name = 'svASE'
+        all_scores2 = all_scores.copy()
+        all_scores2.index = [ix.split(':')[1] for ix in all_scores2.index]
+        (all_scores
+         .sort_values(na_position='first')
+         .dropna()
+         .to_csv('analysis/results/all_svase_scores_cg.tsv',
+                 sep='\t',
+                 header=True)
+        )
 
 
