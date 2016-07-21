@@ -328,6 +328,28 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		$(MELGTF) \
 		$<
 
+%/melsim_gene_ase_by_read_with_wasp.tsv : %/assigned_dmelR_wasp_dedup.remap.kept_sorted.bam %/assigned_dmelR_wasp_dedup.remap.kept.sorted.bam.bai $(ANALYSIS_DIR)/on_mel/melsim_variant.bed $(ANALYSIS_DIR)/recalc_ase
+	./qsubber $(QSUBBER_ARGS) -t 1 \
+	python ~/ASEr/bin/GetGeneASEbyReads.py \
+		--outfile $@ \
+		--ase-function pref_index \
+		$(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		$(MELGTF) \
+		$<
+
+%/wasp_genes.fpkm_tracking: %/assigned_dmelR_wasp_dedup.remap.kept_sorted.bam $(MELGTF) $(MELFASTA2) $(MELBADGTF)
+	./qsubber $(QSUBBER_ARGS)_$(*F) --load-module cufflinks -t 4 \
+	cufflinks \
+		--num-threads 8 \
+		--output-dir $(@D)/tmp \
+		--multi-read-correct \
+		--frag-bias-correct $(MELFASTA2) \
+		--GTF $(MELGTF) \
+		--mask-file $(MELBADGTF) \
+		$<
+	mv $(@D)/tmp/genes.fpkm_tracking $@
+
+
 %_cds_ase.tsv : %_SNP_COUNTS.txt GetGeneASE.py $(ANALYSIS_DIR)/recalc_ase $(ANALYSIS_DIR)/on_mel/true_hets.tsv
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python2 GetGeneASE.py \
@@ -379,8 +401,8 @@ $(ANALYSIS_DIR)/on_%/masked:
 
 WASPMAP = $(HOME)/FWASP/mapping
 
-%.remap.fq1.gz %.remap.fq2.gz %.keep.bam %.to.remap.bam : %.bam
-	./qsubber $(QSUBBER_ARGS) -t 1 python $(WASPMAP)/find_intersecting_snps_2.py -p $< analysis/on_mel
+%.remap.fq1.gz %.remap.fq2.gz %.keep.bam %.to.remap.bam : %.bam $(WASPMAP)/find_intersecting_snps_2.py
+	./qsubber $(QSUBBER_ARGS) -t 1 python $(WASPMAP)/find_intersecting_snps_2.py --phased -p $< analysis/on_mel
 
 %.remap.bam: %.remap.fq1.gz %.remap.fq2.gz
 	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 --load-module STAR \
@@ -388,6 +410,7 @@ WASPMAP = $(HOME)/FWASP/mapping
 		--genomeDir Reference/melsim --outFileNamePrefix $(@D)/ \
 		--outSAMattributes MD NH --clip5pNbases 6 \
 		--readFilesIn $^
+	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 --load-module samtools \
 	samtools view -bS -o $@ $(@D)/Aligned.out.sam
 	rm $(@D)/Aligned.out.sam
 

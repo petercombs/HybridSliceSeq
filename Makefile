@@ -105,6 +105,27 @@ $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py 
 		$(ANALYSIS_DIR) \
 		\| tee $(ANALYSIS_DIR)/mst_fb.log
 
+$(ANALYSIS_DIR)/summary_wasp.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $$(subst genes,wasp_genes,$$(FPKMS)) $(RUNCONFIG) $(ANALYSIS_DIR)/map_stats.tsv | $(ANALYSIS_DIR)
+	@echo '============================='
+	@echo 'Making summary table'
+	@echo '============================='
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
+	python MakeSummaryTable.py \
+       --params $(RUNCONFIG) \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 65 \
+	   --map-stats $(ANALYSIS_DIR)/map_stats.tsv \
+	   --out-basename summary_wasp \
+	   --filename wasp_$(QUANT_FNAME) \
+	   --key tracking_id \
+	   --column $(QUANT_COL) \
+		$(ANALYSIS_DIR) \
+		\| tee $(ANALYSIS_DIR)/mst_fb.log
+
+
 $(ANALYSIS_DIR)/ase_summary_by_read.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase_by_read.tsv,$$(FPKMS)) $(ANALYSIS_DIR)/map_stats.tsv
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
@@ -117,6 +138,21 @@ $(ANALYSIS_DIR)/ase_summary_by_read.tsv: $(ANALYSIS_DIR)/retabulate $$(subst gen
 			--map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 			--key "gene" \
 			--out-basename ase_summary_by_read \
+			--float-format "%0.6f" \
+			$(ANALYSIS_DIR)
+
+$(ANALYSIS_DIR)/ase_summary_by_read_with_wasp.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase_by_read_with_wasp.tsv,$$(FPKMS)) $(ANALYSIS_DIR)/map_stats.tsv
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
+	python MakeSummaryTable.py \
+			--params Parameters/RunConfig.cfg \
+			--filename melsim_gene_ase_by_read_with_wasp.tsv \
+			--column "ase_value" \
+			--strip-low-reads 3000000 \
+			--strip-on-unique \
+			--strip-as-nan \
+			--map-stats $(ANALYSIS_DIR)/map_stats.tsv \
+			--key "gene" \
+			--out-basename ase_summary_by_read_with_wasp \
 			--float-format "%0.6f" \
 			$(ANALYSIS_DIR)
 
