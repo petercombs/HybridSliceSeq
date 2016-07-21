@@ -25,11 +25,17 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
              print_error=False):
     ys = data.ix[index]
     if median_in and not median_in[0] < ys.median() < median_in[1]:
+        print("Median {} outside of range [{}, {}]"
+              .format(ys.median(), *median_in)
+             )
         return array([nan, nan, nan, nan])
     if randomize:
         xs = np.random.permutation(xs)
     keep = array(isfinite(ys))
     if sum(keep) < len(xs)/2:
+        if print_error:
+            print("Not enough values to fit ASE ({}/{})"
+                 .format(sum(keep), len(xs)))
         return array([nan, nan, nan, nan])
     if p0 is None:
         pos_amp = ys.max() - ys.median()
