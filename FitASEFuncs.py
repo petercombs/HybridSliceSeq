@@ -1,8 +1,8 @@
 from numpy import (exp, array, isfinite, nan, inf)
 from scipy.optimize import curve_fit
-from scipy.stats import linregress
+from scipy.stats import linregress, ttest_1samp
 from multiprocessing import Pool
-from collections import defaultdict
+from collections import Counter
 from Utils import (sel_startswith, get_xs, pd_kwargs, fbgns, get_synonyms,
                    startswith)
 import pandas as pd
@@ -305,5 +305,33 @@ if __name__ == "__main__":
                  sep='\t',
                  header=True)
         )
+        keggs = {line.split()[0]:line.split()[1].strip().strip(',').split(',')
+                 for line in open('prereqs/kegg_database.txt')}
+        kegg_stats = Counter()
+        kegg_pvals = Counter()
+        for pathway in ProgressBar()(keggs):
+            ttest_res = ttest_1samp(all_scores2[keggs[pathway]].dropna(),
+                                    0.045130029332897552)
+            if len(all_scores2[keggs[pathway]].dropna()) > 5:
+                kegg_stats[pathway] = ttest_res.statistic
+                kegg_pvals[pathway] = ttest_res.pvalue
+                if ttest_res.statistic > 0:
+                    pathway_gene_names = synonyms[[ix.split('_')[1]
+                                                   for ix in keggs[pathway]]]
+                    pathway_svases = best_r2[pathway_gene_names].sort_values(ascending=False)
+                    pathway_name = pathway.split('~')[1].replace('_/', '')
+                    pu.svg_heatmap(ase.ix[pathway_svases.index],
+                                   'analysis/results/{}_ase.svg'.format(pathway_name),
+                                   row_labels=fbgns.ix[pathway_svases.index],
+                                   norm_rows_by='center0pre',
+                                   cmap=cm.RdBu,
+                                   **kwargs
+                                  )
 
-
+                    pu.svg_heatmap(expr.ix[pathway_svases.index],
+                                   'analysis/results/{}_expr.svg'.format(pathway_name),
+                                   row_labels=fbgns.ix[pathway_svases.index],
+                                   norm_rows_by='max',
+                                   cmap=pu.ISH,
+                                   **kwargs
+                                  )
