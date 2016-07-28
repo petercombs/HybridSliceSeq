@@ -46,7 +46,7 @@ if __name__ == "__main__":
             intersection.discard('viable')
             intersection.discard('visible')
             intersection.discard('fertile')
-            if len(intersection) > 2:
+            if len(intersection) > 0:
                 print('\t"{}" -- "{}" [weight={}, tooltip="{}"]; '
                       .format(gene, gene2, len(intersection),
                               ','.join(intersection)),
@@ -54,8 +54,24 @@ if __name__ == "__main__":
     print("}", file=outfile)
     outfile.close()
 
+    outfile = open('godot/results/pheno_genes.dot', 'w')
 
+    print("graph {", file=outfile)
+    print('\trankdir="LR"', file=outfile)
+    for phenotype, genes in genes_by_phenotype.items():
+        if (phenotype.startswith(('some die', 'long lived', 'short lived',
+                                  'embryonic', 'larval', 'abdominal', 'embryo',
+                                  'wild-type', 'male sterile', 'denticle',
+                                  'neuroblast',
+                                  'sterile', 'neuron', 'fertile', 'lethal', 'viable',
+                                  'partially lethal', 'visible', ))
+            or phenotype.endswith(('neuron', 'defective', 'segment'))):
+            continue
+        else:
+            for gene in genes:
+                print('\t"{}" -- "{}"; '
+                      .format(phenotype, gene),
+                     file=outfile)
 
-
-
-
+    print("}", file=outfile)
+    outfile.close()
