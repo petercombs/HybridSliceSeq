@@ -286,7 +286,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                     x_start += spacer
             if x_start > max_width:
                 x_start = x_min
-                y_start += y_diff
+                y_start += box_height + vspacer
             continue
         if has_pandas:
             frame = pd.DataFrame(frame)
@@ -313,8 +313,9 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             if has_pandas:
                 maxall = frame.max(axis=1)
                 for old_frame in data:
-                    old_frame = old_frame.max(axis=1)
-                    maxall = maxall.where(maxall > old_frame, old_frame)
+                    if old_frame is not None:
+                        old_frame = old_frame.max(axis=1)
+                        maxall = maxall.where(maxall > old_frame, old_frame)
                 norm_data = array(frame.divide(maxall + 10, axis=0))
             else:
                 norm_data = frame / (old_data[:, isfinite(old_data[0, :])]
