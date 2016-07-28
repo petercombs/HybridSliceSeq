@@ -76,7 +76,7 @@ $(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(F
 	   --strip-on-unique \
 	   --strip-as-nan \
 	   --mapped-bamfile assigned_dmelR.bam \
-	   --strip-low-map-rate 65 \
+	   --strip-low-map-rate 63 \
 	   --map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 	   --filename $(QUANT_FNAME) \
 	   --key $(QUANT_KEY) \
