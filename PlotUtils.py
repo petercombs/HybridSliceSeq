@@ -206,12 +206,16 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             < max_width):
             boxes_per_row += 1
 
+        num_plotted_rows = np.ceil(len(data) / boxes_per_row
+                                   + (draw_average or draw_average_only))
         dwg = svg.Drawing(filename,
                           size=(max_width + 2 * x_min + 200 * draw_row_labels,
                                 2 * y_min
-                                + np.ceil(len(data) / boxes_per_row +
-                                          (draw_average or draw_average_only))
-                                * (box_height+vspacer)))
+                                + (num_plotted_rows
+                                   * (max(len(d) for d in data))
+                                   * box_height)
+                                + 80 * draw_name
+                                + (num_plotted_rows - 1) * vspacer))
     else:
         dwg = svg.Drawing(filename)
     dwg.add(svg.base.Title(path.basename(filename)))
