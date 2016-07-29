@@ -9,10 +9,13 @@ indicate some kind of cis + trans compensatory change.
 import numpy as np
 import pandas as pd
 import PlotUtils as pu
+import HybridUtils as hu
 import DistributionDifference as dd
 from matplotlib import cm
+from multiprocessing import Pool
 from progressbar import ProgressBar as pbar
-from Utils import (pd_kwargs, sel_startswith)
+from Utils import (pd_kwargs, startswith, sel_startswith, get_synonyms, get_xs)
+from CisTransASE import fit_all_splines
 
 
 
@@ -31,6 +34,38 @@ pu_kwargs = {
     'split_columns': True,
     'total_width': 200,
     'vspacer': 10}
+
+
+def get_diffs(expr, mel_spline, sim_spline, col_headers):
+    mel = expr.select(startswith('mel_'))
+    sim = expr.select(startswith('sim_'))
+    melXsim = expr.select(startswith('melXsim_'))
+    simXmel = expr.select(startswith('simXmel_'))
+    hybrids = expr.select(startswith(('melXsim', 'simXmel')))
+    parental_diffs = dd.earth_mover_multi_rep(
+        mel, sim,
+        normer=lambda x: expr.max(),
+    )
+    mel_hyb_diffs = dd.earth_mover_multi_rep(
+        mel, melXsim,
+        normer=lambda x: expr.max(),
+    )
+    sim_hyb_diffs = dd.earth_mover_multi_rep(
+        sim, simXmel,
+        normer=lambda x: expr.max(),
+    )
+
+    avgs = pd.Series(mel_spline(xs) + sim_spline(xs),
+                     index=col_headers,
+                    )
+
+    avg_hyb_diffs = dd.earth_mover_multi_rep(
+        avgs.astype(float).clip(0, 1e6),
+        hybrids,
+        normer=lambda x: expr.max(),
+    )
+
+    return parental_diffs, mel_hyb_diffs, sim_hyb_diffs, avgs, avg_hyb_diffs
 
 def plot_expr_comparison(expr, gene, prefix=None, smoothed=0):
     mel = expr.select(**sel_startswith('mel_')).ix[gene]
@@ -54,8 +89,11 @@ def plot_expr_comparison(expr, gene, prefix=None, smoothed=0):
 
 
 if __name__ == "__main__":
-    expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs)
+    synonyms = get_synonyms()
+
+    expr = pd.read_table('analysis_godot/summary_fb.tsv', **pd_kwargs)
     ase = pd.read_table('analysis_godot/ase_summary_by_read.tsv', **pd_kwargs)
+
 
     mel = expr.select(**sel_startswith('mel_'))
     sim = expr.select(**sel_startswith('sim_'))
@@ -68,28 +106,41 @@ if __name__ == "__main__":
     expr_in_hybrids = (hybrids.max(axis=1) > EXPR_MIN)
     expr_in_all = (expr_in_mel & expr_in_sim & expr_in_hybrids)
 
-    hyb_spatial_difference = pd.Series(data=np.nan,
-                                       index=expr_in_all.index[expr_in_all]
-                                      )
+    ase = ase.ix[expr_in_all.index[expr_in_all]]
+    ase_classes = hu.get_classes(ase, pbar=pbar, style='cutoff')
+    not_maternal = ase_classes.index[~((ase_classes.melXsim == 0) &
+                                       (ase_classes.simXmel == 0))]
+
+    with Pool() as p:
+        mel_splines = fit_all_splines(mel.ix[not_maternal], p, progress=True)
+        sim_splines = fit_all_splines(sim.ix[not_maternal], p, progress=True)
+
+    hyb_spatial_difference = pd.Series(
+        data=np.nan,
+        index=not_maternal,
+    )
     parental_diffs = hyb_spatial_difference.copy()
     mel_hyb_diffs = hyb_spatial_difference.copy()
     sim_hyb_diffs = hyb_spatial_difference.copy()
+    avg_hyb_diffs = hyb_spatial_difference.copy()
 
-    for gene in pbar()(hyb_spatial_difference.index):
-        parental_diffs[gene] = dd.earth_mover_multi_rep(
-            mel.ix[gene], sim.ix[gene],
-            normer=lambda x: expr.ix[gene].max(),
-        )
-        mel_hyb_diffs[gene] = dd.earth_mover_multi_rep(
-            mel.ix[gene], melXsim.ix[gene],
-            normer=lambda x: expr.ix[gene].max(),
-        )
-        sim_hyb_diffs[gene] = dd.earth_mover_multi_rep(
-            sim.ix[gene], simXmel.ix[gene],
-            normer=lambda x: expr.ix[gene].max(),
-        )
-        hyb_spatial_difference[gene] = ((mel_hyb_diffs[gene] + sim_hyb_diffs[gene])
-                                        / 2
-                                        - parental_diffs[gene])
+    xs = np.linspace(0, 1, 20, endpoint=True)
+    avgs = pd.DataFrame(index=hyb_spatial_difference.index,
+                        columns=['avg_sl{}'.format(i+1) for i in range(20)])
+
+    with Pool() as p:
+        results = (p.apply_async(get_diffs, (expr.ix[gene], mel_splines[gene],
+                                             sim_splines[gene], avgs.columns))
+                  for gene in hyb_spatial_difference.index)
+        for gene in pbar()(hyb_spatial_difference.index):
+
+            res = next(results).get()
+            (parental_diffs[gene],
+             mel_hyb_diffs[gene],
+             sim_hyb_diffs[gene],
+             avgs.ix[gene],
+             avg_hyb_diffs[gene]) = res
+            hyb_spatial_difference[gene] = (avg_hyb_diffs[gene]
+                                            - parental_diffs[gene])
 
 
