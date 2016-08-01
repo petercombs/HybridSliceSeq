@@ -11,6 +11,14 @@ except ImportError:
 
 from scipy.stats import ttest_1samp
 
+def get_classes(ase, **kwargs):
+    pbar = kwargs.pop('pbar', lambda : lambda x: x)
+    classes = pd.DataFrame(index=ase.index,
+                           columns={col.split('_')[0] for col in ase.columns},
+                           data=np.nan)
+    for gene in pbar()(ase.index):
+        classes.ix[gene] = is_directionally_biased(ase, gene, **kwargs)
+    return classes
 
 def is_maternal(ase, gene, **kwargs):
     mat_direction = np.array([1 if col.startswith('sim') else -1
@@ -32,6 +40,7 @@ def is_sim(ase, gene, **kwargs):
 
 
 def is_directionally_biased(ase, gene, bias_direction=None, style='ttest', ase_level=0.33,
+                            min_slices=10, too_few_slices_val=99,
                             frac_for_biased=0.65, two_tailed=False, alpha=.05):
     if bias_direction is None:
         bias_direction = [1 for col in ase.columns]
@@ -50,8 +59,15 @@ def is_directionally_biased(ase, gene, bias_direction=None, style='ttest', ase_l
 
         elif style == 'cutoff':
             slices_with_aseval = genease.count()
-            biases[genotype] = ((genease > ase_level).sum()
-                                > frac_for_biased * slices_with_aseval)
+            if slices_with_aseval < min_slices:
+                biases[genotype] = too_few_slices_val
+                continue
+            biases[genotype] = 0
+            for dir in [-1, 1]:
+                if ((dir * genease > ase_level).sum()
+                    > max(frac_for_biased * slices_with_aseval, min_slices)):
+                    biases[genotype] = dir
+                    break
     return biases
 
 
