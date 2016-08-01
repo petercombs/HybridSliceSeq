@@ -212,7 +212,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                           size=(max_width + 2 * x_min + 200 * draw_row_labels,
                                 2 * y_min
                                 + (num_plotted_rows
-                                   * (max(len(d) for d in data))
+                                   * (rows)
                                    * box_height)
                                 + 80 * draw_name
                                 + (num_plotted_rows - 1) * vspacer))
