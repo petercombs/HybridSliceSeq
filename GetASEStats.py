@@ -128,7 +128,7 @@ if __name__ == "__main__":
 
     slices_with_expr = (expr > EXPR_MIN).sum(axis=1)
     slices_with_ase = (ase > ASE_MIN).sum(axis=1)
-    slices_with_aseval = isfinite(ase).sum(axis=1)
+    slices_with_aseval = ase.count(axis=1)
     slices_with_aseval = slices_with_aseval.where(slices_with_aseval>slices_with_expr, slices_with_expr)
     slices_with_aseval = slices_with_aseval.where(slices_with_aseval>5, 5)
 
@@ -183,9 +183,16 @@ if __name__ == "__main__":
 
     data['lott_maternal_agree'] = sum(has_ase_lott*maternal.ix[has_ase_lott.index])
 
-    mat_lott_zyg = set(lott[lott.CLASS == 'zyg'].index).intersection(maternal[maternal].index)
-    data['lott_disagree'] = len(mat_lott_zyg)
+    me_mat_lott_zyg = set(lott[lott.CLASS == 'zyg'].index).intersection(maternal[maternal].index)
+    data['lott_disagree'] = len(me_mat_lott_zyg)
+    pu.svg_heatmap(ase.ix[me_mat_lott_zyg], 'analysis/results/me_mat_lott_zyg.svg',
+                   norm_rows_by='center0pre', cmap=cm.RdBu,  **plot_kwargs)
 
+    peak_genes = [line.strip() for line in open('analysis/results/peak_genes.txt')]
+    logist_genes = [line.strip() for line in open('analysis/results/logist_genes.txt')]
+
+    data['num_peak'] = len(peak_genes)
+    data['num_logist'] = len(logist_genes)
 
 
     print(data)
