@@ -1,3 +1,4 @@
+from __future__ import print_function
 from numpy import (exp, array, isfinite, nan, inf)
 from scipy.optimize import curve_fit
 from scipy.stats import linregress, ttest_1samp
@@ -87,7 +88,6 @@ def fit_all_ase(ase, func, xs, colnames=None, pool=None, progress=False,
             pbar = ProgressBar(maxval=len(results))
             for r in pbar(results):
                 res.append(r.get())
-            pbar.finish()
         else:
             res = list(pool.starmap(
                 fit_func,
@@ -239,6 +239,11 @@ if __name__ == "__main__":
         if ((r2_logist.ix[gene] > .5)
             and not (r2_logist.ix[[gene]] < r2_peak.ix[[gene]]).all())
     }
+
+    print('\n'.join(r2_peak_genes),
+          file=open('analysis/results/peak_genes.txt', 'w'))
+    print('\n'.join(r2_logist_genes),
+          file=open('analysis/results/logist_genes.txt', 'w'))
 
     pu.svg_heatmap(ase.ix[r2_logist_genes],
                    'analysis/results/logist_ase.svg',
