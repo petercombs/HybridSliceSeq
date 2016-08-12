@@ -5,6 +5,7 @@ from scipy.stats import ttest_1samp
 import Utils
 import PlotUtils as pu
 from Utils import startswith, fbgns, pd_kwargs
+import HybridUtils as hu
 from matplotlib import cm
 from progressbar import ProgressBar
 
@@ -50,6 +51,17 @@ EXPR_MIN = 10
 FRAC_FOR_ASE = 2/3
 ASE_MIN = (FRAC_FOR_ASE - (1-FRAC_FOR_ASE))/1
 FRAC_FOR_MATERNAL = 0.65
+
+plot_kwargs = {'box_height': 25,
+               'col_sep': '_sl',
+               'convert': True,
+               'draw_box': True,
+               'draw_name': True,
+               'draw_row_labels': True,
+               'make_hyperlinks': True,
+               'progress_bar': False,
+               'split_columns': True,
+               'total_width': 200}
 
 if __name__ == "__main__":
     if 'ase' not in locals() or ('reload_ase' in locals() and locals()['reload_ase']):
@@ -120,8 +132,24 @@ if __name__ == "__main__":
     slices_with_aseval = slices_with_aseval.where(slices_with_aseval>slices_with_expr, slices_with_expr)
     slices_with_aseval = slices_with_aseval.where(slices_with_aseval>5, 5)
 
-    maternal = (ase.multiply(parent_of_origin) > ASE_MIN).sum(axis=1) > (FRAC_FOR_MATERNAL * slices_with_aseval)
-    #paternal = (ase.multiply(parent_of_origin) < -ASE_MIN).sum(axis=1) > (FRAC_FOR_MATERNAL * slices_with_aseval)
+    bias_dirs = pd.DataFrame(data=pd.np.nan, index=ase.index,
+                             columns=['melXsim', 'simXmel'])
+    biases = Counter()
+
+    for gene in ase.index:
+        gene_biases = hu.is_directionally_biased(ase, gene, two_tailed=True,
+                                                 style='cutoff',
+                                                 frac_for_biased=FRAC_FOR_MATERNAL,
+                                                 ase_level=ASE_MIN,
+                                                )
+        biases[(gene_biases['melXsim'], gene_biases['simXmel'])] += 1
+        bias_dirs.ix[gene] = gene_biases
+
+    maternal = pd.Series(index=ase.index,
+                         data=[all(bias_dirs.ix[gene] == (-1, 1)) for gene in
+                               ase.index]
+                        )
+
     paternal_mxs = pd.Series(index=ase_nomaleX.index, data=pd.np.nan)
     paternal_sxm = pd.Series(index=ase_nomaleX.index, data=pd.np.nan)
     samedir = pd.Series(index=ase_nomaleX.index, data=pd.np.nan)
@@ -139,12 +167,14 @@ if __name__ == "__main__":
         paternal_sxm.ix[gene] = pval/2 if tstat < 0 else 1-pval/2
         #tstat, pval = ttest_ind(gene_ase.select('melXsim'),
                                 #gene_ase.select('simXmel'))
-    paternal = paternal_mxs.where(paternal_mxs > paternal_sxm, paternal_sxm).dropna().sort_values(ascending=False)
+    paternal_ttest = paternal_mxs.where(paternal_mxs > paternal_sxm, paternal_sxm).dropna().sort_values(ascending=False)
 
 
 
-    data['num_maternal'] = sum(maternal)
-    data['num_paternal'] = sum(paternal < .05)
+    data['num_maternal'] = biases[(-1, 1)]
+    data['num_paternal'] = biases[(1, -1)]
+    data['mel_dominant'] = biases[(-1, -1)]
+    data['sim_dominant'] = biases[(1, 1)]
 
     low_expr_lott = slices_with_expr[lott.index[lott.CLASS == 'mat']] < FRAC_FOR_MATERNAL * len(expr.columns)
     data['lott_maternal_low'] = sum(low_expr_lott)
@@ -157,10 +187,6 @@ if __name__ == "__main__":
     data['lott_disagree'] = len(mat_lott_zyg)
 
 
-    mel_dominant = (ase < -ASE_MIN).sum(axis=1) > FRAC_FOR_MATERNAL * slices_with_aseval
-    data['mel_dominant'] = sum(mel_dominant)
-    sim_dominant = (ase > ASE_MIN).sum(axis=1) > FRAC_FOR_MATERNAL * slices_with_aseval
-    data['sim_dominant'] = sum(sim_dominant)
 
     print(data)
 
@@ -171,20 +197,10 @@ if __name__ == "__main__":
             outf.write(create_latex_command(var, val, numeric, frac))
 
 
-    plot_kwargs = {'box_height': 25,
-                    'col_sep': '_sl',
-                    'convert': True,
-                    'draw_box': True,
-                    'draw_name': True,
-                    'draw_row_labels': True,
-                    'make_hyperlinks': True,
-                    'progress_bar': False,
-                    'split_columns': True,
-                    'total_width': 200}
     if data['num_paternal']:
-        pu.svg_heatmap(ase.ix[paternal.index[paternal < .05]],
+        pu.svg_heatmap(ase.ix[paternal_ttest.index[paternal_ttest < .05]],
                        'analysis/results/paternal.svg',
                        norm_rows_by='center0pre', cmap=cm.RdBu,
                        hatch_nan=True,hatch_size=1,
-                       row_labels=fbgns[paternal.index],
+                       row_labels=fbgns[paternal_ttest.index],
                        **plot_kwargs)
