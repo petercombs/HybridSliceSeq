@@ -60,6 +60,14 @@ def wilson95_pref(ref, alt):
 
     return 2 * p - 1
 
+def rolling_weighted_average(values, weights, *args, **kwargs):
+    weight_reshape = np.isfinite(values).multiply(weights[values.index
+                                                          if len(values.shape) < 2
+                                                          else values.columns])
+
+    return (pd.rolling_sum(values.multiply(weight_reshape), *args, **kwargs)
+            .divide(pd.rolling_sum(weight_reshape, *args, **kwargs)))
+
 def fit_all_splines(expr, pool=None, progress=False):
     xs = get_xs(expr)
     is_good = (expr.isnull().sum() == 0)
@@ -119,6 +127,9 @@ if __name__ == "__main__":
            .dropna(how='all', axis=0)
            #.replace(pd.np.nan, 0)
           )
+
+    read_counts = pd.read_table('analysis_godot/map_stats.tsv',
+                                index_col='LongName')
 
     chrom_of = {}
     for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
