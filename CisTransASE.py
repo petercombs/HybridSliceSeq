@@ -380,9 +380,12 @@ if __name__ == "__main__":
 
     ase_avgs.to_csv('analysis/results/ase_avgs.tsv', sep='\t')
     trans = (ase_avgs.predicted - ase_avgs.actual) / 2**.5
+    redraw_outliers = locals().get('redraw_outliers', True)
     sorted_trans = abs(trans).sort_values()
     top_bottom = sorted_trans.index[:50] | sorted_trans.index[-50:]
     for gene in pbar()(top_bottom):
+        if not redraw_outliers:
+            break
         pu.svg_heatmap(
             (
                 None, mel.ix[gene], None, None, None, None,
@@ -416,7 +419,9 @@ if __name__ == "__main__":
     rms_sorted = ase_avgs.rmsdiff.sort_values()
     n = len(rms_sorted) // 10
 
-    for gene in (rms_sorted.index[:n] | rms_sorted.index[-n:]):
+    for gene in pbar()(rms_sorted.index[:n] | rms_sorted.index[-n:]):
+        if not redraw_outliers:
+            break
         pu.svg_heatmap(
             (
                 None, mel.ix[gene], None, None, None, None,
@@ -446,6 +451,7 @@ if __name__ == "__main__":
                  ),
             **pu_kwargs
         )
+        redraw_outliers = False
 
 
 
