@@ -72,32 +72,40 @@ def fit_all_splines(expr, pool=None, progress=False):
     xs = get_xs(expr)
     is_good = (expr.isnull().sum() == 0)
 
+    out = {}
+    if progress:
+        pb = pbar()
+    else:
+        pb = lambda x: x
+
+
     if pool is True:
         pool = Pool()
+    elif pool is None:
+        for gene in pb(expr.index):
+            expr_smooth = pd.rolling_mean(expr.ix[gene], 5, center=True,
+                                          min_periods=1)
+            is_good = ~expr_smooth.isnull()
+            out[gene] = interpolate.UnivariateSpline(
+                xs[is_good], expr_smooth[is_good]
+            )
+        return out
 
-    asyncs = {gene: pool.apply_async(interpolate.UnivariateSpline,
-                               (
-                                   xs[is_good],
-                                   pd.rolling_mean(
-                                       expr.ix[gene, is_good],
-                                       5,
-                                       center=True,
-                                       min_periods=1,
-                                   ),
-                                   None, [None, None],
-                                   #3,
-                                   #5,
-                               )
-                                    )
-           for gene in expr.index}
-    pb = pbar(maxval=len(asyncs) + 1)
 
-    out = {}
-    for i, gene in enumerate(asyncs):
-        pb.update(i)
+    asyncs = {}
+    for gene in expr.index:
+        expr_smooth = pd.rolling_mean(expr.ix[gene], 5, center=True,
+                                      min_periods=1)
+        is_good = ~expr_smooth.isnull()
+        asyncs[gene] = pool.apply_async(interpolate.UnivariateSpline, (
+            xs[is_good],
+            expr_smooth
+        ))
+
+
+    for gene in pb(asyncs):
         res = asyncs[gene]
         out[gene] = res.get()
-    pb.finish()
     return out
 
 pu_kwargs = {
