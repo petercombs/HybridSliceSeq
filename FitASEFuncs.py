@@ -157,40 +157,43 @@ if __name__ == "__main__":
 
     xs = get_xs(ase)
     colnames = ['Amp', 'width', 'center', 'y_offset']
-    with Pool() as p:
-        res_logist = fit_all_ase(ase, logistic, xs, colnames, p,
-                                 progress=True).dropna()
-        res_logist_perm = pd.DataFrame(0, index=res_logist.index,
-                                       columns=res_logist.columns)
-        #res_logist_perm = fit_all_ase(ase_perm, logistic, xs, colnames, p,
-                                      #progress=True).dropna()
-        res_peak = fit_all_ase(ase, peak, xs, colnames, p,
-                               progress=True).dropna()
-        res_peak_perm = pd.DataFrame(0, index=res_peak.index,
-                                       columns=res_peak.columns)
-        #res_peak_perm = fit_all_ase(ase_perm, peak, xs, colnames, p,
-                                    #progress=True).dropna()
+    recalc_ase = locals().get('recalc_ase', True)
+    if recalc_ase:
+        with Pool() as p:
+            res_logist = fit_all_ase(ase, logistic, xs, colnames, p,
+                                     progress=True).dropna()
+            res_logist_perm = pd.DataFrame(0, index=res_logist.index,
+                                           columns=res_logist.columns)
+            #res_logist_perm = fit_all_ase(ase_perm, logistic, xs, colnames, p,
+                                          #progress=True).dropna()
+            res_peak = fit_all_ase(ase, peak, xs, colnames, p,
+                                   progress=True).dropna()
+            res_peak_perm = pd.DataFrame(0, index=res_peak.index,
+                                           columns=res_peak.columns)
+            #res_peak_perm = fit_all_ase(ase_perm, peak, xs, colnames, p,
+                                        #progress=True).dropna()
 
-        res_lin = pd.DataFrame(
-                index=ase.index,
-                columns=['slope', 'intercept', 'pval', 'r'],
-                data=np.nan
-                )
-        res_lin_perm = res_lin.copy()
+            res_lin = pd.DataFrame(
+                    index=ase.index,
+                    columns=['slope', 'intercept', 'pval', 'r'],
+                    data=np.nan
+                    )
+            res_lin_perm = res_lin.copy()
 
-        pbar = ProgressBar()
-        for gene in pbar(ase.index):
-            cols = isfinite(ase.ix[gene])
-            if sum(cols) == 0:
-                continue
-            linreg = linregress(xs[cols], ase.ix[gene, cols])
-            if linreg.pvalue < .05:
-                res_lin.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
+            pbar = ProgressBar()
+            for gene in pbar(ase.index):
+                cols = isfinite(ase.ix[gene])
+                if sum(cols) == 0:
+                    continue
+                linreg = linregress(xs[cols], ase.ix[gene, cols])
+                if linreg.pvalue < .05:
+                    res_lin.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
 
-            #cols = isfinite(ase_perm.ix[gene])
-            #linreg = linregress(xs[cols], ase_perm.ix[gene, cols])
-            #if linreg.pvalue < .05:
-                #res_lin_perm.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
+                #cols = isfinite(ase_perm.ix[gene])
+                #linreg = linregress(xs[cols], ase_perm.ix[gene, cols])
+                #if linreg.pvalue < .05:
+                    #res_lin_perm.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
+    recalc_ase = False
 
 
 
