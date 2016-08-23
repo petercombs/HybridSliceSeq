@@ -21,7 +21,7 @@ import pandas as pd
 from scipy import interpolate, stats
 from multiprocessing import Pool
 from progressbar import ProgressBar as pbar
-from Utils import pd_kwargs, sel_startswith, get_xs, get_nearest_slice
+from Utils import pd_kwargs, sel_startswith, get_xs, get_nearest_slice, get_chroms
 from matplotlib import cm
 import PlotUtils as pu
 import DistributionDifference as dd
@@ -139,12 +139,7 @@ if __name__ == "__main__":
     read_counts = pd.read_table('analysis_godot/map_stats.tsv',
                                 index_col='LongName')
 
-    chrom_of = {}
-    for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
-        if row.startswith('#') or not row.strip():
-            continue
-        data = row.split()
-        chrom_of[data[1]] = data[-1].split(':')[0]
+    chrom_of = get_chroms()
 
     males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
     on_x = [chrom_of[gene] == 'X' for gene in ase.index]

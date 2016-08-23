@@ -176,3 +176,15 @@ def get_xs(dataframe):
 def get_nearest_slice(query, other_frame):
     other_xs = get_xs(other_frame)
     return abs(query - other_xs).idxmin()
+
+
+def get_chroms():
+    chrom_of = {}
+    for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
+        if row.startswith('#') or not row.strip():
+            continue
+        data = row.split()
+        chrom = data[-1].split(':')[0]
+        chrom_of[data[1]] = chrom
+        chrom_of[data[0]] = chrom
+    return pd.Series(chrom_of)

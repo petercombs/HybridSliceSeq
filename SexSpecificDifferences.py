@@ -1,5 +1,5 @@
 import pandas as pd
-from Utils import sel_startswith, pd_kwargs, get_xs
+from Utils import sel_startswith, pd_kwargs, get_xs, get_chroms
 from FitASEFuncs import (fit_all_ase, logistic, peak,
                          calculate_variance_explained)
 from multiprocessing import Pool
@@ -17,12 +17,7 @@ if __name__ == "__main__":
            .dropna(how='all', axis=0)
           )
 
-    chrom_of = {}
-    for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
-        if row.startswith('#') or not row.strip():
-            continue
-        data = row.split()
-        chrom_of[data[1]] = data[-1].split(':')[0]
+    chrom_of = get_chroms()
 
     ase = ase.select(lambda x: chrom_of[x] != 'X')
 

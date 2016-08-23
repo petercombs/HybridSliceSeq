@@ -5,7 +5,7 @@ from FitASEFuncs import (logistic, peak, fit_all_ase,
 
 from multiprocessing import Pool
 from progressbar import ProgressBar as pbar
-from Utils import (sel_startswith, get_xs, pd_kwargs)
+from Utils import (sel_startswith, get_xs, pd_kwargs, get_chroms)
 
 
 
@@ -19,13 +19,7 @@ if __name__ == "__main__":
            .dropna(how='all', axis=0)
            .select(**sel_startswith(('melXsim', 'simXmel')))
           )
-    chrom_of = {}
-    for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
-        if row.startswith('#') or not row.strip():
-            continue
-        data = row.split()
-        chrom_of[data[1]] = data[-1].split(':')[0]
-        chrom_of[data[0]] = data[-1].split(':')[0]
+    chrom_of = get_chroms()
 
     males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
     on_x = [chrom_of[gene] == 'X' if gene in chrom_of else False for gene in ase.index]

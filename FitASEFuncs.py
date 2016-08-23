@@ -5,7 +5,7 @@ from scipy.stats import linregress, ttest_1samp
 from multiprocessing import Pool
 from collections import Counter
 from Utils import (sel_startswith, get_xs, pd_kwargs, fbgns, get_synonyms,
-                   startswith)
+                   startswith, get_chroms)
 import pandas as pd
 import itertools as it
 import numpy as np
@@ -147,15 +147,10 @@ if __name__ == "__main__":
             index=ase.index,
             columns=ase.columns,
             )
-    chrom_of = {}
-    for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
-        if row.startswith('#') or not row.strip():
-            continue
-        data = row.split()
-        chrom_of[data[1]] = data[-1].split(':')[0]
+    chrom_of = get_chroms()
 
     males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
-    on_x = [chrom_of[gene] == 'X' for gene in ase.index]
+    on_x = chrom_of[ase.index] == 'X'
     is_male = [col.startswith(males) for col in ase.columns]
     ase.ix[on_x, is_male] = np.nan
 
