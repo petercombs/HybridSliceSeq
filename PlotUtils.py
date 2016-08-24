@@ -216,6 +216,13 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                                    * box_height)
                                 + 80 * draw_name
                                 + (num_plotted_rows - 1) * vspacer))
+    elif total_width is not None:
+        width = len(data) * total_width * 1.1 - .1 * total_width
+        height = max(len(d) for d in data if hasattr(d, '__len__')) * box_height
+        dwg = svg.Drawing(filename,
+                          size=(width + 2 * x_min + 200 * draw_row_labels,
+                                height + 2 * y_min + 80 * draw_name)
+                         )
     else:
         dwg = svg.Drawing(filename)
     dwg.add(svg.base.Title(path.basename(filename)))
