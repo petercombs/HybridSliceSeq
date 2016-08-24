@@ -540,11 +540,18 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                              style=style,
                             ))
             if make_hyperlinks:
-                link = dwg.a('http://insitu.fruitfly.org/cgi-bin/ex/report.pl?ftype={}&ftext={}'
-                             .format(2 if row_labels[i].startswith('FBgn') else 1,
-                                     row_labels[i]),
-                             target='_replace',
-                            )
+                if make_hyperlinks is True:
+                    link = dwg.a('http://insitu.fruitfly.org/cgi-bin/ex/report.pl?ftype={}&ftext={}'
+                                 .format(2 if (isinstance(row_labels[i], str)
+                                               and
+                                               (row_labels[i].startswith('FBgn'))
+                                              )
+                                         else 1,
+                                         row_labels[i]),
+                                 target='_replace',
+                                )
+                else:
+                    link = dwg.a(make_hyperlinks.format(frame.index[i]))
                 link.add(labeltext)
                 dwg.add(link)
             else:
