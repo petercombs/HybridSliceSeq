@@ -10,6 +10,12 @@ bedtools intersect -v -a analysis/results/no_svase.bed -b analysis/results/has_n
 bedtools window -w 5000 -b analysis/results/no_svase_clean.bed -a Reference/DNase_R6.bed -u > analysis/results/no_svase_dnase.bed
 bedtools window -w 5000 -b analysis/results/has_svase.bed -a Reference/DNase_R6.bed -u > analysis/results/has_svase_dnase.bed
 
+# Zelda Peaks
+bedtools window -w 5000 -b analysis/results/no_svase_clean.bed -a Reference/li13_r6.bed -u \
+	> analysis/results/no_svase_zld.bed
+bedtools window -w 5000 -b analysis/results/has_svase.bed -a Reference/li13_r6.bed -u \
+	> analysis/results/has_svase_zld.bed
+
 # ORegAnno features
 bedtools window -w 5000 -b analysis/results/no_svase_clean.bed -a Reference/oreganno_tfbs.bed -u > analysis/results/no_svase_tfbs.bed
 bedtools window -w 5000 -b analysis/results/has_svase.bed -a Reference/oreganno_tfbs.bed -u > analysis/results/has_svase_tfbs.bed
@@ -23,6 +29,9 @@ bedtools intersect -a analysis/results/no_svase_dnase.bed -b analysis/results/ha
 # Count number of SNPs overlapping each DNase peak
 bedtools intersect -a analysis/results/has_svase_dnase.bed -b analysis/on_mel/melsim_variant_noprepend.bed -c > analysis/results/has_svase_dnase_snps.bed
 bedtools intersect -a analysis/results/no_svase_dnase_clean.bed -b analysis/on_mel/melsim_variant_noprepend.bed -c > analysis/results/no_svase_dnase_snps.bed
+
+bedtools intersect -a analysis/results/has_svase_zld.bed -b analysis/on_mel/melsim_variant_noprepend.bed -c > analysis/results/has_svase_zld_snps.bed
+bedtools intersect -a analysis/results/no_svase_zld_clean.bed -b analysis/on_mel/melsim_variant_noprepend.bed -c > analysis/results/no_svase_zld_snps.bed
 
 bedtools intersect -a analysis/results/has_svase_tfbs.bed -b analysis/on_mel/melsim_variant_noprepend.bed -c > analysis/results/has_svase_tfbs_snps.bed
 bedtools intersect -a analysis/results/no_svase_tfbs.bed -b analysis/on_mel/melsim_variant_noprepend.bed -c > analysis/results/no_svase_tfbs_snps.bed

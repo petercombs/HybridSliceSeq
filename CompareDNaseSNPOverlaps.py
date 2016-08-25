@@ -9,7 +9,7 @@ if __name__ == "__main__":
     )
     ratios_svase = {}
     ratios_nosvase = {}
-    for featuretype in ['reg', 'tfbs', 'dnase']:
+    for featuretype in ['reg', 'tfbs', 'dnase', 'zld']:
         svASE_snpcounts = pd.read_table('analysis/results/has_svase_{}_snps.bed'
                                         .format(featuretype),
                                         **snpcount_kwargs)
