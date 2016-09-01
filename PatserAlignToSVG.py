@@ -74,6 +74,10 @@ def parse_args():
     parser.add_argument('--needleall', '-N', default=False, action='store_true',
                         help='Input alignments are actually needleall output'
                         " files in EMBOSS srs format")
+    parser.add_argument('--meme-suite', '-M', default=False,
+                        action='store_true',
+                        help='Directory is actually the output of FIMO or '
+                        'another MEME suite program')
     parser.add_argument('alignments', type=open,
             help='File containing alignments in MUMmer .delta format')
     parser.add_argument('patser_directory', type=str)
@@ -96,6 +100,24 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
+
+    if args.meme_suite:
+        meme1 = (
+            pd.read_table( path.join(args.patser_directory, args.comp1, 'fimo.txt'),)
+            .rename(columns=lambda x: x.strip('#'))
+            .rename(columns=lambda x: x.replace(' ', '_'))
+        )
+        meme1['pos'] = (meme1.start + meme1.stop)//2
+        meme1['tf'] = meme1['pattern_name']
+        meme2 = (
+            pd.read_table( path.join(args.patser_directory, args.comp2, 'fimo.txt'),)
+            .rename(columns=lambda x: x.strip('#'))
+            .rename(columns=lambda x: x.replace(' ', '_'))
+        )
+        meme2['pos'] = (meme2.start + meme2.stop)//2
+        meme2['tf'] = meme2['pattern_name']
+
+
 
     #header_size = get_header_size(glob(path.join(args.patser_directory, '*'))[0])
     patser_args = dict(
@@ -267,20 +289,41 @@ if __name__ == "__main__":
             ))
 
         for i_tf, tf in enumerate(args.tf):
-            in_file1 = glob(path.join(args.patser_directory, args.comp1+'*'+tf+'*'))[0]
-            in_file2 = glob(path.join(args.patser_directory, args.comp2+'*'+tf+'*'))[0]
-            patser1 = pd.read_table(in_file1, skiprows=get_header_size(in_file1), **patser_args)
-            patser2 = pd.read_table(in_file2, skiprows=get_header_size(in_file2), **patser_args)
-            patser1.index = [int(str(ix).strip('C')) for ix in patser1.index]
-            patser2.index = [int(str(ix).strip('C')) for ix in patser2.index]
-            patser1.index.name = 'pos'
-            patser2.index.name = 'pos'
-            patser1['pos'] = patser1.index
-            patser2['pos'] = patser2.index
-            patser1 = patser1.sort_values(by='pval').drop_duplicates(subset='pos')
-            patser2 = patser2.sort_values(by='pval').drop_duplicates(subset='pos')
-            patser1 = patser1.ix[patser1.seq == n1]
-            patser2 = patser2.ix[patser2.seq == n2]
+            if args.meme_suite:
+                patser1 = meme1.ix[(meme1.tf == tf) & (meme1.sequence_name == n1)]
+                patser2 = meme2.ix[(meme2.tf == tf) & (meme2.sequence_name == n2)]
+
+                patser1.index = patser1.pos
+                patser2.index = patser2.pos
+
+                patser1.index.name = 'pos'
+                patser2.index.name = 'pos'
+
+            else:
+                in_file1 = glob(path.join(args.patser_directory, args.comp1+'*'+tf+'*'))[0]
+                in_file2 = glob(path.join(args.patser_directory, args.comp2+'*'+tf+'*'))[0]
+
+                hs1 = get_header_size(in_file1)
+                if hs1:
+                    patser1 = pd.read_table(in_file1, skiprows=hs1, **patser_args)
+                else:
+                    patser1 = pd.DataFrame(columns=patser_args['names'])
+                hs2 = get_header_size(in_file2)
+                if hs2:
+                    patser2 = pd.read_table(in_file2, skiprows=hs2, **patser_args)
+                else:
+                    patser2 = pd.DataFrame(columns=patser_args['names'])
+
+                patser1.index = [int(str(ix).strip('C')) for ix in patser1.index]
+                patser2.index = [int(str(ix).strip('C')) for ix in patser2.index]
+                patser1.index.name = 'pos'
+                patser2.index.name = 'pos'
+                patser1['pos'] = patser1.index
+                patser2['pos'] = patser2.index
+                patser1 = patser1.sort_values(by='pval').drop_duplicates(subset='pos')
+                patser2 = patser2.sort_values(by='pval').drop_duplicates(subset='pos')
+                patser1 = patser1.ix[patser1.seq == n1]
+                patser2 = patser2.ix[patser2.seq == n2]
             pos = 0
             for pos in patser1.index:
                 s = float(patser1.ix[pos, 'score'])*y_scale
