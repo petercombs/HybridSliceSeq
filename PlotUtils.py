@@ -72,7 +72,7 @@ ISH = LinearSegmentedColormap('ish',
                                    green=((0, 1, 1),
                                           (.7, 129/255, 129/255),
                                           (1, 46/255, 46/255)),
-                                   blue=((0, 1, 1),
+                                   blue=((0, 244/255, 244/255),
                                          (.7, 1, 1),
                                          (1, 98/255, 98/255))))
 
@@ -596,6 +596,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             filename,
             '-density', '300',
             '-background', 'none',
+            '-transparent', 'white',
             filename.replace('svg', 'png'),
         ]
         subprocess.Popen(cmd)
