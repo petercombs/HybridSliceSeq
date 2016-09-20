@@ -231,12 +231,14 @@ if __name__ == "__main__":
         if ((r2_peak.ix[gene] > .5)
             and not (r2_peak.ix[[gene]] < r2_logist.ix[[gene]]).all())
     }
+    r2_peak_genes = res_peak.Amp[r2_peak_genes].sort_values().index
 
     r2_logist_genes = {
         gene:r2_logist.ix[gene] for gene in r2_logist.index
         if ((r2_logist.ix[gene] > .5)
             and not (r2_logist.ix[[gene]] < r2_peak.ix[[gene]]).all())
     }
+    r2_logist_genes = res_logist.Amp[r2_logist_genes].sort_values().index
 
     print('\n'.join(r2_peak_genes),
           file=open('analysis/results/peak_genes.txt', 'w'))
@@ -247,27 +249,23 @@ if __name__ == "__main__":
                    'analysis/results/logist_ase.svg',
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
-                   row_labels=fbgns.ix[r2_logist_genes],
                    **kwargs)
 
     pu.svg_heatmap(ase.ix[r2_peak_genes],
                    'analysis/results/peak_ase.svg',
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
-                   row_labels=fbgns.ix[r2_peak_genes],
                    **kwargs)
 
 
     pu.svg_heatmap(expr.ix[r2_logist_genes],
                    'analysis/results/logist_expr.svg',
                    norm_rows_by='maxall',
-                   row_labels=fbgns.ix[r2_logist_genes],
                    **kwargs)
 
     pu.svg_heatmap(expr.ix[r2_peak_genes],
                    'analysis/results/peak_expr.svg',
                    norm_rows_by='maxall',
-                   row_labels=fbgns.ix[r2_peak_genes],
                    **kwargs)
 
     best_r2 = r2_peak.copy()
