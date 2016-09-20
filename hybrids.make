@@ -319,10 +319,21 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--true-hets $(ANALYSIS_DIR)/on_$(call substr,$(notdir $@),1,3)/true_hets.tsv \
 		--writephasedsnps
 
+%/simmel_gene_ase_by_read.tsv:  %/on_simaccepted_hits_remapped_sorted_wasp_dedup.sorted.bam $(ANALYSIS_DIR)/on_sim/melsim_variant.bed $(ANALYSIS_DIR)/recalc_ase
+	./qsubber $(QSUBBER_ARGS) -t 1 \
+	python ~/ASEr/bin/GetGeneASEbyReads.py \
+		--outfile $@ \
+		--id-name gene_name \
+		--ase-function pref_index \
+		$(ANALYSIS_DIR)/on_sim/melsim_variant.bed \
+		$(SIMGTF) \
+		$<
+
 %/melsim_gene_ase_by_read.tsv : %/assigned_dmelR_wasp_dedup.sorted.bam %/assigned_dmelR_wasp_dedup.sorted.bam.bai $(ANALYSIS_DIR)/on_mel/melsim_variant.bed $(ANALYSIS_DIR)/recalc_ase
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python ~/ASEr/bin/GetGeneASEbyReads.py \
 		--outfile $@ \
+		--id-name gene_name \
 		--ase-function pref_index \
 		$(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
 		$(MELGTF) \
@@ -396,7 +407,7 @@ $(ANALYSIS_DIR)/on_%/masked:
 		$<
 
 %accepted_hits_remapped.bam: #$$(dir $$*)/accepted_hits.bam #$(ANALYSISDIR)/$$(notdir $$*)/masked/Genome
-	./qsubber $(QSUBBER_ARGS)_$(*F) -t 4 \
+	./qsubber $(QSUBBER_ARGS)_$(*F) --load-module STAR -t 4 \
 	python RemapOnOtherGenome.py $(@D)/accepted_hits.bam $(ANALYSIS_DIR)/$(notdir $*)/masked/Genome $@
 
 WASPMAP = $(HOME)/FWASP/mapping
@@ -432,6 +443,7 @@ WASPMAP = $(HOME)/FWASP/mapping
 %.sorted.bam: %.bam
 	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 \
 	samtools sort $(SORT_OPTS) -@ 4 $< $*.sorted
+	samtools index $@
 
 %/mel_only.bam %/sim_only.bam: %/assigned_dmelR_wasp_dedup.sorted.bam
 	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 \

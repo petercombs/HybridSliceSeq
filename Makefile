@@ -120,7 +120,7 @@ $(ANALYSIS_DIR)/summary_wasp.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.p
 	   --map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 	   --out-basename summary_wasp \
 	   --filename wasp_$(QUANT_FNAME) \
-	   --key tracking_id \
+	   --key gene_short_name \
 	   --column $(QUANT_COL) \
 		$(ANALYSIS_DIR) \
 		\| tee $(ANALYSIS_DIR)/mst_fb.log
@@ -194,6 +194,16 @@ $(ANALYSIS_DIR)/ase_summary_on_sim.tsv: $(ANALYSIS_DIR)/retabulate $$(subst gene
 			--column "REF-ALT_RATIO" \
 			--key "FEATURE" \
 			--out-basename ase_summary_on_sim \
+			$(ANALYSIS_DIR)
+
+$(ANALYSIS_DIR)/ase_summary_on_sim_by_read.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,simmel_gene_ase_by_read.tsv,$$(FPKMS))
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
+	python MakeSummaryTable.py \
+			--params Parameters/RunConfig.cfg \
+			--filename simmel_gene_ase.tsv \
+			--column "REF-ALT_RATIO" \
+			--key "FEATURE" \
+			--out-basename ase_summary_on_sim_by_read \
 			$(ANALYSIS_DIR)
 
 $(ANALYSIS_DIR)/cds_ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_cds_ase.tsv,$$(FPKMS))
