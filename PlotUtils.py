@@ -107,6 +107,37 @@ def scatter_heat(x, y, **kwargs):
     ax.set_ylim(ylim)
     return retval, density
 
+kwargs_single_column = dict(
+    draw_box=True,
+    draw_row_labels=False,
+    max_width=221,
+    total_width=200,
+    vspacer=0,
+    split_columns=True,
+    col_sep='_sl',
+    box_height=60,
+    convert=True,
+)
+
+kwargs_heatmap = dict(
+    draw_box=True,
+    draw_row_labels=True,
+    draw_name=True,
+    total_width=90,
+    vspacer=0,
+    split_columns=True,
+    col_sep='_sl',
+    box_height=20,
+    make_hyperlinks=True,
+    convert=True,
+)
+
+kwargs_ase_heatmap = kwargs_heatmap.copy()
+kwargs_ase_heatmap['cmap'] = cm.RdBu
+kwargs_ase_heatmap['norm_rows_by'] = 'center0pre'
+
+kwargs_expr_heatmap = kwargs_heatmap.copy()
+kwargs_expr_heatmap['norm_rows_by'] = 'maxall'
 
 def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 index=None,
