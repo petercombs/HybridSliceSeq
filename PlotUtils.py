@@ -3,6 +3,8 @@ import os
 
 try:
     from matplotlib.colors import hsv_to_rgb, LinearSegmentedColormap
+    from matplotlib import cm
+    from matplotlib import pyplot as mpl
 except:
     import tempfile
     import atexit
@@ -14,7 +16,8 @@ except:
     os.environ['MPLCONFIGDIR'] = mpldir
 
     from matplotlib.colors import hsv_to_rgb, LinearSegmentedColormap
-from numpy import array,  linspace, isfinite
+from scipy.stats import gaussian_kde
+from numpy import array,  linspace, isfinite, median, exp, Inf
 from itertools import repeat
 import numpy as np
 import subprocess
@@ -75,6 +78,34 @@ ISH = LinearSegmentedColormap('ish',
 
 
 
+
+def scatter_heat(x, y, **kwargs):
+    kwargs['s'] = kwargs.get('s', 10)
+    kwargs['edgecolors'] = kwargs.get('edgecolors', 'none')
+    kwargs['cmap'] = kwargs.get('cmap', cm.jet)
+
+    dropna = kwargs.pop('dropna', False)
+    if dropna:
+        ix = np.isfinite(x) & np.isfinite(y)
+        x = x[ix]
+        y = y[ix]
+
+    if 'density' not in kwargs:
+        estimator = gaussian_kde([x, y])
+        density = estimator.evaluate([x, y])
+    else:
+        density = kwargs.pop('density')
+    min_density = kwargs.pop('min_density', median(density))
+    max_density = kwargs.pop('max_density', Inf)
+
+    normdensity = exp(density.clip(min_density, max_density))
+    xlim = kwargs.pop('xlim', (min(x), max(x)))
+    ylim = kwargs.pop('ylim', (min(y), max(y)))
+    retval = mpl.scatter(x, y, c=normdensity, **kwargs)
+    ax = mpl.gca()
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    return retval, density
 
 
 def svg_heatmap(data, filename, row_labels=None, box_size=4,
