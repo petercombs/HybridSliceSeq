@@ -23,8 +23,9 @@ def get_classes(ase, **kwargs):
 def is_maternal(ase, gene, **kwargs):
     mat_direction = np.array([1 if col.startswith('sim') else -1
                      for col in ase.columns])
-    biases =  is_directionally_biased(ase, gene, mat_direction, **kwargs)
-    return np.all(list(biases.values()))
+    biases =  is_directionally_biased(ase, gene, mat_direction,
+                                      too_few_slices_val=0, **kwargs)
+    return np.all(list(k==1 for k in biases.values()))
 
 def is_paternal(ase, gene, **kwargs):
     pat_direction = np.array([-1 if col.startswith('sim') else 1
@@ -36,6 +37,10 @@ def is_sim(ase, gene, **kwargs):
     sim_direction = np.array([1 for col in ase.columns])
     biases = is_directionally_biased(ase, gene, sim_direction, **kwargs)
     return np.all(list(biases.values()))
+
+def is_zyg(ase, gene, **kwargs):
+    biases = is_directionally_biased(ase, gene **kwargs)
+    return not np.any(list(biases.values()))
 
 
 
@@ -50,6 +55,9 @@ def is_directionally_biased(ase, gene, bias_direction=None, style='ttest', ase_l
         genease = (ase.ix[gene] * bias_direction).select(startswith(genotype))
         if style == 'ttest':
             tstat, pval = ttest_1samp(genease, 0, nan_policy='omit')
+            if isinstance(pval, np.ma.core.MaskedConstant):
+                biases[genotype] = too_few_slices_val
+                continue
             if two_tailed:
                 biases[genotype] = np.sign(tstat) * (pval * len(ase) < alpha)
 
