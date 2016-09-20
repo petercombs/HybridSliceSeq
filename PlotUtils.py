@@ -152,6 +152,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 x_min=10, y_min=10,
                 spacers=None,
                 convert=False,
+                squeeze_rows=None,
                 cmap_by_prefix=None,
                 draw_average=False,
                 draw_average_only=False,
@@ -333,6 +334,13 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             and isinstance(norm_rows_by[0], str)
             and 'center0all' in norm_rows_by)):
         all_data = pd.concat(data, axis=1)
+
+    if squeeze_rows is not None:
+        data = [
+            pd.DataFrame(d.apply(squeeze_rows, axis=1),
+                         columns=[path.commonprefix(list(d.columns))])
+            for d in data
+        ]
 
     x_start = x_min
     y_start = y_min
