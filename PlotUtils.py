@@ -281,7 +281,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                                 + (num_plotted_rows - 1) * vspacer))
     elif total_width is not None:
         width = len(data) * total_width * 1.1 - .1 * total_width
-        height = max(len(d) for d in data if hasattr(d, '__len__')) * box_height
+        height = rows * box_height
         dwg = svg.Drawing(filename,
                           size=(width + 2 * x_min + 200 * draw_row_labels,
                                 height + 2 * y_min + 80 * draw_name)
@@ -393,9 +393,13 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
         elif normer == 'maxall':
             if has_pandas:
                 maxall = frame.max(axis=1)
-                for old_frame in data:
+                assert len(data) == len(new_normers)
+                for old_frame, norm_type in zip(data, new_normers):
+                    if norm_type != 'maxall': continue
                     if old_frame is not None:
-                        old_frame = old_frame.max(axis=1)
+                        old_frame = old_frame.max(axis=1).ix[index
+                                                             if index is not None
+                                                             else old_frame.index]
                         maxall = maxall.where(maxall > old_frame, old_frame)
                 norm_data = array(frame.divide(maxall + 10, axis=0))
             else:
@@ -466,7 +470,13 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                                                                  val)))
                     hatch = not isfinite(norm_data[i,j])
                     if hatch and nan_replace is not None:
-                        norm_data[i, j] = nan_replace
+                        if isinstance(nan_replace, float):
+                            norm_data[i, j] = nan_replace
+                        else:
+                            if normer.startswith('center0'):
+                                norm_data[i, j] = 0.5
+                            else:
+                                norm_data[i, j] = 0.0
                     elif hatch:
                         n = 0
                         norm_data[i, j] = 0
