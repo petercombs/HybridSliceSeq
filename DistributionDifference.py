@@ -7,6 +7,7 @@ import emd
 import math
 from Utils import contains
 import pandas as pd
+from itertools import combinations
 
 class memoized(object):
    '''Decorator. Caches a function's return value each time it is called.
@@ -145,6 +146,19 @@ def earth_mover_multi_rep(points1, points2, normer=np.sum):
                                         normer=normer)**2
                      / (len(reps1)*len(reps2)))
     return dist**.5
+
+def earth_mover_within(points, sep='_sl', normer=np.sum):
+   dist = 0.0
+   n = 0
+   reps = {
+       col.split(sep)[0] for col in points.index
+   }
+   for points1, points2 in combinations(reps, 2):
+       n += 1
+       dist += earth_mover_interp(points.select(contains(points1)),
+                                   points.select(contains(points2)),
+                                   normer=normer)
+   return dist / n
 
 def earth_mover_multi(points1, points2, normer=np.sum):
     dist = 0.0
