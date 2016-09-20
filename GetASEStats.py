@@ -66,7 +66,7 @@ plot_kwargs = {'box_height': 25,
 if __name__ == "__main__":
     if 'ase' not in locals() or ('reload_ase' in locals() and locals()['reload_ase']):
         print("Reloading data")
-        ase = (pd.read_table('analysis_godot/ase_summary_by_read.tsv', **pd_kwargs)
+        ase = (pd.read_table('analysis_godot/ase_summary_by_read_with_wasp.tsv', **pd_kwargs)
                .dropna(how='all', axis=1)
                .select(**Utils.sel_startswith(('melXsim', 'simXmel')))
               )
@@ -94,12 +94,7 @@ if __name__ == "__main__":
     ase = ase.ix[in_both]
     expr = expr.ix[in_both]
 
-    chrom_of = {}
-    for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
-        if row.startswith('#') or not row.strip():
-            continue
-        data = row.split()
-        chrom_of[data[1]] = data[-1].split(':')[0]
+    chrom_of = Utils.get_chroms()
 
     males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
     on_x = [chrom_of[gene] == 'X' for gene in ase.index]
