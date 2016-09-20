@@ -3,7 +3,7 @@ from Bio import  AlignIO, SeqIO
 from argparse import ArgumentParser
 from glob import glob
 from os import path
-from numpy import argwhere, diff, zeros
+from numpy import argwhere, diff, zeros, random
 import pandas as pd
 from ParseDelta import parse_records
 from progressbar import ProgressBar
@@ -35,7 +35,9 @@ def has_match(pos, patser1, patser2, pos1, pos2, dist=10, reltol=.2):
 def parse_best_aligns(aligns_by_seq1, take_best=min):
     out = []
     for seq1 in aligns_by_seq1:
-        bestlen, bestal = take_best(aligns_by_seq1[seq1])
+        #print(seq1, [a[:-1] + (a[-1][1].id, ) for a in aligns_by_seq1[seq1]])
+        bestal = take_best(aligns_by_seq1[seq1])
+        bestal = bestal[-1]
         bestlen = len(bestal[0])
         pos1 = zeros(bestlen, dtype=int)
         pos2 = zeros(bestlen, dtype=int)
@@ -178,9 +180,13 @@ if __name__ == "__main__":
             elif line.startswith('# 2:'):
                 a2_name = line.strip().split(':')[1].strip()
             elif line.startswith('# Score:'):
+                align = all_aligns[a1_name, a2_name]
                 aligns_by_seq1[a1_name].append((
+                    -(Counter(align[0])['-']+Counter(align[1])['-']),
+                    -len(align[0]),
                     float(line.strip().split(':')[1]),
-                    all_aligns[a1_name, a2_name]
+                    random.rand(),
+                    align,
                 ))
         alignments = sorted(parse_best_aligns(aligns_by_seq1, max))
         n_aligns = len(alignments)
