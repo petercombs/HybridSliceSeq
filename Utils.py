@@ -14,6 +14,9 @@ def get_bam_length(samfile):
 def strip_to_number(dataval, chars='\'" \t #'):
     return to_number(dataval.strip(chars))
 
+def true_index(series):
+    return series.index[series]
+
 
 def to_number(dataval):
     """ A forgiving number converter.
@@ -80,6 +83,7 @@ def center_of_mass_onerep(data):
     return sum(data_clean * xs, axis=len(dims)-1)/sum(data_clean, axis=len(dims)-1)
 
 fbgns = pd.read_table('prereqs/gene_map_table_fb_2016_01.tsv',
+                      keep_default_na=False, na_values=['---'],
                       index_col=1,skiprows=5).ix[:, 0]
 
 def get_synonyms():
@@ -156,11 +160,13 @@ def load_to_locals(locals, expr_min=15):
 
 
 pd_kwargs = dict(
-    index_col=0, keep_default_na=False, na_values=['---'],
+    index_col=0, keep_default_na=False, na_values=['---', '', '-'],
 )
 
 def get_xs(dataframe):
     max_slice = defaultdict(int)
+    if isinstance(dataframe, pd.Series):
+        dataframe = pd.DataFrame(dataframe).T
     for sl in dataframe.columns:
         sl = sl.split('_sl')
         emb = sl[0]
@@ -188,3 +194,4 @@ def get_chroms():
         chrom_of[data[1]] = chrom
         chrom_of[data[0]] = chrom
     return pd.Series(chrom_of)
+
