@@ -46,8 +46,7 @@ def convert_to_distribution(points):
     retval =  np.cumsum(f(np.linspace(0, 1, 30, endpoint=True)).clip(0,1e5))
     return retval / (sum(retval)+1e-10)
 
-def get_nonuniform_mp(args):
-    eps = 1.01
+def get_nonuniform_mp(args, eps=1.01):
     gene, row = args
     temp = pd.Series(data=1, index=row.index)
     if sum(pd.np.isfinite(row))==0:
@@ -125,8 +124,8 @@ def earth_mover_interp(points1, points2, normer=np.sum):
     points1 = np.interp(xs, xs1, points1[np.isfinite(points1)])
     points2 = np.interp(xs, xs2, points2[np.isfinite(points2)])
     return emd.emd(xs, xs,
-                   points1/normer(points1),
-                   points2/normer(points2))
+                   points1/(normer(points1) if callable(normer) else normer),
+                   points2/(normer(points2) if callable(normer) else normer))
 
 
 startswith = lambda x: lambda y: y.startswith(x)
@@ -163,7 +162,7 @@ def earth_mover_within(points, sep='_sl', normer=np.sum):
 def earth_mover_multi(points1, points2, normer=np.sum):
     dist = 0.0
     embs = {col.split('sl')[0] for col in points1.index}
-    sums = [[],[]]
+    #sums = [[],[]]
     for emb in embs:
         if ((sum(np.isfinite(points1.select(startswith(emb)))) == 0)
             or sum(np.isfinite(points2.select(startswith(emb))) == 0)):
@@ -172,10 +171,10 @@ def earth_mover_multi(points1, points2, normer=np.sum):
                                    points2.select(startswith(emb))+1e-5,
                                    normer=normer,
                                   )**2
-        sums[0].append(points1.select(startswith(emb)).mean())
-        sums[1].append(points2.select(startswith(emb)).mean())
-    dist += earth_mover(np.array(sums[0]), np.array(sums[1]))
-    return dist**.5
+        #sums[0].append(points1.select(startswith(emb)).mean())
+        #sums[1].append(points2.select(startswith(emb)).mean())
+    #dist += earth_mover(np.array(sums[0]), np.array(sums[1]))
+    return (dist/len(embs))**.5
 
 def mp_earth_mover(args):
     i, j = args
