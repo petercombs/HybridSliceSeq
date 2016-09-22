@@ -31,8 +31,9 @@ echo "Mapping binding sites"
 #fimo -oc analysis/targets/hb/mel --thresh 1e-3  prereqs/fly_factor_survey.meme Reference/mel_hb_regregions.fasta 2> /dev/null
 #fimo -oc analysis/targets/hb/sim --thresh 1e-3  prereqs/fly_factor_survey.meme Reference/sim_hb_regregions.fasta 2> /dev/null
 
-TFS="FBgn0259789_2 FBgn0000166_3 FBgn0001180_2"
-TF_NAMES="zld bcd hb"
+TFS="OTF0070.1 hb  kni gt D FBgn0001325_4 tll hkb  FBgn0000251_3 FBgn0003448_3 twi" #Med dl"
+TF_NAMES="bcd  hb  kni gt D Kr            tll hkb cad            sna           twi" #med dl"
+
 #
 echo python PatserAlignToSVG.py -X 100 --show-alignment -x .75 --y-sep 60 --y-scale 3.5 --bar-width 10 --comp1 mel --comp2 sim \
 	--tf ${TFS} \
