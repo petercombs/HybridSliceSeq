@@ -30,8 +30,9 @@ time_point = 'T2'
 
 all_changes = {
     'hb': {
-        'hkb' : 0.5, 'hkb2': 0.5, 'kni': 0.5, 'D': 1.0, 'KrP': 2.0,
+        'hkb' : 0.5, 'hkb2': 0.5, 'kni': 0.5, 'D': 1.0, 'KrP': 0.5,
         'gtP': 0.5, 'tll': 1.0, 'bcdP2': 2.0, 'bcdP': 2,
+        'sna' : 2.0,
     },
     'Kr': {
         'gtP': 0.5, 'tll': 2.0, 'hkb': 0.5, 'kni': 2.0, 'D': 0.5,
@@ -81,7 +82,9 @@ def plot_changes(model, changes, atlas, new_figure=True, xlims=None, ylims=None,
 
     mpl.ylabel('predicted ASE data')
     mpl.title(str(changes))
-    mpl.gca().set_aspect(1)
+    ax = mpl.gca()
+    ax.set_aspect(1)
+    ax.set_axis_bgcolor((.6, .6, .6))
 
 class Predictor():
     def __init__(self, model, changes):
@@ -122,7 +125,7 @@ if __name__ == "__main__":
     #X['bcd2'] = X['bcdP']**2
     X['const'] = 1
     y = atlas_expr.ix[:, target_gene,time_point]
-    co = .2
+    co = .1
 
     x_coord = atlas_coords.ix[:, 'X', time_point]
     z_coord = atlas_coords.ix[:, 'Z', time_point]
@@ -207,7 +210,9 @@ if __name__ == "__main__":
             #best_tfs = ['bcdP', 'hkb', 'hkb2', 'KrP', 'bcdP2', 'const']
             #best_tfs = ['bcdP', 'bcdP2', 'gtP', 'kni', 'hkb',  'KrP', 'const']
             #best_tfs = atlas_expr.major_axis
-            best_tfs = {'bcdP', 'bcdP2', 'cad', 'gtP', 'hbP', 'KrP', 'hkb', 'tll', 'D',
+            best_tfs = {'bcdP', 'bcdP2', 'cad', 'gtP', 'hbP', 'KrP', 'hkb',
+                        'tll', 'D', # 'kni',
+                        'sna',
                         'h', 'dl', 'mad', 'shn', 'twi', 'const'}
             best_tfs.discard(target_gene)
             best_tfs.discard(target_gene + 'P')
