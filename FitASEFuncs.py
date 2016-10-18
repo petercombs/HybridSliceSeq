@@ -133,7 +133,7 @@ def calculate_variance_explained(ase, xs, func, params):
 
 
 if __name__ == "__main__":
-    expr = pd.read_table('analysis_godot/summary_fb.tsv', **pd_kwargs).dropna(how='all', axis=1)
+    expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).dropna(how='all', axis=1)
     ase = (pd
            .read_table('analysis_godot/ase_summary_by_read.tsv',
                        **pd_kwargs
@@ -274,6 +274,8 @@ if __name__ == "__main__":
         if ((gene in best_r2 and not best_r2[gene] > r2_logist[gene])
             or (gene not in best_r2)):
             best_r2[gene] = r2_logist[gene]
+
+    best_r2.to_csv('analysis/results/svase_best', sep='\t')
 
     if locals().get('print_kegg', False):
         synonyms = get_synonyms()

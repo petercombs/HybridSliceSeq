@@ -70,25 +70,26 @@ if __name__ == "__main__":
                .dropna(how='all', axis=1)
                .select(**Utils.sel_startswith(('melXsim', 'simXmel')))
               )
-        expr = pd.read_table('analysis_godot/summary_fb.tsv', **pd_kwargs).dropna(how='all', axis=1)
+        expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).dropna(how='all', axis=1)
         lott = pd.read_table('prereqs/journal.pbio.1000590.s002', index_col=0, keep_default_na=False, na_values=[''])
         reload_ase = False
         to_gn = pd.read_table('prereqs/gene_map_table_fb_2016_01.tsv', index_col=1, skiprows=4).ix[:,0]
         to_fbgn = Utils.get_synonyms()
 
-        lott['fbgn'] = to_fbgn[lott.index]
-        lott.drop_duplicates(subset='fbgn', keep=False, inplace=True)
-        lott.index = lott.fbgn
-
-        paris = pd.read_table('prereqs/GSE68062_Gene_CLASS_after_FPKM_normalization.txt', index_col=1,
-                header=0,
-                names=['gn', 'FBgn', 'yak', 'pse', 'vir']+[s+'_'+n for s in 'mel yak pse vir'.split() for n in 'class prob'.split()],
-                )
-
         classes = pd.DataFrame(index=ase.index, columns=['melXsim', 'simXmel'], data=pd.np.nan)
         for ix in ProgressBar()(classes.index):
             for col in classes.columns:
                 classes.ix[ix, col] = get_class(ix, ase, subset=col, expr=expr)
+
+    #lott['fbgn'] = to_fbgn[lott.index]
+    #lott.drop_duplicates(subset='fbgn', keep=False, inplace=True)
+    #lott.index = lott.fbgn
+
+    paris = pd.read_table('prereqs/GSE68062_Gene_CLASS_after_FPKM_normalization.txt', index_col=1,
+            header=0,
+            names=['gn', 'FBgn', 'yak', 'pse', 'vir']+[s+'_'+n for s in 'mel yak pse vir'.split() for n in 'class prob'.split()],
+            )
+
 
     in_both = ase.index.intersection(expr.index)
     ase = ase.ix[in_both]

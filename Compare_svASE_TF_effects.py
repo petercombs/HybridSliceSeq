@@ -4,12 +4,24 @@ import PlotUtils as pu
 import numpy as np
 from scipy import stats
 
+if 'mpl' in locals():
+    import matplotlib.pyplot as mpl
+    HAS_MPL = True
+else:
+    HAS_MPL = False
+
+EPSILON = .1
+
 if __name__ == "__main__":
-    expr = locals()['expr']
+    expr = pd.read_table('godot/summary_wasp.tsv',
+                         **ut.pd_kwargs).drop(['---'], axis=1)
     hyb = expr.select(**ut.sel_startswith(('melXsim', 'simXmel')))
     parental = expr.select(**ut.sel_startswith(('melXmel', 'simXsim')))
-    melXmel = expr.select(**ut.sel_startswith('melXmel'))
-    simXsim = expr.select(**ut.sel_startswith('simXsim'))
+    melXmel = expr.select(**ut.sel_startswith('melXmel')).rename(columns=lambda x:x.split('_sl')[1])
+    simXsim = expr.select(**ut.sel_startswith('simXsim')).rename(columns=lambda x:x.split('_sl')[1])
+    higher_parental = melXmel.where(melXmel > simXsim, simXsim)
+    lower_parental = melXmel.where(melXmel < simXsim, simXsim)
+    mel_sim_ratio = (melXmel + EPSILON) / (simXsim + EPSILON)
 
     is_mat = pd.read_table('analysis/results/maternal.tsv', squeeze=True,
                            header=None, **ut.pd_kwargs)
@@ -17,48 +29,124 @@ if __name__ == "__main__":
 
     xs = ut.get_xs(expr)
     hyb_xs = ut.get_xs(hyb)
-    mel_xs = ut.get_xs(melXmel)
-    sim_xs = ut.get_xs(simXsim)
+    mel_xs = np.linspace(0, 1, 27, endpoint=True)
+    sim_xs = np.linspace(0, 1, 27, endpoint=True)
     parental_xs = ut.get_xs(parental)
 
     kwargs = pu.kwargs_expr_heatmap.copy()
     kwargs['draw_row_labels'] = False
     kwargs['box_height'] = 1
+    kwargs['progress_bar'] = False
 
-    for tf, region in [('hb', (0, .1)),
-                       ('Kr', (0.1, 0.4)),
-                       ('Kr', (0.45, 0.75))]:
+    distro_mels = []
+    distro_sims = []
+
+    target_regions = [
+        ('Kr', (0.33, 0.44)),
+        ('Kr', (0.55, 0.72)),
+        ('Kr', (0.74, 0.85)),
+        ('hb', (0, .10)),
+        ('hb', (.20, .50)),
+        ('hb', (.60, .75)),
+        ('hb', (.80, .90)),
+        #('prd', (0, .1)),
+    ]
+
+    nmegs = [] # Non maternal expressed gene lists
+
+    for tf, region in target_regions:
         peak_genes = {line.strip() for line in
-                         open('analysis/results/{}_peak_genes_5k.txt'
-                             .format(tf))
+                         open(
+                             'analysis/results/{}_1000_peak_genes_2500bp_tss.txt'
+                             #'analysis/results/hb_wt_emd_0.1.txt'
+                             #'analysis/results/{}_tss_genes.txt'
+                             .format(tf.lower()))
                          if line.strip() in expr.index}
+        peak_genes.add(tf)
 
-        all_in_region = (region[0] < xs) & (xs < region[1])
-        mel_in_region = (region[0] < mel_xs) & (mel_xs < region[1])
-        sim_in_region = (region[0] < sim_xs) & (sim_xs < region[1])
-        parental_in_region = (region[0] < parental_xs) & (parental_xs < region[1])
+        all_in_region_ix = (region[0] <= xs) & (xs < region[1])
+        mel_in_region_ix = (region[0] <= mel_xs) & (mel_xs < region[1])
+        sim_in_region_ix = (region[0] <= sim_xs) & (sim_xs < region[1])
+        parental_in_region_ix = (region[0] <= parental_xs) & (parental_xs < region[1])
 
-        gene_expr_level = parental.ix[peak_genes, parental_in_region].max(axis=1)
-        expr_in_region = gene_expr_level.index[gene_expr_level > 5]
+        gene_expr_level = parental.ix[peak_genes, parental_in_region_ix].min(axis=1)
+        expr_in_region = ut.true_index(gene_expr_level > -1)
 
         non_mat_expr_genes = expr_in_region.difference(mat_genes)
-        non_mat_expr_genes = gene_expr_level.ix[non_mat_expr_genes].sort_values().index
+        non_mat_expr_genes = mel_sim_ratio.ix[non_mat_expr_genes,
+                                              mel_in_region_ix].mean(axis=1).sort_values().index
+        nmegs.append(non_mat_expr_genes)
 
-        pu.svg_heatmap(expr.ix[non_mat_expr_genes, all_in_region],
+        pu.svg_heatmap(expr.ix[non_mat_expr_genes, all_in_region_ix],
                        'analysis/results/non_mat_{}_{:0.2f}-{:0.2f}_expr_genes.svg'
                        .format(tf, region[0], region[1]),
-                       squeeze_rows=np.nanmean,  progress_bar=True, **kwargs)
+                       squeeze_rows=np.nanmean,  **kwargs)
 
 
-        mel_in_region = (melXmel.ix[non_mat_expr_genes, mel_in_region]
-                         .divide(parental.ix[non_mat_expr_genes, parental_in_region]
+        mel_in_region = (melXmel.ix[non_mat_expr_genes, mel_in_region_ix]
+                         .divide(parental.ix[non_mat_expr_genes, :]
                                  .max(axis=1), axis=0)
                          .mean(axis=1))
-        sim_in_region = (simXsim.ix[non_mat_expr_genes, sim_in_region]
-                         .divide(parental.ix[non_mat_expr_genes, parental_in_region]
+        sim_in_region = (simXsim.ix[non_mat_expr_genes, sim_in_region_ix]
+                         .divide(parental.ix[non_mat_expr_genes, :]
                                  .max(axis=1), axis=0)
                          .mean(axis=1))
         res = stats.ttest_rel( mel_in_region, sim_in_region, nan_policy='omit',)
+        distro_mels.append(mel_in_region.dropna())
+        distro_sims.append(sim_in_region.dropna())
 
-        print(tf, region, res, mel_in_region.mean(), sim_in_region.mean())
+        print(tf, region, res,
+              'mel', mel_in_region.mean(), mel_in_region.ix[tf],
+              'sim', sim_in_region.mean(), sim_in_region.ix[tf])
+
+    x_range = np.arange(0, 1, .05)
+    if HAS_MPL:
+        print("Violinning")
+        mpl.figure()
+        mpl.violinplot([(dm - ds) for dm, ds in zip(distro_mels, distro_sims)])
+        mpl.xticks(np.arange(len(target_regions))+1,
+                   ['{}: {:0.0%} - {:0.0%}'.format(target, *region)
+                    for target, region in target_regions],
+                   rotation=90)
+
+        mpl.tight_layout()
+        mpl.figure()
+        ax1 = mpl.gca()
+        mpl.figure()
+        ax2 = mpl.gca()
+
+        for nmeg, dm, ds, (target, region) in zip(
+            nmegs, distro_mels, distro_sims, target_regions
+        ):
+            if target == 'hb': continue
+            region_diffs = dm - ds
+            control_region = (melXmel.ix[target] < 5) & (simXsim.ix[target] < 5)
+            control_diffs = ((melXmel.ix[nmeg, control_region]
+                              - simXsim.ix[nmeg, control_region])
+                             .divide(parental.ix[nmeg, :] .max(axis=1), axis=0)
+                            ).mean(axis=1)
+            ax1.semilogy(100*x_range,
+                         [sum(region_diffs > i)/ sum(region_diffs < -i)
+                          for i in x_range],
+                         label='{}: {:0.0%} - {:0.0%}'.format(target, *region), basey=2)
+            ax2.semilogy(100*x_range,
+                         [
+                             stats.binom_test([sum(region_diffs > i),
+                                               sum(region_diffs < -i)],
+                                              p=(sum(control_diffs > i)
+                                                 / (sum(control_diffs > i)
+                                                    + sum(control_diffs < -i))
+                                                )
+                                             )
+                             for i in x_range
+                         ],
+                         label='{}: {:0.0%} - {:0.0%}'.format(target, *region),
+                         basey=10)
+        ax1.legend(loc='upper left')
+        ax1.hlines(1, 0, 100)
+        ax1.set_ylabel(r'$\#(\Delta > x) \div \#(\Delta < -x)$')
+        ax2.hlines(0.05, 0, 100, label='nominal p=.05')
+        ax2.legend(loc='lower left')
+        ax2.set_ylabel('binomial p value (vs empirical unexpressed control)')
+
 

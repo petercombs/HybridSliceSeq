@@ -55,7 +55,21 @@ def get_diffs(expr, mel_spline, sim_spline, col_headers):
         normer=lambda x: expr.max(),
     )
 
-    avgs = pd.Series(mel_spline(xs) + sim_spline(xs),
+    hyb_hyb_diffs = dd.earth_mover_multi_rep(
+        melXsim, simXmel,
+        normer=lambda x: expr.max(),
+    )
+    within_melXsim_diff = dd.earth_mover_within(
+        melXsim,
+        normer=expr.max(),
+    )
+    within_simXmel_diff = dd.earth_mover_within(
+        simXmel,
+        normer=expr.max(),
+    )
+
+
+    avgs = pd.Series((mel_spline(xs) + sim_spline(xs))/2,
                      index=col_headers,
                     )
 
@@ -64,8 +78,17 @@ def get_diffs(expr, mel_spline, sim_spline, col_headers):
         hybrids,
         normer=lambda x: expr.max(),
     )
+    avg_level = avgs.max()
+    hyb_level = [hybrids.select(startswith(g)).max()
+                 for g in ['melXsim_cyc14C_rep1', 'melXsim_cyc14C_rep2', 'melXsim_cyc14C_rep3',
+                            'simXmel_cyc14C_rep1', 'simXmel_cyc14C_rep2']]
 
-    return parental_diffs, mel_hyb_diffs, sim_hyb_diffs, avgs, avg_hyb_diffs
+    return (
+        hyb_hyb_diffs,
+        parental_diffs, mel_hyb_diffs, sim_hyb_diffs, avgs, avg_hyb_diffs,
+        avg_level, hyb_level,
+        within_melXsim_diff, within_simXmel_diff,
+    )
 
 def plot_expr_comparison(expr, gene, prefix=None, smoothed=0):
     mel = expr.select(**sel_startswith('mel_')).ix[gene]
@@ -91,8 +114,10 @@ def plot_expr_comparison(expr, gene, prefix=None, smoothed=0):
 if __name__ == "__main__":
     synonyms = get_synonyms()
 
-    expr = pd.read_table('analysis_godot/summary_fb.tsv', **pd_kwargs)
-    ase = pd.read_table('analysis_godot/ase_summary_by_read.tsv', **pd_kwargs)
+    expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).drop('---',
+                                                                         axis='columns')
+    ase = pd.read_table('analysis_godot/ase_summary_by_read.tsv',
+                        **pd_kwargs).drop('---', axis='columns')
 
 
     mel = expr.select(**sel_startswith('mel_'))
@@ -106,7 +131,8 @@ if __name__ == "__main__":
     expr_in_hybrids = (hybrids.max(axis=1) > EXPR_MIN)
     expr_in_all = (expr_in_mel & expr_in_sim & expr_in_hybrids)
 
-    ase = ase.ix[expr_in_all.index[expr_in_all]]
+    expr = expr.ix[expr_in_all]
+    ase = ase.ix[expr.index]
     ase_classes = hu.get_classes(ase, pbar=pbar, style='cutoff')
     not_maternal = ase_classes.index[~((ase_classes.melXsim == 0) &
                                        (ase_classes.simXmel == 0))]
@@ -120,9 +146,20 @@ if __name__ == "__main__":
         index=not_maternal,
     )
     parental_diffs = hyb_spatial_difference.copy()
+    hyb_hyb_diffs = hyb_spatial_difference.copy()
     mel_hyb_diffs = hyb_spatial_difference.copy()
     sim_hyb_diffs = hyb_spatial_difference.copy()
     avg_hyb_diffs = hyb_spatial_difference.copy()
+    avg_levels = hyb_spatial_difference.copy()
+    within_diffs_mXs = hyb_spatial_difference.copy()
+    within_diffs_sXm = hyb_spatial_difference.copy()
+    hyb_levels = pd.DataFrame(index=hyb_spatial_difference.index,
+                           columns=['melXsim_cyc14C_rep1',
+                                     'melXsim_cyc14C_rep2',
+                                     'melXsim_cyc14C_rep3',
+                                     'simXmel_cyc14C_rep1',
+                                     'simXmel_cyc14C_rep2'])
+
 
     xs = np.linspace(0, 1, 20, endpoint=True)
     avgs = pd.DataFrame(index=hyb_spatial_difference.index,
@@ -135,12 +172,26 @@ if __name__ == "__main__":
         for gene in pbar()(hyb_spatial_difference.index):
 
             res = next(results).get()
-            (parental_diffs[gene],
+            #res = get_diffs(expr.ix[gene], mel_splines[gene], sim_splines[gene],
+                            #avgs.columns)
+            (hyb_hyb_diffs[gene],
+             parental_diffs[gene],
              mel_hyb_diffs[gene],
              sim_hyb_diffs[gene],
              avgs.ix[gene],
-             avg_hyb_diffs[gene]) = res
+             avg_hyb_diffs[gene],
+             avg_levels[gene], hyb_levels.ix[gene],
+             within_diffs_mXs[gene],
+             within_diffs_sXm[gene],
+            ) = res
             hyb_spatial_difference[gene] = (avg_hyb_diffs[gene]
                                             - parental_diffs[gene])
+    l = locals()
+    all_diffs = pd.DataFrame({i: l[i]
+                              for i in ['hyb_hyb_diffs', 'parental_diffs',
+                                        'mel_hyb_diffs', 'sim_hyb_diffs',
+                                        'avg_hyb_diffs', 'within_diffs_mXs',
+                                        'within_diffs_sXm',
+                                       ]})
 
 

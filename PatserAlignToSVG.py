@@ -8,16 +8,21 @@ import pandas as pd
 from ParseDelta import parse_records
 from progressbar import ProgressBar
 import itertools as it
-from collections import defaultdict
+from collections import defaultdict, Counter
+from pprint import pprint
 
-seq_colors = {'T' : 'red', 'A': 'green', 'C': 'blue', 'G':'gold'}
+seq_colors = defaultdict(
+    lambda : 'gray',
+    {'T' : 'red', 'A': 'green', 'C': 'blue', 'G':'gold'}
+)
 
 def get_header_size(filename):
     for i, line in enumerate(open(filename)):
         if 'position=' in line:
             return i
+    return 0
 
-def has_match(pos, patser1, patser2, pos1, pos2, dist=10, reltol=.2):
+def has_match(pos, patser1, patser2, pos1, pos2, dist=5, reltol=.2):
     score = patser1.score[pos]
     new_pos = pos2[argwhere(pos1 == pos)][0,0]
     return bool(len(patser2
@@ -57,34 +62,49 @@ def parse_best_aligns(aligns_by_seq1, take_best=min):
 
 
 def parse_args():
+    store_true = 'store_true'
     parser = ArgumentParser()
+    data_opts = parser.add_argument_group('Data file options')
+    plot_opts = parser.add_argument_group('Plot options')
     parser.add_argument('--tf', '-t', default=[], nargs='*')
     parser.add_argument('--tf-names', '-T', default=[], nargs='*')
     parser.add_argument('--comp1', '-1', default='anterior')
     parser.add_argument('--comp2', '-2', default='posterior')
-    parser.add_argument('--x-scale', '-x', type=float, default=.1)
-    parser.add_argument('--y-scale', '-y', type=float, default=1.0)
-    parser.add_argument('--y-sep', '-Y', type=float, default=50)
-    parser.add_argument('--x-ticks', '-X', type=float, default=1000,
-                        help='Put a marker every X-TICKS bases on the'
-                        'upper-most strand')
-    parser.add_argument('--bar-width', '-w', type=float, default=1)
-    parser.add_argument('--show-alignment', '-A', default=False, action='store_true')
-    parser.add_argument('--sequence', '-s', default=False, action='store_true',
-                        help='Patser output the sequence of the match as well')
-    parser.add_argument('--fasta', '-F', default=None)
-    parser.add_argument('--needleall', '-N', default=False, action='store_true',
-                        help='Input alignments are actually needleall output'
-                        " files in EMBOSS srs format")
-    parser.add_argument('--meme-suite', '-M', default=False,
-                        action='store_true',
-                        help='Directory is actually the output of FIMO or '
-                        'another MEME suite program')
+    data_opts.add_argument('--sequence', '-s', default=False, action=store_true,
+                           help='Patser output the sequence of the match as well')
+    data_opts.add_argument('--fasta', '-F', default=None)
+    data_opts.add_argument('--needleall', '-N', default=False, action=store_true,
+                           help='Input alignments are actually needleall output'
+                           " files in EMBOSS srs format")
+    data_opts.add_argument('--meme-suite', '-M', default=False,
+                           action=store_true,
+                           help='Directory is actually the output of FIMO or '
+                           'another MEME suite program')
+    plot_opts.add_argument('--x-scale', '-x', type=float, default=.1)
+    plot_opts.add_argument('--y-scale', '-y', type=float, default=1.0)
+    plot_opts.add_argument('--y-sep', '-Y', type=float, default=50)
+    plot_opts.add_argument('--x-ticks', '-X', type=float, default=1000,
+                           help='Put a marker every X-TICKS bases on the'
+                           'upper-most strand')
+    plot_opts.add_argument('--bar-width', '-w', type=float, default=1)
+    plot_opts.add_argument('--show-alignment', '-A', default=False, action=store_true)
+    plot_opts.add_argument('--match-dim', '-d', type=float, default=0.5)
+    plot_opts.add_argument('--rescale-bars', '-R', default=False,
+                           action=store_true)
+    plot_opts.add_argument('--background', '-B', default=False,
+                           action=store_true)
+    parser.add_argument('--print-argv', '-v', default=False,
+                        action=store_true,)
     parser.add_argument('alignments', type=open,
-            help='File containing alignments in MUMmer .delta format')
+                        help='File containing alignments in MUMmer .delta format')
     parser.add_argument('patser_directory', type=str)
 
+
     args =  parser.parse_args()
+    if args.print_argv:
+        from sys import argv
+        print(" ".join(argv))
+
     if args.tf == []:
         args.tf = ['bcd', 'cad', 'gt', 'hb', 'kni', 'kr', 'hkb', 'tll', 'D', 'ftz', 'h', 'prd', 'run', 'slp1']
 
@@ -141,7 +161,7 @@ if __name__ == "__main__":
     x_start = 10
     y_start = 1.5 * args.y_sep
     delta_y = 1.5 * args.y_sep
-    match_dim = 0.5
+    match_dim = args.match_dim
 
     colors=[
             'darkorange',
@@ -167,6 +187,7 @@ if __name__ == "__main__":
     alignments = []
     if args.needleall:
         aligns_by_seq1 = defaultdict(list)
+        aligns_by_seq2 = defaultdict(list)
         all_aligns = {}
         for align in AlignIO.parse(args.alignments, 'emboss'):
             all_aligns[(align[0].id, align[1].id)] = align
@@ -188,7 +209,14 @@ if __name__ == "__main__":
                     random.rand(),
                     align,
                 ))
-        alignments = sorted(parse_best_aligns(aligns_by_seq1, max))
+                aligns_by_seq2[a2_name].append((
+                    -(Counter(align[0])['-']+Counter(align[1])['-']),
+                    -len(align[0]),
+                    float(line.strip().split(':')[1]),
+                    random.rand(),
+                    align,
+                ))
+        alignments = parse_best_aligns(aligns_by_seq2, max)
         n_aligns = len(alignments)
     else:
         for n_aligns, a in enumerate(parse_records(args.alignments)):
@@ -216,6 +244,7 @@ if __name__ == "__main__":
 
     prog = 0
     lines = []
+    tf_changes = {}
     for ((n1, pos1), (n2, pos2)) in alignments:
         if args.show_alignment:
             fasta1 = path.join(args.patser_directory, n1 + '.fasta')
@@ -230,6 +259,7 @@ if __name__ == "__main__":
                     seq2 = args.fasta[n2].seq
                     has_fasta = True
                 else:
+                    print("Can't find both sequences: {} and {}".format(n1, n2))
                     has_fasta = False
                     seq1 = defaultdict(lambda : 'N')
                     seq2 = defaultdict(lambda : 'N')
@@ -250,8 +280,8 @@ if __name__ == "__main__":
                     pass
                 i += 1
                 dwg.add(dwg.rect(
-                    (x_start + x_scale * id_start, y_start - .5 * args.y_sep * (val < 0)),
-                    (x_scale * i, .5 * args.y_sep * (val != 0)),
+                    (x_start + x_scale * id_start, y_start - .1 * args.y_sep * (val < 0)),
+                    (x_scale * i, .1 * args.y_sep * (val != 0)),
                     fill="grey"
                     ))
                 if val == 0:
@@ -294,10 +324,37 @@ if __name__ == "__main__":
                 style='stroke:#000000;stroke-width:1',
             ))
 
-        for i_tf, tf in enumerate(args.tf):
+        if args.background:
+            dwg.add(dwg.rect(
+                (x_start, y_start - 5 * y_scale),
+                (x_scale  * len(pos1), 10 * y_scale),
+                style='stroke-width:0; fill:#BBBBBB;'
+            ))
+            dwg.add(dwg.line(
+                (x_start, y_start - 2.5 * y_scale),
+                (x_start + x_scale * len(pos1), y_start - 2.5 * y_scale),
+                style='stroke:#FFFFFF;stroke-width:1;'
+            ))
+            dwg.add(dwg.line(
+                (x_start, y_start + 2.5 * y_scale),
+                (x_start + x_scale * len(pos1), y_start + 2.5 * y_scale),
+                style='stroke:#FFFFFF;stroke-width:1;'
+            ))
+        tf_changes_i = Counter()
+        for i_tf, (tf, tf_name) in enumerate(zip(args.tf, args.tf_names)):
             if args.meme_suite:
                 patser1 = meme1.ix[(meme1.tf == tf) & (meme1.sequence_name == n1)]
                 patser2 = meme2.ix[(meme2.tf == tf) & (meme2.sequence_name == n2)]
+
+                patser1 = patser1.sort_values(by='score').drop_duplicates(subset='pos', keep='last')
+                patser2 = patser2.sort_values(by='score').drop_duplicates(subset='pos', keep='last')
+
+                if args.rescale_bars:
+                    print(patser1.score.max())
+                    top_score = max(patser1.score.max(), patser2.score.max())
+                    patser1.score /= top_score / 5
+                    patser2.score /= top_score / 5
+                    print(patser1.score.max())
 
                 patser1.index = patser1.pos
                 patser2.index = patser2.pos
@@ -332,20 +389,26 @@ if __name__ == "__main__":
                 patser2 = patser2.ix[patser2.seq == n2]
             pos = 0
             for pos in patser1.index:
+                matched = has_match(pos, patser1, patser2, pos1, pos2)
+                if not matched:
+                    tf_changes_i['-'+tf_name] += 1
                 s = float(patser1.ix[pos, 'score'])*y_scale
                 r = dwg.rect(
                     (x_start + argwhere(pos1 == pos)[0,0]*x_scale, y_start-s),
                     (args.bar_width, s),
                     fill=colors[i_tf],
                     **{
-                        'fill-opacity': "{:.2f}".format(1.0-match_dim*has_match(pos, patser1, patser2, pos1, pos2)),
+                        'fill-opacity': "{:.2f}".format(1.0-match_dim*matched),
                         #'stroke-width': '0',
                         }
 
                     )
-                r.add(svg.base.Title(str(patser1.ix[pos])))
+                r.add(svg.base.Title(tf_name + "\n" + str(patser1.ix[pos])))
                 dwg_groups[tf].add(r)
             for pos in patser2.index:
+                matched = has_match(pos, patser2, patser1, pos2, pos1)
+                if not matched:
+                    tf_changes_i['+'+tf_name] += 1
                 pos = int(pos)
                 s = float(patser2.ix[pos, 'score'])*y_scale
                 r = (dwg.rect(
@@ -353,13 +416,14 @@ if __name__ == "__main__":
                     (args.bar_width, s),
                     style='fill:{}; fill-opacity:{:.2f};'.format(
                         colors[i_tf],
-                        1.0-match_dim*has_match(pos, patser2, patser1, pos2, pos1),
+                        1.0-match_dim*matched,
                         ),
                     ))
-                r.add(svg.base.Title(str(patser2.ix[pos])))
+                r.add(svg.base.Title(tf_name + "\n" + str(patser2.ix[pos])))
                 dwg_groups[tf].add(r)
             pb.update(prog)
             prog += 1
+        tf_changes[n1, n2] = tf_changes_i
 
         y_start += delta_y
     pb.finish()
@@ -389,4 +453,5 @@ if __name__ == "__main__":
         dwg.add(line)
 
     dwg.save()
+    pprint(tf_changes)
 

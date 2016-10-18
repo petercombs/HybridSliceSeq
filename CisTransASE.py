@@ -21,7 +21,8 @@ import pandas as pd
 from scipy import interpolate, stats
 from multiprocessing import Pool
 from progressbar import ProgressBar as pbar
-from Utils import pd_kwargs, sel_startswith, get_xs, get_nearest_slice, get_chroms
+from Utils import (pd_kwargs, sel_startswith, get_xs, get_nearest_slice,
+                   get_chroms, fbgns)
 from matplotlib import cm
 import PlotUtils as pu
 import DistributionDifference as dd
@@ -80,21 +81,24 @@ def fit_all_splines(expr, pool=None, progress=False):
 
 
     if pool is True:
+        close = True
         pool = Pool()
     elif pool is None:
         for gene in pb(expr.index):
-            expr_smooth = pd.rolling_mean(expr.ix[gene], 5, center=True,
+            expr_smooth = pd.rolling_mean(expr.ix[gene], 3, center=True,
                                           min_periods=1)
             is_good = ~expr_smooth.isnull()
             out[gene] = interpolate.UnivariateSpline(
                 xs[is_good], expr_smooth[is_good]
             )
         return out
+    else:
+        close = False
 
 
     asyncs = {}
     for gene in expr.index:
-        expr_smooth = pd.rolling_mean(expr.ix[gene], 5, center=True,
+        expr_smooth = pd.rolling_mean(expr.ix[gene], 3, center=True,
                                       min_periods=1)
         is_good = ~expr_smooth.isnull()
         asyncs[gene] = pool.apply_async(interpolate.UnivariateSpline, (
@@ -106,6 +110,8 @@ def fit_all_splines(expr, pool=None, progress=False):
     for gene in pb(asyncs):
         res = asyncs[gene]
         out[gene] = res.get()
+    if close:
+        pool.close()
     return out
 
 pu_kwargs = {
@@ -120,21 +126,47 @@ pu_kwargs = {
     'progress_bar': False,
     'split_columns': True,
     'total_width': 200,
-    'nan_replace' : 0.5,
+    'nan_replace' : True,
     'vspacer': 10}
 
+def calculate_spline_variance_explained(ase, splines, weights=None):
+    xs = get_xs(ase)
+    if weights is None:
+        weights = np.ones_like(xs)
+    if not callable(splines):
+        var_obs = (((ase - splines) * weights)**2).sum()
+        var_tot = (((ase - ase.mean()) * weights)**2).sum()
+        return 1-(var_obs / var_tot)
+    elif hasattr(splines, 'index'):
+        r2 = pd.Series(index=splines.index, data=np.inf)
+    elif hasattr(splines, 'keys'):
+        r2 = pd.Series(index=list(splines.keys()), data=np.inf)
+    else:
+        return 1-(((ase - splines(xs))**2).sum() / ((ase - ase.mean())**2).sum())
+    for ix in r2.index:
+        r2.ix[ix] = 1-(
+            ((ase.ix[ix] - splines[ix](xs))**2).sum()
+            / ((ase.ix[ix] - ase.ix[ix].mean())**2).sum()
+        )
+
+    return r2
 
 EXPR_MIN = 10
 if __name__ == "__main__":
     print("Reading data")
-    expr = (pd.read_table('analysis_godot/summary_fb.tsv', **pd_kwargs)
-           .dropna(how='all', axis=0)
+    expr = (pd.read_table('analysis_godot/summary_wasp.tsv', **pd_kwargs)
+            .dropna(how='all', axis=0)
+            .dropna(how='all', axis=1)
            )
-    ase = (pd.read_table('analysis_godot/ase_summary_by_read.tsv', **pd_kwargs)
+    if expr.index[0].startswith('FBgn'):
+        expr.index = fbgns[expr.index]
+    ase = (pd.read_table('analysis_godot/ase_summary_by_read_with_wasp.tsv', **pd_kwargs)
            .select(**sel_startswith(('melXsim', 'simXmel')))
            .dropna(how='all', axis=0)
+           .rename_axis(lambda x: x.split('_ase')[0], axis=1)
            #.replace(pd.np.nan, 0)
           )
+    ase = ase.ix[expr.index]
 
     read_counts = pd.read_table('analysis_godot/map_stats.tsv',
                                 index_col='LongName')
@@ -142,7 +174,7 @@ if __name__ == "__main__":
     chrom_of = get_chroms()
 
     males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
-    on_x = [chrom_of[gene] == 'X' for gene in ase.index]
+    on_x = chrom_of[ase.index] == 'X'
     is_male = [col.startswith(males) for col in ase.columns]
     ase.ix[on_x, is_male] = np.nan
 
@@ -157,17 +189,17 @@ if __name__ == "__main__":
               .FBgn.dropna().unique()
              )
 
-    mel = expr.select(**sel_startswith('mel_'))
-    sim = expr.select(**sel_startswith('sim_'))
+    mel = expr.select(**sel_startswith(('melXmel_', 'mel_')))
+    sim = expr.select(**sel_startswith(('simXsim_', 'sim_')))
     hyb = expr.select(**sel_startswith(('melXsim', 'simXmel')))
 
-    ase_melXsim = ase.select(**sel_startswith('melXsim'))
-    ase_simXmel = ase.select(**sel_startswith('simXmel'))
+    ase_melXsim = ase.select(**sel_startswith('melXsim')).ix[mel.index]
+    ase_simXmel = ase.select(**sel_startswith('simXmel')).ix[mel.index]
 
-    frac_mXs_ase = pd.np.isfinite(ase_melXsim).sum(axis=1) / len(ase_melXsim.columns)
-    frac_sXm_ase = pd.np.isfinite(ase_simXmel).sum(axis=1) / len(ase_simXmel.columns)
+    frac_mXs_ase = ase_melXsim.count(axis=1) / len(ase_melXsim.columns)
+    frac_sXm_ase = ase_simXmel.count(axis=1) / len(ase_simXmel.columns)
 
-    ase_ks = pd.Series(index=ase.index, data=pd.np.nan)
+    ase_ks = pd.Series(index=ase.index.intersection(frac_mXs_ase.index), data=pd.np.nan)
     for gene in ase_ks.index:
         if (frac_mXs_ase[gene] >.2) and (frac_sXm_ase[gene] > .2):
             ase_ks[gene] = stats.ks_2samp(
@@ -176,7 +208,7 @@ if __name__ == "__main__":
 
     similar_ase = ase_ks.index[ase_ks > .05]
 
-    ase_zyg = pd.Series(index=ase.index, data=np.nan)
+    ase_zyg = pd.Series(index=ase_ks.index, data=np.nan)
     for gene in ase_zyg.index:
         if (frac_mXs_ase[gene] >.2) and (frac_sXm_ase[gene] > .2):
             tstat, pval = stats.ttest_ind(ase_melXsim.ix[gene].dropna(),
@@ -194,7 +226,7 @@ if __name__ == "__main__":
     both_expr = (both_expr
                  .select(ase.index.__contains__)
                  #.select(pzyg.index.__contains__)
-                 .select(zyg_genes.__contains__)
+                 #.select(zyg_genes.__contains__)
                  #.select(similar_ase.__contains__)
                 )
     both_expr = both_expr.index[both_expr]
@@ -217,6 +249,7 @@ if __name__ == "__main__":
     ase_avgs = pd.DataFrame(
         data=dict(emd=np.nan, exprclass='?', actual=np.nan,
                   predicted=np.nan, bias=np.nan, n_good_slices=np.nan,
+                  r2=np.nan,
                   rmsdiff=np.nan),
         index=mel.index,
     )
@@ -234,6 +267,8 @@ if __name__ == "__main__":
 
     prog = pbar(maxval=len(ase_avgs.index))
     #prog = lambda x: x
+    render_pool = Pool()
+    renders = []
     for gene in prog(ase_avgs.index):
         if not locals().get('redraw', True):
             break
@@ -241,10 +276,10 @@ if __name__ == "__main__":
         xg = ase_xs[good_ase]
         ase_avgs.ix[gene, 'n_good_slices'] = len(xg)
         ase_avgs.ix[gene, 'actual'] = ase.ix[gene].mean()
-        sim_pred = pd.Series(sim_splines[gene](ase_xs).clip(0.1, 1e10),
+        sim_pred = pd.Series(sim_splines[gene](ase_xs).clip(1e-3, 1e10),
                              name='predicted_sim_'+gene,
                              index=ase_xs.index)
-        mel_pred = pd.Series(mel_splines[gene](ase_xs).clip(0.1, 1e10),
+        mel_pred = pd.Series(mel_splines[gene](ase_xs).clip(1e-3, 1e10),
                              name='predicted_mel_'+gene,
                              index=ase_xs.index)
         if sum(sim_pred[xg] + mel_pred[xg]) == 0:
@@ -257,6 +292,10 @@ if __name__ == "__main__":
         #for ix in pred_ase.index:
             #pred_ase[ix] = wilson95_pref(10*mel_pred[ix], 10*sim_pred[ix])
         pred_ase = ((sim_pred - mel_pred) /(sim_pred + mel_pred))
+        min_ase = ase.ix[gene].min()
+        max_ase = ase.ix[gene].max()
+        pred_ase = ((pred_ase - pred_ase.mean() + ase.ix[gene].mean())
+                    * (max_ase - min_ase)/(pred_ase.max() - pred_ase.min()))
         pred_ase.name='predicted_ase'
         #pred_ase -= (pred_ase.mean() - ase.ix[gene].mean())
         pred_ase_nan = pred_ase.where(np.isfinite(ase.ix[gene]), np.nan)
@@ -290,6 +329,11 @@ if __name__ == "__main__":
             (ase.ix[gene, good_ase] - pred_ase[good_ase])
         ).mean()
 
+        ase_avgs.ix[gene, 'r2'] = calculate_spline_variance_explained(
+            ase.ix[gene],
+            pred_ase_nan
+        )
+        '''
         ase_avgs.ix[gene, 'emd'] = dd.earth_mover_multi(
             (pd.rolling_mean(ase.ix[gene], 3, min_periods=1, center=True)
              / 2 + .5),
@@ -297,40 +341,47 @@ if __name__ == "__main__":
             #normer=lambda x: 1,
             normer=pd.np.sum,
         )
+        '''
 
-        pu.svg_heatmap(
+        renders.append(render_pool.apply_async(
+            pu.svg_heatmap,
             (
-                None, mel.ix[gene], None, None, None, None,
-                None, mel_pred,
-                None, sim.ix[gene], None, None, None, None,
-                None, sim_pred,
-                None, ase.ix[gene],
-                None, pred_ase_nan,
-                None, hyb.ix[gene],
+                (
+                    None, mel.ix[gene], None, None, None, None,
+                    None, mel_pred,
+                    None, sim.ix[gene], None, None, None, None,
+                    None, sim_pred,
+                    None, ase.ix[gene],
+                    None, pred_ase_nan,
+                    None, hyb.ix[gene],
+                ),
+                'analysis_godot/results/ase_preds/{}.svg'.format(gene),
             ),
-            'analysis_godot/results/ase_preds/{}.svg'.format(gene),
-            norm_rows_by=('mel expression', 'max', '', '', '', '',
-                          'predicted mel expression', 'max',
-                          'sim expression', 'max', '', '', '', '',
-                          'predicted sim expression', 'max',
-                          'ASE', 'center0pre',
-                          'predicted ASE - EMD {:.03f}'.format(ase_avgs.ix[gene, 'emd']), 'center0pre',
-                          'hybrid expression', 'max',
-                         ),
-            cmap=(None, pu.ISH, None, None, None, None,
-                  None, cm.Reds,
-                  None, pu.ISH, None, None, None, None,
-                  None, cm.Blues,
-                  None, cm.RdBu,
-                  None, cm.RdBu,
-                  None, pu.ISH,
-                 ),
-            **pu_kwargs
-        )
+            dict(
+                norm_rows_by=('mel expression', 'max', '', '', '', '',
+                              'predicted mel expression', 'max',
+                              'sim expression', 'max', '', '', '', '',
+                              'predicted sim expression', 'max',
+                              'ASE', 'center0pre',
+                              'predicted ASE - r2 {:.03f}'.format(ase_avgs.ix[gene, 'r2']), 'center0pre',
+                              'hybrid expression', 'max',
+                             ),
+                cmap=(None, pu.ISH, None, None, None, None,
+                      None, cm.Reds,
+                      None, pu.ISH, None, None, None, None,
+                      None, cm.Blues,
+                      None, cm.RdBu,
+                      None, cm.RdBu,
+                      None, pu.ISH,
+                     ),
+                **pu_kwargs
+            ),
+        ))
         if gene in paris.index:
             ase_avgs.ix[gene, 'exprclass'] = paris[gene]
 
 
+    print(ase_avgs.ix[:, 'r2'].sort_values())
     redraw = False
 
     recalc_cis_baseline = locals().get('recalc_cis_baseline', True)
@@ -364,7 +415,7 @@ if __name__ == "__main__":
                 False
                ):
                 continue
-            yvals = pd.rolling_mean( emb1.ix[gene], 5, center=True, min_periods=1)
+            yvals = pd.rolling_mean( emb1.ix[gene], 3, center=True, min_periods=1)
             gx = np.isfinite(yvals)
             spline = interpolate.UnivariateSpline(
                 emb1_xs[gx],
@@ -383,7 +434,7 @@ if __name__ == "__main__":
                 print(emb1.columns[0].split('_sl')[0],
                       emb2.columns[0].split('_sl')[0],
                       gene)
-                assert False
+                #assert False
             smoothed_ase_vals[gene].extend(smoothed_vals)
 
             actual_ase_vals[gene].extend(emb2.ix[gene,gx2])
@@ -466,6 +517,22 @@ if __name__ == "__main__":
             **pu_kwargs
         )
         redraw_outliers = False
+
+
+    co = 1
+    trans_by_gene = defaultdict(list)
+    for gene in smoothed_ase_vals:
+        for smo, act in zip(smoothed_ase_vals[gene], actual_ase_vals[gene]):
+            trans_by_gene[gene].append((smo - act)/2**.5)
+    frac_very_trans = {gene:
+                       sum(abs(np.array(trans_by_gene[gene])) > .5)
+                       / len(trans_by_gene[gene])
+                       for gene in trans_by_gene}
+
+
+    for item in pbar()(renders):
+        item.get()
+    render_pool.close()
 
 
 
