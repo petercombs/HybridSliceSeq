@@ -1,5 +1,6 @@
 include gmsl
 
+VARIANTS=analysis_godot/on_meldgn/melsim_variant.bed
 
 .SECONDEXPANSION:
 
@@ -221,12 +222,12 @@ $(ANALYSIS_DIR)/on_%/masked/Genome: $(ANALYSIS_DIR)/on_%/melsim_masked.fasta | $
 		--genomeFastaFiles $< \
 		--sjdbGTFfile $($(call uc,$*)GTF)
 
-Reference/melsim/Genome: $(ANALYSIS_DIR)/on_mel/melsim_masked.fasta
+Reference/melsim/Genome: $(ANALYSIS_DIR)/on_meldgn/melsim_masked.fasta
 	rm -rf $(@D)/_tmp
 	STAR --runMode genomeGenerate --genomeDir $(dir $@) \
 		--outTmpDir $(@D)/_tmp/ \
 		--genomeFastaFiles $< \
-		--sjdbGTFfile $(MELGTF)
+		--sjdbGTFfile $(MELGTFR5)
 
 $(ANALYSIS_DIR)/on_%/masked/transcriptome: $(ANALYSIS_DIR)/on_%/melsim_masked.1.bt2 | $(ANALYSIS_DIR)/on_%/masked
 	mkdir -p $(@D)
@@ -329,34 +330,34 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		$(SIMGTF) \
 		$<
 
-%/melsim_gene_ase_by_read.tsv : %/assigned_dmelR_wasp_dedup.sorted.bam %/assigned_dmelR_wasp_dedup.sorted.bam.bai $(ANALYSIS_DIR)/on_mel/melsim_variant.bed $(ANALYSIS_DIR)/recalc_ase
+%/melsim_gene_ase_by_read.tsv : %/assigned_dmelR_wasp_dedup.sorted.bam %/assigned_dmelR_wasp_dedup.sorted.bam.bai $(VARIANTS) $(ANALYSIS_DIR)/recalc_ase
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python ~/ASEr/bin/GetGeneASEbyReads.py \
 		--outfile $@ \
 		--id-name gene_name \
 		--ase-function pref_index \
-		$(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
-		$(MELGTF) \
+		$(VARIANTS) \
+		$(MELGTFR5) \
 		$<
 
-%/melsim_gene_ase_by_read_with_wasp.tsv : %/assigned_dmelR_wasp_dedup.remap.kept_sorted.bam %/assigned_dmelR_wasp_dedup.remap.kept.sorted.bam.bai $(ANALYSIS_DIR)/on_mel/melsim_variant.bed $(ANALYSIS_DIR)/recalc_ase
+%/melsim_gene_ase_by_read_with_wasp.tsv : %/assigned_dmelR_wasp_dedup.remap.kept_sorted.bam %/assigned_dmelR_wasp_dedup.remap.kept.sorted.bam.bai $(VARIANTS) $(ANALYSIS_DIR)/recalc_ase
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python ~/ASEr/bin/GetGeneASEbyReads.py \
 		--outfile $@ \
 		--ase-function pref_index \
-		$(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
-		$(MELGTF) \
+		$(VARIANTS) \
+		$(MELGTFR5) \
 		$<
 
-%/wasp_genes.fpkm_tracking: %/assigned_dmelR_wasp_dedup.remap.kept_sorted.bam $(MELGTF) $(MELFASTA2) $(MELBADGTF)
+%/wasp_genes.fpkm_tracking: %/assigned_dmelR_wasp_dedup.remap.kept_sorted.bam $(MELGTFR5) $(MELFASTA2) $(MELBADGTF)
 	./qsubber $(QSUBBER_ARGS)_$(*F) --load-module cufflinks -t 4 \
 	cufflinks \
 		--num-threads 8 \
 		--output-dir $(@D)/tmp \
 		--multi-read-correct \
-		--frag-bias-correct $(MELFASTA2) \
-		--GTF $(MELGTF) \
-		--mask-file $(MELBADGTF) \
+		--frag-bias-correct $(MELR5FASTA2) \
+		--GTF $(MELGTFR5) \
+		--mask-file $(MELBADGTFR5) \
 		$<
 	mv $(@D)/tmp/genes.fpkm_tracking $@
 

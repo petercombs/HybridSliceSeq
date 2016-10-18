@@ -26,19 +26,25 @@ SECDATE = $(word 2, $(subst _FB, ,$(SECRELEASE)))
 
 PREREQDIR = prereqs
 MELFASTA = $(PREREQDIR)/dmel-all-chromosome-$(MELVERSION).fasta
+MELR5FASTA = $(PREREQDIR)/dmel-all-chromosome-r5.57.fasta
 SIMFASTA = $(PREREQDIR)/dsim-all-chromosome-$(SIMVERSION).fasta
 
 REFDIR = Reference
 
 MELFASTA2= $(REFDIR)/dmel_prepend.fasta
+MELR5FASTA2= $(REFDIR)/dmelr5_prepend.fasta
 SIMFASTA2= $(REFDIR)/dsim_prepend.fasta
 
 ORTHOLOGS = $(PREREQDIR)/gene_orthologs_fb_$(MELDATE).tsv
 
 MELGFF   = $(PREREQDIR)/dmel-all-$(MELVERSION).gff
+MELGFFR5 = $(PREREQDIR)/dmel-all-r5.57.gff
 MELGTF   = $(REFDIR)/mel_good.gtf
+MELGTFR5 = $(REFDIR)/mel_r5_good.gtf
 MELALLGTF   = $(REFDIR)/mel_all.gtf
+MELALLGTFR5 = $(REFDIR)/mel_r5_all.gtf
 MELBADGTF   = $(REFDIR)/mel_bad.gtf
+MELBADGTFR5 = $(REFDIR)/mel_r5_bad.gtf
 
 SIMGFF   = $(PREREQDIR)/dsim-all-$(SIMVERSION).gff
 SIMGTF   = $(REFDIR)/sim_good.gtf
@@ -272,7 +278,18 @@ $(MELALLGTF): $(MELGFF) | $(REFDIR)
 		awk '{print "dmel_"$$0}' > \
 		$@
 
+$(MELALLGTFR5): $(MELGFFR5) | $(REFDIR)
+	gffread $< -C -E -T -o- | \
+		awk '{print "dmel_"$$0}' > \
+		$@
+
 $(MELGTF): $(MELALLGTF) | $(REFDIR)
+	cat $< \
+		| grep -vP '(snoRNA|CR[0-9]{4}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
+		| grep 'gene_id' \
+		> $@
+
+$(MELGTFR5): $(MELALLGTFR5) | $(REFDIR)
 	cat $< \
 		| grep -vP '(snoRNA|CR[0-9]{4}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
 		| grep 'gene_id' \
@@ -295,6 +312,12 @@ $(MELBADGTF): $(MELALLGTF) | $(REFDIR)
 	cat $< \
 		| grep -P '(snoRNA|CR[0-9]{4}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
 		> $@
+
+$(MELBADGTFR5): $(MELALLGTFR5) | $(REFDIR)
+	cat $< \
+		| grep -P '(snoRNA|CR[0-9]{4}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
+		> $@
+
 $(SIMALLGTF): $(SIMGFF) | $(REFDIR)
 	gffread $< -C -E -T -o- | \
 		awk '{print "dsim_"$$0}' > \
@@ -328,6 +351,9 @@ $(SIMGFF): $(REFDIR)/sim_$(SIMVERSION) | $(REFDIR) $(PREREQDIR)
 
 $(MELFASTA2): $(MELFASTA) $(REFDIR)/mel_$(MELMAJORVERSION) | $(REFDIR)
 	perl -pe 's/>/>dmel_/' $(MELFASTA) > $@
+
+$(MELR5FASTA2): $(MELR5FASTA) | $(REFDIR)
+	perl -pe 's/>/>dmel_/' $< > $@
 
 $(SIMFASTA2): $(SIMFASTA) $(REFDIR)/sim_$(SIMMAJORVERSION) | $(REFDIR)
 	perl -pe 's/>/>dsim_/' $(SIMFASTA) > $@
@@ -483,6 +509,17 @@ Reference/tss: $(MELGTF)
 	    | rev \
 	    > $@
 
+Reference/dmel_R5.gtf: prereqs/dmel-all-r5.57.gff
+	gffread $< -C -E -T -o-  \
+		> $@
+
+Reference/tss_r5: Reference/dmel_R5.gtf
+	cat $< \
+		| python FindTSSs.py \
+	    | rev \
+	    | uniq -f 1 \
+	    | rev \
+	    > $@
 
 %/unmapped_sample.fasta: %/Unmapped.out.mate1
 	python SampleUnmapped.py $< $@
