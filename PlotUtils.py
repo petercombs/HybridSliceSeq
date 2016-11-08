@@ -664,3 +664,9 @@ def cmap_by_prefix(prefix):
         if prefix.startswith(p):
             return cms[p]
     return ISH
+
+def minimize_ink(axes):
+    axes.spines['right'].set_color('none')
+    axes.spines['top'].set_color('none')
+    axes.yaxis.set_ticks_position('left')
+    axes.xaxis.set_ticks_position('bottom')
