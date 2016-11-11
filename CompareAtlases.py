@@ -4,7 +4,78 @@ from matplotlib.pyplot import (scatter, gca, figure, pcolormesh)
 from matplotlib import cm
 from numpy import zeros, zeros_like, nanmedian, nanpercentile
 import numpy as np
+import pandas as pd
 from sys import stderr
+from multiprocessing import Pool
+from progressbar import ProgressBar
+
+def find_best_match(s1_pos, s1_expr, s2_pos, s2_expr):
+    """Find the best-matching nucleus within a given time point
+
+    Note that unlike in Fowlkes 2011, I am using only the provided time point
+    (and assuming that the input atlases have already been sliced), since the
+    positions change, and so I don't know what to make of the "30 nearest nuclei
+    to be matched" statement.
+
+    """
+    best_N = 30
+    dists = (
+        (s1_pos.pctX - s2_pos.pctX)**2
+        + (s1_pos.pctY - s2_pos.pctY)**2
+        + (s1_pos.pctZ - s2_pos.pctZ)**2
+    )
+
+    dists.sort_values(inplace=True)
+    dists = dists[:best_N]
+
+    expr_dists = ((s1_expr - s2_expr.ix[dists.index, :])**2).sum(axis=1)
+
+
+    return expr_dists.idxmin()
+
+def find_all_matches(s1_pos, s1_expr, s2_pos, s2_expr, pool=False, drop_genes=False):
+    if 'X' in s1_pos.index:
+        s1_pos = s1_pos.T
+    if 'X' in s2_pos.index:
+        s2_pos = s2_pos.T
+
+    if 'bcd' in s1_expr.index:
+        s1_expr = s1_expr.T
+    if 'bcd' in s2_expr.index:
+        s2_expr = s2_expr.T
+
+    in_both = s1_expr.columns.intersection(s2_expr.columns)
+    if drop_genes:
+        in_both = in_both.drop(drop_genes)
+    s1_expr = s1_expr.ix[:, in_both]
+    s2_expr = s2_expr.ix[:, in_both]
+
+    out = pd.Series(index=s1_expr.index, data=0)
+    pbar = ProgressBar(maxval=len(out))
+    if pool is None:
+       pool = Pool()
+    if pool is False:
+        for nuc in pbar(out.index):
+            out.ix[nuc] = (
+                find_best_match(s1_pos.ix[nuc, :], s1_expr.ix[nuc,:], s2_pos, s2_expr)
+            )
+        return out
+
+    results = []
+    for nuc in out.index:
+        results.append(
+            pool.apply_async(
+                find_best_match,
+                (s1_pos.ix[nuc, :], s1_expr.ix[nuc, :], s2_pos, s2_expr)
+            )
+        )
+    for res, ix in pbar(zip(results, out.index)):
+        out.ix[ix] = res.get()
+
+    return out
+
+
+
 
 if __name__ == "__main__":
     if 'sim_atlas' not in locals():
@@ -16,8 +87,10 @@ if __name__ == "__main__":
     mel_atlas_expr, mel_atlas_pos = mel_atlas.data_to_arrays()
 
     sim_atlas_pos.ix[:, 'pctX', :] = 100*(sim_atlas_pos[:, 'X', :].subtract(sim_atlas_pos[:, 'X', :].min(axis=1), axis=0)).divide(sim_atlas_pos[:, 'X', :].max(axis=1) - sim_atlas_pos[:, 'X', :].min(axis=1), axis=0)
+    sim_atlas_pos.ix[:, 'pctY', :] = 100*(sim_atlas_pos[:, 'Y', :].subtract(sim_atlas_pos[:, 'Y', :].min(axis=1), axis=0)).divide(sim_atlas_pos[:, 'Y', :].max(axis=1) - sim_atlas_pos[:, 'Y', :].min(axis=1), axis=0)
     sim_atlas_pos.ix[:, 'pctZ', :] = 100*(sim_atlas_pos[:, 'Z', :].subtract(sim_atlas_pos[:, 'Z', :].min(axis=1), axis=0)).divide(sim_atlas_pos[:, 'Z', :].max(axis=1) - sim_atlas_pos[:, 'Z', :].min(axis=1), axis=0)
     mel_atlas_pos.ix[:, 'pctX', :] = 100*(mel_atlas_pos[:, 'X', :].subtract(mel_atlas_pos[:, 'X', :].min(axis=1), axis=0)).divide(mel_atlas_pos[:, 'X', :].max(axis=1) - mel_atlas_pos[:, 'X', :].min(axis=1), axis=0)
+    mel_atlas_pos.ix[:, 'pctY', :] = 100*(mel_atlas_pos[:, 'Y', :].subtract(mel_atlas_pos[:, 'Y', :].min(axis=1), axis=0)).divide(mel_atlas_pos[:, 'Y', :].max(axis=1) - mel_atlas_pos[:, 'Y', :].min(axis=1), axis=0)
     mel_atlas_pos.ix[:, 'pctZ', :] = 100*(mel_atlas_pos[:, 'Z', :].subtract(mel_atlas_pos[:, 'Z', :].min(axis=1), axis=0)).divide(mel_atlas_pos[:, 'Z', :].max(axis=1) - mel_atlas_pos[:, 'Z', :].min(axis=1), axis=0)
 
 
