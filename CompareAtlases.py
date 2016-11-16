@@ -176,12 +176,12 @@ if __name__ == "__main__":
     ax = gca()
     ax.set_aspect(1)
 
-    denom = (sim_grid_avg + mel_grid_avg)
+    denom_i = (sim_grid_avg + mel_grid_avg)
 
 
     figure()
-    heatmap = pcolormesh((sim_grid_avg - mel_grid_avg) / np.where(denom > .5,
-                                                                  denom,  np.nan),
+    heatmap = pcolormesh((sim_grid_avg - mel_grid_avg) / np.where(denom_i > .5,
+                                                                  denom_i,  np.nan),
                vmin=-1, vmax=1, cmap=cm.RdBu)
     heatmap.cmap.set_bad((.5, .5, .5))
     heatmap.cmap.set_under((.5, .5, .5))
