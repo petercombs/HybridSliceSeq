@@ -78,6 +78,8 @@ def find_all_matches(s1_pos, s1_expr, s2_pos, s2_expr, pool=False, drop_genes=Fa
 
 
 if __name__ == "__main__":
+    mel_stage = 'T4'
+    sim_stage = 'T7'
     if 'sim_atlas' not in locals():
         sim_atlas = pc.PointCloudReader(open('prereqs/dsim-20120727-r2-ZW.vpc'))
         mel_atlas = pc.PointCloudReader(open('prereqs/D_mel_wt__atlas_r2.vpc'))
@@ -94,26 +96,32 @@ if __name__ == "__main__":
     mel_atlas_pos.ix[:, 'pctZ', :] = 100*(mel_atlas_pos[:, 'Z', :].subtract(mel_atlas_pos[:, 'Z', :].min(axis=1), axis=0)).divide(mel_atlas_pos[:, 'Z', :].max(axis=1) - mel_atlas_pos[:, 'Z', :].min(axis=1), axis=0)
 
 
-    mel_front_10 = mel_atlas_pos.ix[:, 'pctX', -2] <= 10
-    sim_front_10 = sim_atlas_pos.ix[:, 'pctX', -2] <= 10
+    mel_front_10 = mel_atlas_pos.ix[:, 'pctX', mel_stage] <= 10
+    sim_front_10 = sim_atlas_pos.ix[:, 'pctX', sim_stage] <= 10
 
-    mel_selector = (mel_atlas_expr[:, 'hb', -2] > .3) & (mel_atlas_pos.ix[:, 'pctX', -2] > 75)
-    sim_selector = (sim_atlas_expr[:, 'hb', -2] > .3) & (sim_atlas_pos.ix[:, 'pctX', -2] > 75)
+    mel_selector = (mel_atlas_expr[:, 'hb', mel_stage] > .3) & (mel_atlas_pos.ix[:, 'pctX', mel_stage] > 75)
+    sim_selector = (sim_atlas_expr[:, 'hb', sim_stage] > .3) & (sim_atlas_pos.ix[:, 'pctX', sim_stage] > 75)
 
-    mel_background = ((50 < mel_atlas_pos.ix[:, 'pctX', -2])
-                      & (mel_atlas_pos.ix[:, 'pctX', -2] < 75))
-    sim_background = ((50 < sim_atlas_pos.ix[:, 'pctX', -2])
-                      & (sim_atlas_pos.ix[:, 'pctX', -2] < 75))
+    bg_lo = 55
+    bg_hi = 70
+    mel_background = ((bg_lo < mel_atlas_pos.ix[:, 'pctX', mel_stage])
+                      & (mel_atlas_pos.ix[:, 'pctX', mel_stage] < bg_hi))
+    mel_post_strip = ((75 < mel_atlas_pos.ix[:, 'pctX', mel_stage])
+                      & (mel_atlas_expr.ix[:, 'hb', mel_stage] > .3))
+    sim_background = ((bg_lo < sim_atlas_pos.ix[:, 'pctX', sim_stage])
+                      & (sim_atlas_pos.ix[:, 'pctX', sim_stage] < bg_hi))
+    sim_post_strip = ((75 < sim_atlas_pos.ix[:, 'pctX', sim_stage])
+                      & (sim_atlas_expr.ix[:, 'hb', sim_stage] > .3))
 
     print(
-        mel_atlas_expr.ix[mel_selector, 'hb', -2].mean(),
-        sim_atlas_expr.ix[sim_selector, 'hb', -2].mean(),
-        mel_atlas_expr.ix[mel_front_10, 'hb', -2].mean(),
-        sim_atlas_expr.ix[sim_front_10, 'hb', -2].mean(),
+        mel_atlas_expr.ix[mel_selector, 'hb', mel_stage].mean(),
+        sim_atlas_expr.ix[sim_selector, 'hb', sim_stage].mean(),
+        mel_atlas_expr.ix[mel_front_10, 'hb', mel_stage].mean(),
+        sim_atlas_expr.ix[sim_front_10, 'hb', sim_stage].mean(),
     )
 
-    scatter(mel_atlas_pos[:, 'X', 4], mel_atlas_pos[:, 'Z', 4], c=mel_selector, s=80)
-    scatter(sim_atlas_pos[:, 'X', 4], sim_atlas_pos[:, 'Z', 4], c=sim_selector, s=80)
+    scatter(mel_atlas_pos[:, 'X', mel_stage], mel_atlas_pos[:, 'Z', mel_stage], c=mel_selector, s=80)
+    scatter(sim_atlas_pos[:, 'X', sim_stage], sim_atlas_pos[:, 'Z', sim_stage], c=sim_selector, s=80)
 
     target = 'hb'
     factor = 3
@@ -123,31 +131,31 @@ if __name__ == "__main__":
     sim_grid_ns = zeros_like(sim_grid_expr)
 
     mel_expr_at_stage = (
-        mel_atlas_expr.ix[:, target, -2]
-        - np.nanmean(mel_atlas_expr.ix[mel_background, target, -2])
-    )#.clip(0, np.inf)
+        mel_atlas_expr.ix[:, target, mel_stage]
+        - np.nanmean(mel_atlas_expr.ix[mel_background, target, mel_stage])
+    ).clip(0, np.inf)
     mel_expr_at_stage /= np.nanpercentile(
-        mel_atlas_expr.ix[~mel_background, target, -2],
+        mel_atlas_expr.ix[mel_post_strip, target, mel_stage],
         90
     )
     sim_expr_at_stage = (
-        sim_atlas_expr.ix[:, target, -2]
-        - np.nanmean(sim_atlas_expr.ix[sim_background, target, -2])
-    )#.clip(0, np.inf)
+        sim_atlas_expr.ix[:, target, sim_stage]
+        - np.nanmean(sim_atlas_expr.ix[sim_background, target, sim_stage])
+    ).clip(0, np.inf)
     sim_expr_at_stage /= np.nanpercentile(
-        sim_atlas_expr.ix[~sim_background, target, -2],
+        sim_atlas_expr.ix[sim_post_strip, target, sim_stage],
         90
     )
-    for x, z, expr in zip(mel_atlas_pos.ix[:, 'pctX', -2],
-                          mel_atlas_pos.ix[:, 'pctZ', -2],
+    for x, z, expr in zip(mel_atlas_pos.ix[:, 'pctX', mel_stage],
+                          mel_atlas_pos.ix[:, 'pctZ', mel_stage],
                           mel_expr_at_stage):
         x = int(x)//factor
         z = int(z)//factor
         mel_grid_expr[z, x] += expr
         mel_grid_ns[z, x] += 1
 
-    for x, z, expr in zip(sim_atlas_pos.ix[:, 'pctX', -2],
-                          sim_atlas_pos.ix[:, 'pctZ', -2],
+    for x, z, expr in zip(sim_atlas_pos.ix[:, 'pctX', sim_stage],
+                          sim_atlas_pos.ix[:, 'pctZ', sim_stage],
                           sim_expr_at_stage):
         x = int(x)//factor
         z = int(z)//factor
