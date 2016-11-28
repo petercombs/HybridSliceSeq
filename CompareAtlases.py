@@ -75,7 +75,11 @@ def find_all_matches(s1_pos, s1_expr, s2_pos, s2_expr, pool=False, drop_genes=Fa
     return out
 
 
-
+bg_regions = {
+    'hb': (55, 70),
+    'Kr': (62, 85),
+    'hkb': (15, 85),
+}
 
 if __name__ == "__main__":
     target = 'hb'
@@ -104,8 +108,7 @@ if __name__ == "__main__":
     mel_selector = (mel_atlas_expr[:, target, mel_stage] > .3) & (mel_atlas_pos.ix[:, 'pctX', mel_stage] > 75)
     sim_selector = (sim_atlas_expr[:, target, sim_stage] > .3) & (sim_atlas_pos.ix[:, 'pctX', sim_stage] > 75)
 
-    bg_lo = 55
-    bg_hi = 70
+    bg_lo, bg_hi = bg_regions[target]
     mel_background = ((bg_lo < mel_atlas_pos.ix[:, 'pctX', mel_stage])
                       & (mel_atlas_pos.ix[:, 'pctX', mel_stage] < bg_hi))
     mel_post_strip = ((75 < mel_atlas_pos.ix[:, 'pctX', mel_stage])
