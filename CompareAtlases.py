@@ -78,6 +78,7 @@ def find_all_matches(s1_pos, s1_expr, s2_pos, s2_expr, pool=False, drop_genes=Fa
 
 
 if __name__ == "__main__":
+    target = 'hb'
     mel_stage = 'T4'
     sim_stage = 'T7'
     if 'sim_atlas' not in locals():
@@ -99,31 +100,30 @@ if __name__ == "__main__":
     mel_front_10 = mel_atlas_pos.ix[:, 'pctX', mel_stage] <= 10
     sim_front_10 = sim_atlas_pos.ix[:, 'pctX', sim_stage] <= 10
 
-    mel_selector = (mel_atlas_expr[:, 'hb', mel_stage] > .3) & (mel_atlas_pos.ix[:, 'pctX', mel_stage] > 75)
-    sim_selector = (sim_atlas_expr[:, 'hb', sim_stage] > .3) & (sim_atlas_pos.ix[:, 'pctX', sim_stage] > 75)
+    mel_selector = (mel_atlas_expr[:, target, mel_stage] > .3) & (mel_atlas_pos.ix[:, 'pctX', mel_stage] > 75)
+    sim_selector = (sim_atlas_expr[:, target, sim_stage] > .3) & (sim_atlas_pos.ix[:, 'pctX', sim_stage] > 75)
 
     bg_lo = 55
     bg_hi = 70
     mel_background = ((bg_lo < mel_atlas_pos.ix[:, 'pctX', mel_stage])
                       & (mel_atlas_pos.ix[:, 'pctX', mel_stage] < bg_hi))
     mel_post_strip = ((75 < mel_atlas_pos.ix[:, 'pctX', mel_stage])
-                      & (mel_atlas_expr.ix[:, 'hb', mel_stage] > .3))
+                      & (mel_atlas_expr.ix[:, target, mel_stage] > .3))
     sim_background = ((bg_lo < sim_atlas_pos.ix[:, 'pctX', sim_stage])
                       & (sim_atlas_pos.ix[:, 'pctX', sim_stage] < bg_hi))
     sim_post_strip = ((75 < sim_atlas_pos.ix[:, 'pctX', sim_stage])
-                      & (sim_atlas_expr.ix[:, 'hb', sim_stage] > .3))
+                      & (sim_atlas_expr.ix[:, target, sim_stage] > .3))
 
     print(
-        mel_atlas_expr.ix[mel_selector, 'hb', mel_stage].mean(),
-        sim_atlas_expr.ix[sim_selector, 'hb', sim_stage].mean(),
-        mel_atlas_expr.ix[mel_front_10, 'hb', mel_stage].mean(),
-        sim_atlas_expr.ix[sim_front_10, 'hb', sim_stage].mean(),
+        mel_atlas_expr.ix[mel_selector, target, mel_stage].mean(),
+        sim_atlas_expr.ix[sim_selector, target, sim_stage].mean(),
+        mel_atlas_expr.ix[mel_front_10, target, mel_stage].mean(),
+        sim_atlas_expr.ix[sim_front_10, target, sim_stage].mean(),
     )
 
     scatter(mel_atlas_pos[:, 'X', mel_stage], mel_atlas_pos[:, 'Z', mel_stage], c=mel_selector, s=80)
     scatter(sim_atlas_pos[:, 'X', sim_stage], sim_atlas_pos[:, 'Z', sim_stage], c=sim_selector, s=80)
 
-    target = 'hb'
     factor = 3
     mel_grid_expr = zeros((101//factor+1, 101//factor+1))
     mel_grid_ns = zeros_like(mel_grid_expr)
