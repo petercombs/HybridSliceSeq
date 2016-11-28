@@ -191,6 +191,13 @@ if __name__ == "__main__":
     data['num_logist'] = len(logist_genes)
 
 
+    hb_bind_data = {line.strip()
+                    for line in open('analysis/results/hb_wt_emd_0.1.txt')
+                    if line.strip() in expr.index}
+
+    data['hb_diff'] = len(hb_bind_data)
+    data['frac_higher_hb'] = 0
+
     print(data)
 
     with open('analysis/results/stats.tex', 'w') as outf:
@@ -207,3 +214,4 @@ if __name__ == "__main__":
                        hatch_nan=True,hatch_size=1,
                        row_labels=fbgns[paternal_ttest.index],
                        **plot_kwargs)
+

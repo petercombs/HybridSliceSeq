@@ -82,7 +82,7 @@ class PointCloudReader(object):
         return names
 
 
-    def data_to_arrays(self, usenan=True):
+    def data_to_arrays(self, usenan=True, usecohorts=False):
         """Turn raw data from virtual embryo to arrays
 
         Primarily, this separates out the times into its own axis, and puts the
@@ -130,14 +130,16 @@ class PointCloudReader(object):
                     posarray[i, j, k] = row[colnum]
 
         if HAS_PANDAS:
+            if usecohorts and hasattr(self, 'cohort_names'):
+                tnames = self.cohort_names
+            else:
+                tnames = ['T{}'.format(i+1) for i in range(len(times))]
             exparray = pd.Panel(exparray, [item[0] for item in all_data],
                                 major_axis=self.get_gene_names(),
-                                minor_axis=['T{}'.format(i+1)
-                                            for i in range(len(times))])
+                                minor_axis=tnames)
             posarray = pd.Panel(posarray, [item[0] for item in all_data],
                                 major_axis=['X', 'Y', 'Z'],
-                                minor_axis=['T{}'.format(i+1)
-                                            for i in range(len(times))])
+                                minor_axis=tnames)
         return exparray, posarray
 
 

@@ -149,4 +149,7 @@ if __name__ == "__main__":
         ax2.legend(loc='lower left')
         ax2.set_ylabel('binomial p value (vs empirical unexpressed control)')
 
+        pu.minimize_ink(ax1)
+        pu.minimize_ink(ax2)
+
 

@@ -1,6 +1,6 @@
 include gmsl
 
-VARIANTS=analysis_godot/on_meldgn/melsim_variant.bed
+VARIANTS=analysis_godot/on_melr5/melsim_variant.bed
 
 .SECONDEXPANSION:
 
@@ -73,7 +73,7 @@ $(ANALYSIS_DIR)/on_%_bowtie2.bam: $$(basename $$($$(call uc,$$(subst /,,$$(dir $
 	./qsubber --job-name $*_bowtie2 --queue batch --keep-temporary tmp -t 4 \
 		-l mem=2gb -l pmem=2gb --log-base $(basename $@) \
 	bowtie2 \
-		--very-sensitive \
+		--very-sensitive-local \
 		-p 8 \
 		--rg-id $(notdir $*) \
 		--rg "SM:$(notdir $*)" \
@@ -186,7 +186,9 @@ $(ANALYSIS_DIR)/on_%/ : | $(ANALYSIS_DIR)
 	mkdir $@
 
 
-$(ANALYSIS_DIR)/on_%_variants.tsv: $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2)   $(ANALYSIS_DIR)/on_$$(call substr,$$*,1,7)_gdna_raw_variants_uncalibrated.p.g.vcf $(ANALYSIS_DIR)/on_$$(dir $$*)$$(call substr,$$(notdir $$*),4,6)_gdna_raw_variants_uncalibrated.p.g.vcf
+$(ANALYSIS_DIR)/on_%_variants.tsv: $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2)   \
+	$(ANALYSIS_DIR)/on_$$(dir $$*)$$(call substr,$$(notdir $$*),1,3)_gdna_raw_variants_uncalibrated.p.g.vcf \
+	$(ANALYSIS_DIR)/on_$$(dir $$*)$$(call substr,$$(notdir $$*),4,6)_gdna_raw_variants_uncalibrated.p.g.vcf
 	gatk -T GenotypeGVCFs \
 		-R $($(call uc,$(patsubst %/,%,$(dir $*)))FASTA2) \
 		-V $(@D)/$(call substr,$(notdir $*),1,3)_gdna_raw_variants_uncalibrated.p.g.vcf \
@@ -273,13 +275,13 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		\| python RestoreQuals.py - - \
 		\| samtools sort -n -@ 3 - $(basename $@)
 
-%/melsim_SNP_COUNTS.txt : %/assigned_dmelR_wasp_dedup.bam $(ANALYSIS_DIR)/on_mel/melsim_variant.bed
+%/melsim_SNP_COUNTS.txt : %/assigned_dmelR_wasp_dedup.bam $(VARIANTS)
 	mkdir -p $*/melsim_countsnpase_tmp
 	./qsubber $(QSUBBER_ARGS) \
 	python2 CountSNPASE.py \
 		--mode single \
 		--reads $< \
-		--snps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		--snps $(VARIANTS) \
 		$(if $(wildcard $*/is_single), -t) \
 		--prefix $*/melsim_countsnpase_tmp/
 	mv $*/melsim_countsnpase_tmp/_SNP_COUNTS.txt $@
@@ -290,7 +292,7 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 	python2 CountSNPASE.py \
 		--mode single \
 		--reads $< \
-		--snps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		--snps $(VARIANTS) \
 		$(if $(wildcard $*/is_single), -t) \
 		--prefix $*/melsim_countsnpase_tmp/
 	mv $*/melsim_countsnpase_tmp/_SNP_COUNTS.txt $@
@@ -366,7 +368,7 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python2 GetGeneASE.py \
 		--snpcounts $< \
-		--phasedsnps $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		--phasedsnps $(VARIANTS) \
 		--allele-min 0 \
 		--min 5 \
 		--type CDS \
@@ -384,7 +386,7 @@ $(ANALYSIS_DIR)/recalc_ase:
 	echo $(lastword $(subst _counts_, ,$*))
 	python2 GetGeneASE.py \
 		--snpcounts $< \
-		--phasedsnps analysis/on_mel/melsim_variant.bed \
+		--phasedsnps $(VARIANTS) \
 		--allele-min 0 \
 		--min $(lastword $(subst _counts_, ,$*)) \
 		--gff $($(call uc,$(call substr,$(notdir $@),1,3))GTF) \
@@ -451,7 +453,7 @@ WASPMAP = $(HOME)/FWASP/mapping
 	 python PartitionReads.py \
 		 --reference-species mel --alt-species sim \
 		 --paired \
-		 $(ANALYSIS_DIR)/on_mel/melsim_variant.bed \
+		 $(VARIANTS) \
 		 $<
 	mv $(@D)/assigned_dmelR_wasp_dedup.sorted_sim.bam $(@D)/sim_only.bam
 	mv $(@D)/assigned_dmelR_wasp_dedup.sorted_mel.bam $(@D)/mel_only.bam
