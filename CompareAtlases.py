@@ -185,3 +185,12 @@ if __name__ == "__main__":
                vmin=-1, vmax=1, cmap=cm.RdBu)
     heatmap.cmap.set_bad((.5, .5, .5))
     heatmap.cmap.set_under((.5, .5, .5))
+
+    best_matches = find_all_matches(mel_atlas_pos.ix[:, :, mel_stage],
+                                    mel_atlas_expr.ix[:, :, mel_stage],
+                                    sim_atlas_pos.ix[:, :, sim_stage],
+                                    sim_atlas_expr.ix[:, :, sim_stage],
+                                    drop_genes=[ target, 'bcd'])
+
+    sim_expr_at_matching = pd.Series(index=mel_expr_at_stage.index,
+                                     data=list(sim_expr_at_stage[best_matches]))
