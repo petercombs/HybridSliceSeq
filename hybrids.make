@@ -155,6 +155,7 @@ $(ANALYSIS_DIR)/on_%_STAR_RNASEQ.bam: $$(@D)/masked/Genome $$($$(notdir $$*))
 
 
 $(ANALYSIS_DIR)/on_sim/%_STAR.bam: $(%) $(REFDIR)/Dsim_unspliced/Genome | $(ANALYSIS_DIR)/on_sim
+	module load STAR && \
 	STAR \
 		--parametersFiles $(STARCONFIG) \
 		--genomeDir $(REFDIR)/Dsim_unspliced \
@@ -212,6 +213,7 @@ $(ANALYSIS_DIR)/on_%_masked.fasta $(ANALYSIS_DIR)/on_%_variant.bed: $(ANALYSIS_D
 
 $(ANALYSIS_DIR)/on_mel/masked/Genome: $(ANALYSIS_DIR)/on_mel/melsim_masked.fasta | $(ANALYSIS_DIR)/on_%/masked
 	rm -rf $(@D)/_tmp
+	module load STAR && \
 	STAR --runMode genomeGenerate --genomeDir $(dir $@) \
 		--outTmpDir $(@D)/_tmp/ \
 		--genomeFastaFiles $< \
@@ -219,13 +221,15 @@ $(ANALYSIS_DIR)/on_mel/masked/Genome: $(ANALYSIS_DIR)/on_mel/melsim_masked.fasta
 
 $(ANALYSIS_DIR)/on_%/masked/Genome: $(ANALYSIS_DIR)/on_%/melsim_masked.fasta | $(ANALYSIS_DIR)/on_%/masked
 	rm -rf $(@D)/_tmp
+	module load STAR && \
 	STAR --runMode genomeGenerate --genomeDir $(dir $@) \
 		--outTmpDir $(@D)/_tmp/ \
 		--genomeFastaFiles $< \
 		--sjdbGTFfile $($(call uc,$*)GTF)
 
-Reference/melsim/Genome: $(ANALYSIS_DIR)/on_meldgn/melsim_masked.fasta
+Reference/melsim/Genome: $(ANALYSIS_DIR)/on_melr5/melsim_masked.fasta
 	rm -rf $(@D)/_tmp
+	module load STAR && \
 	STAR --runMode genomeGenerate --genomeDir $(dir $@) \
 		--outTmpDir $(@D)/_tmp/ \
 		--genomeFastaFiles $< \

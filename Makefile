@@ -381,6 +381,7 @@ $(ANALYSIS_DIR):
 ##### MEL GENOMES ####
 $(REFDIR)/Dmel/Genome : $(REFDIR)/mel_$(MELMAJORVERSION) | $(MELGTF)  $(REFDIR)/Dmel $(MELFASTA2) $(REFDIR)
 	rm -rf $(@D)/_tmp
+	module load STAR && \
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dmel \
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(MELFASTA2) \
@@ -388,6 +389,7 @@ $(REFDIR)/Dmel/Genome : $(REFDIR)/mel_$(MELMAJORVERSION) | $(MELGTF)  $(REFDIR)/
 
 $(REFDIR)/Dmel_unspliced/Genome : $(REFDIR)/mel_$(MELMAJORVERSION) | $(REFDIR)/Dmel_unspliced $(MELFASTA2) $(REFDIR)
 	rm -rf $(@D)/_tmp
+	module load STAR && \
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dmel_unspliced \
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(MELFASTA2) \
@@ -401,6 +403,7 @@ $(REFDIR)/Dmel_unspliced : | $(REFDIR)
 ##### SIM GENOMES ####
 $(REFDIR)/Dsim/Genome : $(REFDIR)/sim_$(SIMMAJORVERSION) | $(SIMGTF)  $(REFDIR)/Dsim $(SIMFASTA2) $(REFDIR)
 	rm -rf $(@D)/_tmp
+	module load STAR && \
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsim \
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(SIMFASTA2) \
@@ -408,6 +411,7 @@ $(REFDIR)/Dsim/Genome : $(REFDIR)/sim_$(SIMMAJORVERSION) | $(SIMGTF)  $(REFDIR)/
 
 $(REFDIR)/Dsim_unspliced/Genome : $(REFDIR)/sim_$(SIMMAJORVERSION) | $(REFDIR)/Dsim_unspliced $(SIMFASTA2) $(REFDIR)
 	rm -rf $(@D)/_tmp
+	module load STAR && \
 	STAR --runMode genomeGenerate --genomeDir $(REFDIR)/Dsim_unspliced \
 		--outTmpDir $(@D)/_tmp \
 		--genomeFastaFiles $(SIMFASTA2)
