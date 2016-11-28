@@ -79,15 +79,16 @@ def find_all_matches(s1_pos, s1_expr, s2_pos, s2_expr, pool=False, drop_genes=Fa
 
 if __name__ == "__main__":
     target = 'hb'
-    mel_stage = 'T4'
-    sim_stage = 'T7'
+    both_stage = '5:26-50'
+    mel_stage = both_stage
+    sim_stage = both_stage
     if 'sim_atlas' not in locals():
         sim_atlas = pc.PointCloudReader(open('prereqs/dsim-20120727-r2-ZW.vpc'))
         mel_atlas = pc.PointCloudReader(open('prereqs/D_mel_wt__atlas_r2.vpc'))
     else:
         print("Using preloaded data", file=stderr)
-    sim_atlas_expr, sim_atlas_pos = sim_atlas.data_to_arrays()
-    mel_atlas_expr, mel_atlas_pos = mel_atlas.data_to_arrays()
+    sim_atlas_expr, sim_atlas_pos = sim_atlas.data_to_arrays(usecohorts=True)
+    mel_atlas_expr, mel_atlas_pos = mel_atlas.data_to_arrays(usecohorts=True)
 
     sim_atlas_pos.ix[:, 'pctX', :] = 100*(sim_atlas_pos[:, 'X', :].subtract(sim_atlas_pos[:, 'X', :].min(axis=1), axis=0)).divide(sim_atlas_pos[:, 'X', :].max(axis=1) - sim_atlas_pos[:, 'X', :].min(axis=1), axis=0)
     sim_atlas_pos.ix[:, 'pctY', :] = 100*(sim_atlas_pos[:, 'Y', :].subtract(sim_atlas_pos[:, 'Y', :].min(axis=1), axis=0)).divide(sim_atlas_pos[:, 'Y', :].max(axis=1) - sim_atlas_pos[:, 'Y', :].min(axis=1), axis=0)
