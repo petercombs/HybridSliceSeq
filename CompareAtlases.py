@@ -119,27 +119,25 @@ if __name__ == "__main__":
                       & (sim_atlas_expr.ix[:, target, sim_stage] > .3))
 
     print(
+        '\nmel in region',
         mel_atlas_expr.ix[mel_selector, target, mel_stage].mean(),
+        '\nsim in region',
         sim_atlas_expr.ix[sim_selector, target, sim_stage].mean(),
+        '\nmel front 10',
         mel_atlas_expr.ix[mel_front_10, target, mel_stage].mean(),
+        '\nsim front 10',
         sim_atlas_expr.ix[sim_front_10, target, sim_stage].mean(),
     )
 
-    scatter(mel_atlas_pos[:, 'X', mel_stage], mel_atlas_pos[:, 'Z', mel_stage], c=mel_selector, s=80)
-    scatter(sim_atlas_pos[:, 'X', sim_stage], sim_atlas_pos[:, 'Z', sim_stage], c=sim_selector, s=80)
-
-    factor = 3
-    mel_grid_expr = zeros((101//factor+1, 101//factor+1))
-    mel_grid_ns = zeros_like(mel_grid_expr)
-    sim_grid_expr = zeros((101//factor+1, 101//factor+1))
-    sim_grid_ns = zeros_like(sim_grid_expr)
+    #scatter(mel_atlas_pos[:, 'X', mel_stage], mel_atlas_pos[:, 'Z', mel_stage], c=mel_selector, s=80)
+    #scatter(sim_atlas_pos[:, 'X', sim_stage], sim_atlas_pos[:, 'Z', sim_stage], c=sim_selector, s=80)
 
     mel_expr_at_stage = (
         mel_atlas_expr.ix[:, target, mel_stage]
         - np.nanmean(mel_atlas_expr.ix[mel_background, target, mel_stage])
     ).clip(0, np.inf)
     mel_expr_at_stage /= np.nanpercentile(
-        mel_atlas_expr.ix[mel_post_strip, target, mel_stage],
+        mel_atlas_expr.ix[~mel_background, target, mel_stage],
         90
     )
     sim_expr_at_stage = (
@@ -147,48 +145,57 @@ if __name__ == "__main__":
         - np.nanmean(sim_atlas_expr.ix[sim_background, target, sim_stage])
     ).clip(0, np.inf)
     sim_expr_at_stage /= np.nanpercentile(
-        sim_atlas_expr.ix[sim_post_strip, target, sim_stage],
+        sim_atlas_expr.ix[~sim_background, target, sim_stage],
         90
     )
-    for x, z, expr in zip(mel_atlas_pos.ix[:, 'pctX', mel_stage],
-                          mel_atlas_pos.ix[:, 'pctZ', mel_stage],
-                          mel_expr_at_stage):
-        x = int(x)//factor
-        z = int(z)//factor
-        mel_grid_expr[z, x] += expr
-        mel_grid_ns[z, x] += 1
 
-    for x, z, expr in zip(sim_atlas_pos.ix[:, 'pctX', sim_stage],
-                          sim_atlas_pos.ix[:, 'pctZ', sim_stage],
-                          sim_expr_at_stage):
-        x = int(x)//factor
-        z = int(z)//factor
-        sim_grid_expr[z, x] += expr
-        sim_grid_ns[z, x] += 1
+    if locals().get('calc_grid', False):
+        factor = 3
+        # 100% plus a hair to be safe.
+        mel_grid_expr = zeros((101//factor+1, 101//factor+1))
+        mel_grid_ns = zeros_like(mel_grid_expr)
+        sim_grid_expr = zeros((101//factor+1, 101//factor+1))
+        sim_grid_ns = zeros_like(sim_grid_expr)
 
-    mel_grid_avg = mel_grid_expr / mel_grid_ns
-    sim_grid_avg = sim_grid_expr / sim_grid_ns
+        for x, z, expr in zip(mel_atlas_pos.ix[:, 'pctX', mel_stage],
+                              mel_atlas_pos.ix[:, 'pctZ', mel_stage],
+                              mel_expr_at_stage):
+            x = int(x)//factor
+            z = int(z)//factor
+            mel_grid_expr[z, x] += expr
+            mel_grid_ns[z, x] += 1
 
+        for x, z, expr in zip(sim_atlas_pos.ix[:, 'pctX', sim_stage],
+                              sim_atlas_pos.ix[:, 'pctZ', sim_stage],
+                              sim_expr_at_stage):
+            x = int(x)//factor
+            z = int(z)//factor
+            sim_grid_expr[z, x] += expr
+            sim_grid_ns[z, x] += 1
 
-    mel_grid_lo = nanpercentile(mel_grid_avg, 10)
-    mel_grid_hi = nanpercentile(mel_grid_avg, 90)
-    sim_grid_lo = nanpercentile(sim_grid_avg, 10)
-    sim_grid_hi = nanpercentile(sim_grid_avg, 90)
-    mel_grid_avg = (mel_grid_avg - mel_grid_lo) / (mel_grid_hi - mel_grid_lo)
-    sim_grid_avg = (sim_grid_avg - sim_grid_lo) / (sim_grid_hi - sim_grid_lo)
-
-    ax = gca()
-    ax.set_aspect(1)
-
-    denom_i = (sim_grid_avg + mel_grid_avg)
+        mel_grid_avg = mel_grid_expr / mel_grid_ns
+        sim_grid_avg = sim_grid_expr / sim_grid_ns
 
 
-    figure()
-    heatmap = pcolormesh((sim_grid_avg - mel_grid_avg) / np.where(denom_i > .5,
-                                                                  denom_i,  np.nan),
-               vmin=-1, vmax=1, cmap=cm.RdBu)
-    heatmap.cmap.set_bad((.5, .5, .5))
-    heatmap.cmap.set_under((.5, .5, .5))
+        mel_grid_lo = nanpercentile(mel_grid_avg, 10)
+        mel_grid_hi = nanpercentile(mel_grid_avg, 90)
+        sim_grid_lo = nanpercentile(sim_grid_avg, 10)
+        sim_grid_hi = nanpercentile(sim_grid_avg, 90)
+        mel_grid_avg = (mel_grid_avg - mel_grid_lo) / (mel_grid_hi - mel_grid_lo)
+        sim_grid_avg = (sim_grid_avg - sim_grid_lo) / (sim_grid_hi - sim_grid_lo)
+
+        ax = gca()
+        ax.set_aspect(1)
+
+        denom_i = (sim_grid_avg + mel_grid_avg)
+
+
+        figure()
+        heatmap = pcolormesh((sim_grid_avg - mel_grid_avg) / np.where(denom_i > .5,
+                                                                      denom_i,  np.nan),
+                   vmin=-1, vmax=1, cmap=cm.RdBu)
+        heatmap.cmap.set_bad((.5, .5, .5))
+        heatmap.cmap.set_under((.5, .5, .5))
 
     best_matches = find_all_matches(mel_atlas_pos.ix[:, :, mel_stage],
                                     mel_atlas_expr.ix[:, :, mel_stage],
@@ -198,3 +205,17 @@ if __name__ == "__main__":
 
     sim_expr_at_matching = pd.Series(index=mel_expr_at_stage.index,
                                      data=list(sim_expr_at_stage[best_matches]))
+
+
+    figure()
+    denom =  (mel_expr_at_stage.clip(0, 20) + sim_expr_at_matching.clip(0, 20))
+    co = .05
+    scatter(
+        mel_atlas_pos.ix[:, 'pctX', mel_stage],
+        mel_atlas_pos.ix[:, 'pctZ', mel_stage],
+        c=(mel_expr_at_stage - sim_expr_at_matching)
+        /denom.where(denom > co) ,
+        cmap=cm.RdBu_r, vmin=-1, vmax=1, s=80,
+        edgecolor=(0, 0, 0, 0)
+    )
+
