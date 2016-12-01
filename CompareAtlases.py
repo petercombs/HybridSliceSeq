@@ -1,6 +1,6 @@
 from __future__ import print_function
 import PointClouds as pc
-from matplotlib.pyplot import (scatter, gca, figure, pcolormesh)
+from matplotlib.pyplot import (scatter, gca, figure, pcolormesh, title)
 from matplotlib import cm
 from numpy import zeros, zeros_like, nanmedian, nanpercentile
 import numpy as np
@@ -218,4 +218,5 @@ if __name__ == "__main__":
         cmap=cm.RdBu_r, vmin=-1, vmax=1, s=80,
         edgecolor=(0, 0, 0, 0)
     )
+    title(mel_stage + '/' + sim_stage)
 
