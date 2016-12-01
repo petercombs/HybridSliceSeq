@@ -8,6 +8,7 @@ import pandas as pd
 from sys import stderr
 from multiprocessing import Pool
 from progressbar import ProgressBar
+from Utils import pd_kwargs, sel_startswith, startswith
 
 def find_best_match(s1_pos, s1_expr, s2_pos, s2_expr):
     """Find the best-matching nucleus within a given time point
@@ -74,6 +75,23 @@ def find_all_matches(s1_pos, s1_expr, s2_pos, s2_expr, pool=False, drop_genes=Fa
 
     return out
 
+def make_virtual_slices(ref_expr, alt_expr, ref_pos, n_slices):
+    virtualslices = np.empty((1, n_slices)) * np.nan
+    denoms = zeros(n_slices)
+    for i in range(n_slices):
+        in_slice = (
+            (100*i/n_slices < ref_pos.ix[:, 'pctX'])
+            &(ref_pos.ix[:, 'pctX'] < 100*(i+1)/n_slices)
+        )
+        ref_in_slice = ref_expr.clip(0, np.inf)[in_slice].sum()
+        alt_in_slice = alt_expr.clip(0, np.inf)[in_slice].sum()
+        denom_i = ref_in_slice + alt_in_slice
+        if denom_i > 0:
+            virtualslices[0, i] = (alt_in_slice - ref_in_slice) / denom_i
+        else:
+            virtualslices[0, i] = np.nan
+        denoms[i] = denom_i
+    return denoms, virtualslices
 
 bg_regions = {
     'hb': (55, 70),
@@ -220,3 +238,26 @@ if __name__ == "__main__":
     )
     title(mel_stage + '/' + sim_stage)
 
+
+    from GetASEStats import slices_per_embryo
+    virtual_slices = {}
+    ase = (pd.read_table('analysis_godot/ase_summary_by_read.tsv', **pd_kwargs)
+           .select(**sel_startswith(('melXsim', 'simXmel')))
+          )
+    n_slices = slices_per_embryo(ase)
+    actual = []
+    computed = []
+
+    for embryo, n in n_slices.items():
+        if n not in virtual_slices:
+            virtual_slices[n] = make_virtual_slices(
+                mel_expr_at_stage, sim_expr_at_matching,
+                mel_atlas_pos.ix[:, :, mel_stage].T,
+                n
+            )
+        actual.extend(ase.ix[target].select(startswith(embryo)))
+        computed.extend(virtual_slices[n][1][0])
+
+    actual = pd.Series(actual)
+    computed = pd.Series(computed)
+    print(actual.corr(computed))
