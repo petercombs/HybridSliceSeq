@@ -1,3 +1,4 @@
+import numpy as np
 import pandas as pd
 from collections import Counter
 from numpy import isfinite, int64, int32, int16, int8, sign, abs, nan
@@ -15,9 +16,11 @@ def slices_per_embryo(ase):
 def create_latex_command(name, value, numeric=False, frac=False):
     name = name.upper().replace('_', '')
     if frac:
+        if 0 < abs(value) < .1e-2:
+            return '\\newcommand{{\\{}}}[0]{{{:%}}} \n'.format(name, value).replace('%', '\\%')
         return '\\newcommand{{\\{}}}[0]{{{:.1%}}} \n'.format(name, value).replace('%', '\\%').replace('.0', '')
     if numeric:
-        return '\\newcommand{{\\{}}}[0]{{{:,}}} \n'.format(name, value)
+        return '\\newcommand{{\\{}}}[0]{{{:6,g}}} \n'.format(name, value)
     return '\\newcommand{{\\{}}}[0]{{{}}} \n'.format(name, value)
 
 def get_class(gene, ase, subset='', slices_with_expr=None, expr=None):
