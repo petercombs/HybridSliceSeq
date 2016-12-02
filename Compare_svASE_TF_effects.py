@@ -3,6 +3,8 @@ import Utils as ut
 import PlotUtils as pu
 import numpy as np
 from scipy import stats
+from GetASEStats import create_latex_command
+from numpy import int8, int32, int64
 
 if 'mpl' in locals():
     import matplotlib.pyplot as mpl
@@ -13,6 +15,7 @@ else:
 EPSILON = .1
 
 if __name__ == "__main__":
+    data = {}
     expr = pd.read_table('godot/summary_wasp.tsv',
                          **ut.pd_kwargs).drop(['---'], axis=1)
     hyb = expr.select(**ut.sel_startswith(('melXsim', 'simXmel')))
@@ -41,27 +44,28 @@ if __name__ == "__main__":
     distro_mels = []
     distro_sims = []
 
-    target_regions = [
-        ('Kr', (0.33, 0.44)),
-        ('Kr', (0.55, 0.72)),
-        ('Kr', (0.74, 0.85)),
-        ('hb', (0, .10)),
-        ('hb', (.20, .50)),
-        ('hb', (.60, .75)),
-        ('hb', (.80, .90)),
+    target_regions = {
+        'kr_ant_bg': ('Kr', (0.33, 0.44)),
+        'Kr_central': ('Kr', (0.55, 0.72)),
+        'Kr_post_bg': ('Kr', (0.74, 0.85)),
+        'hb_ant_tip': ('hb', (0, .10)),
+        'hb_ant_stripe': ('hb', (.20, .50)),
+        'hb_interstripe': ('hb', (.60, .75)),
+        'hb_post_stripe': ('hb', (.80, .90)),
         #('prd', (0, .1)),
-    ]
+    }
 
     nmegs = [] # Non maternal expressed gene lists
 
-    for tf, region in target_regions:
+    for region_name, (tf, region) in target_regions.items():
         peak_genes = {line.strip() for line in
                          open(
-                             'analysis/results/{}_1000_peak_genes_2500bp_tss.txt'
-                             #'analysis/results/hb_wt_emd_0.1.txt'
+                             #'analysis/results/{}_1000_peak_genes_2500bp_tss.txt'
+                             'analysis/results/hb_wt_emd_0.1.txt'
                              #'analysis/results/{}_tss_genes.txt'
                              .format(tf.lower()))
                          if line.strip() in expr.index}
+        data['{}diff'.format(tf)] = len(peak_genes)
         peak_genes.add(tf)
 
         all_in_region_ix = (region[0] <= xs) & (xs < region[1])
@@ -95,6 +99,17 @@ if __name__ == "__main__":
         distro_mels.append(mel_in_region.dropna())
         distro_sims.append(sim_in_region.dropna())
 
+        data['num_{}_change'.format(region_name)] = (
+            sum(abs(mel_in_region - sim_in_region)
+                > .25))
+        data['frac_higher_{}'.format(region_name)] = (
+            sum((mel_in_region - sim_in_region) > .25)
+            / data['num_{}_change'.format(region_name)]
+        )
+        data['prob_higher_{}'.format(region_name)] = stats.binom_test(
+            [sum((mel_in_region - sim_in_region) > .25),
+             sum((sim_in_region - mel_in_region) > .25)]
+        )
         print(tf, region, res,
               'mel', mel_in_region.mean(), mel_in_region.ix[tf],
               'sim', sim_in_region.mean(), sim_in_region.ix[tf])
@@ -105,8 +120,7 @@ if __name__ == "__main__":
         mpl.figure()
         mpl.violinplot([(dm - ds) for dm, ds in zip(distro_mels, distro_sims)])
         mpl.xticks(np.arange(len(target_regions))+1,
-                   ['{}: {:0.0%} - {:0.0%}'.format(target, *region)
-                    for target, region in target_regions],
+                   [region for region in target_regions],
                    rotation=90)
 
         mpl.tight_layout()
@@ -116,7 +130,7 @@ if __name__ == "__main__":
         ax2 = mpl.gca()
 
         for nmeg, dm, ds, (target, region) in zip(
-            nmegs, distro_mels, distro_sims, target_regions
+            nmegs, distro_mels, distro_sims, target_regions.values(),
         ):
             if target == 'hb': continue
             region_diffs = dm - ds
@@ -151,5 +165,13 @@ if __name__ == "__main__":
 
         pu.minimize_ink(ax1)
         pu.minimize_ink(ax2)
+
+
+
+    with open('analysis/results/tf_stats.tex', 'w') as outf:
+        for var, val in data.items():
+            numeric =  isinstance(val, (float, int, int64, int32, int8))
+            frac = var.lower().startswith('frac')
+            outf.write(create_latex_command(var, val, numeric, frac))
 
 
