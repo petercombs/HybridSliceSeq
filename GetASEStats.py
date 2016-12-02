@@ -193,13 +193,19 @@ if __name__ == "__main__":
     data['num_peak'] = len(peak_genes)
     data['num_logist'] = len(logist_genes)
 
+    peak_fd = np.fromfile('analysis/results/fd_peak.numpy')
+    logist_fd = np.fromfile('analysis/results/fd_logist.numpy')
+    data['fd_peak'] = sum(peak_fd > .5)
+    data['frac_fdr_peak'] = sum(peak_fd > .5) / len(peak_fd)
+    data['fd_logist'] = sum(logist_fd > .5)
+    data['frac_fdr_logist'] = sum(logist_fd > .5) / len(logist_fd)
 
     hb_bind_data = {line.strip()
                     for line in open('analysis/results/hb_wt_emd_0.1.txt')
                     if line.strip() in expr.index}
 
-    data['hb_diff'] = len(hb_bind_data)
-    data['frac_higher_hb'] = 0
+    #data['hb_diff'] = len(hb_bind_data)
+    #data['frac_higher_hb'] = 0
 
     print(data)
 
