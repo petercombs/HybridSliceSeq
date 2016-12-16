@@ -1,6 +1,7 @@
 from __future__ import print_function
 import PointClouds as pc
-from matplotlib.pyplot import (scatter, gca, figure, pcolormesh, title)
+import PlotUtils as pu
+from matplotlib.pyplot import (scatter, gca, figure, pcolormesh, title, savefig)
 from matplotlib import cm
 from numpy import zeros, zeros_like, nanmedian, nanpercentile
 import numpy as np
@@ -224,20 +225,59 @@ if __name__ == "__main__":
     sim_expr_at_matching = pd.Series(index=mel_expr_at_stage.index,
                                      data=list(sim_expr_at_stage[best_matches]))
 
+    mel_order = mel_expr_at_stage.sort_values().index
+
 
     figure()
     denom =  (mel_expr_at_stage.clip(0, 20) + sim_expr_at_matching.clip(0, 20))
-    co = .05
+    co = 0.2
     scatter(
-        mel_atlas_pos.ix[:, 'pctX', mel_stage],
-        mel_atlas_pos.ix[:, 'pctZ', mel_stage],
-        c=(mel_expr_at_stage - sim_expr_at_matching)
-        /denom.where(denom > co) ,
-        cmap=cm.RdBu_r, vmin=-1, vmax=1, s=80,
+        mel_atlas_pos.ix[mel_order, 'X', mel_stage],
+        mel_atlas_pos.ix[mel_order, 'Z', mel_stage],
+        c=((mel_expr_at_stage - sim_expr_at_matching)
+        /denom.where(denom > co) ).ix[mel_order],
+        cmap=cm.RdBu_r, vmin=-1, vmax=1, s=40,
         edgecolor=(0, 0, 0, 0)
     )
     title(mel_stage + '/' + sim_stage)
+    ax = gca()
+    ax.set_aspect(1)
+    ax.set_xlim(mel_atlas_pos.ix[:, 'X', mel_stage].min()-15,
+                mel_atlas_pos.ix[:, 'X', mel_stage].max()+15)
+    pu.minimize_ink(ax)
+    savefig('analysis/results/{}_atlas_ase'.format(target), transparent=True)
 
+    figure()
+    scatter(
+        mel_atlas_pos.ix[mel_order, 'X', mel_stage],
+        mel_atlas_pos.ix[mel_order, 'Z', mel_stage],
+        c=(mel_expr_at_stage.ix[mel_order] ),
+        cmap=cm.RdBu_r, vmin=-1, vmax=1, s=40,
+        edgecolor=(0, 0, 0, 0)
+    )
+    title(mel_stage + '/' + sim_stage)
+    ax = gca()
+    ax.set_aspect(1)
+    ax.set_xlim(mel_atlas_pos.ix[:, 'X', mel_stage].min()-15,
+                mel_atlas_pos.ix[:, 'X', mel_stage].max()+15)
+    pu.minimize_ink(ax)
+    savefig('analysis/results/{}_atlas_mel'.format(target), transparent=True)
+
+    figure()
+    scatter(
+        mel_atlas_pos.ix[mel_order, 'X', mel_stage],
+        mel_atlas_pos.ix[mel_order, 'Z', mel_stage],
+        c=(-sim_expr_at_matching.ix[mel_order]),
+        cmap=cm.RdBu_r, vmin=-1, vmax=1, s=40,
+        edgecolor=(0, 0, 0, 0)
+    )
+    title(mel_stage + '/' + sim_stage)
+    ax = gca()
+    ax.set_aspect(1)
+    ax.set_xlim(mel_atlas_pos.ix[:, 'X', mel_stage].min()-15,
+                mel_atlas_pos.ix[:, 'X', mel_stage].max()+15)
+    pu.minimize_ink(ax)
+    savefig('analysis/results/{}_atlas_sim'.format(target), transparent=True)
 
     from GetASEStats import slices_per_embryo
     virtual_slices = {}
