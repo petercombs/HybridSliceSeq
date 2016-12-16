@@ -28,7 +28,14 @@ from random import random
 
 
 def sigterm_handler(signum, frame):
-    stdin.write('y\n')
+    if 'id' in globals():
+        id = globals()['id']
+        print("Killing", id)
+        proc = sp.Popen(['qdel', str(id)],)
+        proc.wait()
+
+
+    exit(9)
     pass
 
 def check_job(id):
