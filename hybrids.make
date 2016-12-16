@@ -420,7 +420,8 @@ $(ANALYSIS_DIR)/on_%/masked:
 WASPMAP = $(HOME)/FWASP/mapping
 
 %.remap.fq1.gz %.remap.fq2.gz %.keep.bam %.to.remap.bam : %.bam $(WASPMAP)/find_intersecting_snps_2.py
-	./qsubber $(QSUBBER_ARGS) -t 1 python $(WASPMAP)/find_intersecting_snps_2.py --phased -p $< analysis/on_mel
+	./qsubber $(QSUBBER_ARGS) -t 1 python $(WASPMAP)/find_intersecting_snps_2.py --phased -p $< analysis_godot/on_melr5 \
+		\> $*_find_snps.log
 
 %.remap.bam: %.remap.fq1.gz %.remap.fq2.gz
 	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 --load-module STAR \
