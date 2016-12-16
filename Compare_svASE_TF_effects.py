@@ -123,48 +123,56 @@ if __name__ == "__main__":
                    [region for region in target_regions],
                    rotation=90)
 
+
         mpl.tight_layout()
-        mpl.figure()
-        ax1 = mpl.gca()
-        mpl.figure()
-        ax2 = mpl.gca()
 
-        for nmeg, dm, ds, (target, region) in zip(
-            nmegs, distro_mels, distro_sims, target_regions.values(),
-        ):
-            if target == 'hb': continue
-            region_diffs = dm - ds
-            control_region = (melXmel.ix[target] < 5) & (simXsim.ix[target] < 5)
-            control_diffs = ((melXmel.ix[nmeg, control_region]
-                              - simXsim.ix[nmeg, control_region])
-                             .divide(parental.ix[nmeg, :] .max(axis=1), axis=0)
-                            ).mean(axis=1)
-            ax1.semilogy(100*x_range,
-                         [sum(region_diffs > i)/ sum(region_diffs < -i)
-                          for i in x_range],
-                         label='{}: {:0.0%} - {:0.0%}'.format(target, *region), basey=2)
-            ax2.semilogy(100*x_range,
-                         [
-                             stats.binom_test([sum(region_diffs > i),
-                                               sum(region_diffs < -i)],
-                                              p=(sum(control_diffs > i)
-                                                 / (sum(control_diffs > i)
-                                                    + sum(control_diffs < -i))
-                                                )
-                                             )
-                             for i in x_range
-                         ],
-                         label='{}: {:0.0%} - {:0.0%}'.format(target, *region),
-                         basey=10)
-        ax1.legend(loc='upper left')
-        ax1.hlines(1, 0, 100)
-        ax1.set_ylabel(r'$\#(\Delta > x) \div \#(\Delta < -x)$')
-        ax2.hlines(0.05, 0, 100, label='nominal p=.05')
-        ax2.legend(loc='lower left')
-        ax2.set_ylabel('binomial p value (vs empirical unexpressed control)')
+        tfs = [region_name.split('_')[0] for region_name in target_regions]
+        for tf in tfs:
+            fig1 = mpl.figure()
+            ax1 = mpl.gca()
+            fig2 = mpl.figure()
+            ax2 = mpl.gca()
+            for nmeg, dm, ds, region_name in zip(
+                nmegs, distro_mels, distro_sims, target_regions,
+            ):
+                target, region = target_regions[region_name]
+                if target.lower() != tf.lower(): continue
+                region_diffs = dm - ds
+                control_region = (melXmel.ix[target] < 5) & (simXsim.ix[target] < 5)
+                control_diffs = ((melXmel.ix[nmeg, control_region]
+                                  - simXsim.ix[nmeg, control_region])
+                                 .divide(parental.ix[nmeg, :] .max(axis=1), axis=0)
+                                ).mean(axis=1)
+                ax1.semilogy(100*x_range,
+                             [sum(region_diffs > i)/ sum(region_diffs < -i)
+                              for i in x_range],
+                             label='{:0.0%} - {:0.0%}'.format( *region), basey=2)
+                ax2.semilogy(100*x_range,
+                             [
+                                 stats.binom_test([sum(region_diffs > i),
+                                                   sum(region_diffs < -i)],
+                                                  #p=(sum(control_diffs > i)
+                                                     #/ (sum(control_diffs > i)
+                                                        #+ sum(control_diffs < -i))
+                                                    #)
+                                                  p=0.5,
+                                                 )
+                                 for i in x_range
+                             ],
+                             label='{:0.0%} - {:0.0%}'.format( *region),
+                             basey=10)
+            ax1.legend(loc='upper left')
+            ax1.hlines(1, 0, 100)
+            ax1.set_ylabel(r'$\#(\Delta > x) \div \#(\Delta < -x)$')
+            ax2.hlines(0.05, 0, 100, label='nominal p=.05')
+            #ax2.legend(loc='lower left')
+            ax2.set_ylabel('binomial p value (vs 50%)')
 
-        pu.minimize_ink(ax1)
-        pu.minimize_ink(ax2)
+            pu.minimize_ink(ax1)
+            pu.minimize_ink(ax2)
+
+            fig1.savefig('analysis/results/{}_bound_Ns.png'.format(tf), dpi=300)
+            fig2.savefig('analysis/results/{}_bound_ps.png'.format(tf), dpi=300)
 
 
 
