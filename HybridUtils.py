@@ -76,6 +76,8 @@ def is_directionally_biased(ase, gene, bias_direction=None, style='ttest', ase_l
                     > max(frac_for_biased * slices_with_aseval, min_slices)):
                     biases[genotype] = dir
                     break
+        else:
+            raise NotImplementedError("Don't know how to use test style '{}'".format(style))
     return biases
 
 
