@@ -24,7 +24,10 @@ def get_header_size(filename):
 
 def has_match(pos, patser1, patser2, pos1, pos2, dist=5, reltol=.2):
     score = patser1.score[pos]
-    new_pos = pos2[argwhere(pos1 == pos)][0,0]
+    try:
+        new_pos = pos2[argwhere(pos1 == pos)][0,0]
+    except IndexError:
+        return False
     return bool(len(patser2
             .query('({lp} < pos) and (pos < {hp}) and ({ls} < score) and (score < {hs})'
                 .format(
@@ -465,16 +468,19 @@ if __name__ == "__main__":
                     tf_changes_i['+'+tf_name] += 1
                 pos = int(pos)
                 s = float(patser2.ix[pos, 'score'])*y_scale
-                r = (dwg.rect(
-                    (x_start + argwhere(pos2 == pos)[0,0]*x_scale, y_start),
-                    (args.bar_width, s),
-                    style='fill:{}; fill-opacity:{:.2f};'.format(
-                        colors[i_tf],
-                        1.0-match_dim*matched,
-                        ),
-                    ))
-                r.add(svg.base.Title(tf_name + "\n" + str(patser2.ix[pos])))
-                dwg_groups[tf].add(r)
+                try:
+                    r = (dwg.rect(
+                        (x_start + argwhere(pos2 == pos)[0,0]*x_scale, y_start),
+                        (args.bar_width, s),
+                        style='fill:{}; fill-opacity:{:.2f};'.format(
+                            colors[i_tf],
+                            1.0-match_dim*matched,
+                            ),
+                        ))
+                    r.add(svg.base.Title(tf_name + "\n" + str(patser2.ix[pos])))
+                    dwg_groups[tf].add(r)
+                except IndexError:
+                    pass
             pb.update(prog)
             prog += 1
         tf_changes[n1, n2] = tf_changes_i
