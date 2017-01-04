@@ -12,6 +12,8 @@ import multiprocessing as mp
 import itertools as it
 from progressbar import ProgressBar as pbar
 from collections import Counter
+from sys import argv
+from os import path
 
 
 target_gene = 'hb'
@@ -106,7 +108,10 @@ def fit_model(X, y, co=0.1):
 
 if __name__ == "__main__":
     if 'pcr' not in locals():
-        pcr = pc.PointCloudReader(open('prereqs/D_mel_wt__atlas_r2.vpc'))
+        dir = path.dirname(argv[0])
+        pcr = pc.PointCloudReader(open(
+            path.join(dir, 'prereqs/D_mel_wt__atlas_r2.vpc')
+        ))
         atlas_expr, atlas_coords = pcr.data_to_arrays()
 
     for gene in atlas_expr.major_axis:
@@ -330,9 +335,12 @@ if __name__ == "__main__":
         mpl.yticks([])
         mpl.ylabel('predicted sim data')
 
-    mpl.savefig('analysis/results/model_tweak/{}'.format(target_gene))
+    mpl.savefig(path.join(dir,
+                          'analysis/results/model_tweak/{}'.format(target_gene)))
     print(best_model.summary().as_latex(),
-          file=open('analysis/results/model_tweak/{}_model.tex'.format(target_gene), 'w')
+          file=open(path.join(dir,
+                              'analysis/results/model_tweak/{}_model.tex'.format(target_gene)),
+                    'w')
          )
     for tf in (best_model
                .params.index.intersection(
@@ -340,5 +348,5 @@ if __name__ == "__main__":
               ):
         plot_changes(best_model, {tf: changes[tf]}, small_atlas.ix[small_atlas.in_central], xlims=xlims,
                      ylims=ylims)
-        mpl.savefig('analysis/results/model_tweak/{}_{}'
-                    .format(target_gene, tf))
+        mpl.savefig(path.join(dir, 'analysis/results/model_tweak/{}_{}'
+                    .format(target_gene, tf)))

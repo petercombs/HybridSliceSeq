@@ -1,3 +1,4 @@
+import sys
 from os import path
 from numpy import shape, linspace, sum, isfinite
 import pandas as pd
@@ -15,6 +16,7 @@ def strip_to_number(dataval, chars='\'" \t #'):
     return to_number(dataval.strip(chars))
 
 def true_index(series):
+    'Returns elements in the index of the series where the element is true'
     return series.index[series]
 
 
@@ -82,9 +84,15 @@ def center_of_mass_onerep(data):
     data_clean += 0.01
     return sum(data_clean * xs, axis=len(dims)-1)/sum(data_clean, axis=len(dims)-1)
 
-fbgns = pd.read_table('prereqs/gene_map_table_fb_2016_01.tsv',
-                      keep_default_na=False, na_values=['---'],
-                      index_col=1,skiprows=5).ix[:, 0]
+for dir_name in sys.path:
+    fname = path.join(dir_name, 'prereqs/gene_map_table_fb_2016_01.tsv')
+    if path.exists(fname):
+        fbgns = pd.read_table(fname,
+                              keep_default_na=False, na_values=['---'],
+                              index_col=1,skiprows=5).ix[:, 0]
+        break
+else:
+    raise ImportError('Could not find Gene mapping table')
 
 def get_synonyms():
     gn_to_fbgn = defaultdict(lambda : 'NOTPRESENT')
