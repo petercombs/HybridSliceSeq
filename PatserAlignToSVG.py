@@ -3,7 +3,7 @@ from Bio import  AlignIO, SeqIO
 from argparse import ArgumentParser
 from glob import glob
 from os import path
-from numpy import argwhere, diff, zeros, random, ceil
+from numpy import where, argwhere, diff, zeros, random, ceil
 import pandas as pd
 from ParseDelta import parse_records
 from progressbar import ProgressBar
@@ -83,6 +83,8 @@ def parse_args():
                            action=store_true,
                            help='Directory is actually the output of FIMO or '
                            'another MEME suite program')
+    data_opts.add_argument('--bed-track', '-b', default=False)
+    data_opts.add_argument('--coordinates-bed', default=False)
     plot_opts.add_argument('--x-scale', '-x', type=float, default=.1)
     plot_opts.add_argument('--y-scale', '-y', type=float, default=1.0)
     plot_opts.add_argument('--y-sep', '-Y', type=float, default=50)
@@ -123,6 +125,24 @@ def parse_args():
         raise ValueError("Different number of TF labels and TFs: {} and {}"
                          .format(args.tf_names, args.tfs))
 
+    if args.coordinates_bed and args.bed_track:
+        args.coordinates_bed = pd.read_table(
+            args.coordinates_bed,
+            header=None, names=['chr', 'start', 'stop', 'feature', 'score',
+                                'strand', 'thickStart', 'thickEnd'],
+            index_col='feature',
+        )
+
+        args.bed_track = pd.read_table(
+            args.bed_track,
+            comment='#',
+            header=None, names=['chr', 'start', 'stop', 'name', 'score', ],
+        )
+        args.draw_bed = True
+    else:
+        args.draw_bed = False
+
+
 
     return args
 
@@ -139,6 +159,7 @@ def get_drawing_size(parsed_arguments, alignments):
     height += len(alignments)
     height += len(alignments) * .5 * parsed_arguments.show_alignment
     height += (0.5 * ceil(len(parsed_arguments.tf)/3))
+    height += len(alignments) * .9 * args.draw_bed
 
     height *= 1.5 * parsed_arguments.y_sep
     height += 200
@@ -176,6 +197,60 @@ def draw_tf_cols(dwg, dwg_groups, args, y_start):
 
     return y_start
 
+
+def draw_bed_track(args, dwg, n1, n2, pos1, pos2, y_start):
+    minus_strand = False
+    if n1 in args.coordinates_bed.index:
+        chrom = args.coordinates_bed.ix[n1, 'chr']
+        if args.coordinates_bed.ix[n1, 'strand'] == '-':
+            bed_pos = args.coordinates_bed.ix[n1, 'stop'] - pos1
+            minus_strand = True
+        else:
+            bed_pos = pos1 + args.coordinates_bed.ix[n1, 'start']
+    elif n2 in args.coordinates_bed.index:
+        chrom = args.coordinates_bed.ix[n2, 'chr']
+        if args.coordinates_bed.ix[n2, 'strand'] == '-':
+            bed_pos = args.coordinates_bed.ix[n2, 'stop'] - pos1
+            minus_strand = True
+        else:
+            bed_pos = pos1 + args.coordinates_bed.ix[n2, 'start']
+    else:
+        raise RuntimeError("Cannot find coordinates for: {}".format(n1))
+
+    bed_track_lo = args.bed_track.query(
+        ('chr == "{chrom}" and start <= {pos} and {pos} < stop')
+        .format(chrom=chrom, pos=min(bed_pos))
+    )
+
+    bed_track_hi = args.bed_track.query(
+        ('chr == "{chrom}" and start < {pos} and {pos} <= stop')
+        .format(chrom=chrom, pos=max(bed_pos))
+    )
+
+    bed_track = args.bed_track.ix[bed_track_lo.index[0]:bed_track_hi.index[-1]]
+    bed_track_score_norm = max(bed_track.score)
+
+    for ix, row in bed_track.iterrows():
+        if minus_strand:
+            pass
+        else:
+            x_starts = where(bed_pos == row.start)[0]
+            x_ends = where(bed_pos == row.stop)[0]
+            x_start = x_starts[0] if len(x_starts) else 0
+            x_end = x_ends[-1] if len(x_ends) else len(bed_pos)
+
+            width = (x_end - x_start)
+            height = row.score / bed_track_score_norm * .4 * args.y_sep
+            dwg.add(dwg.rect(
+                (x_start*args.x_scale + args.margin, y_start-height),
+                (width*args.x_scale, height),
+                **{'fill': 'gray'}
+            ))
+
+    y_start += args.y_sep * .9
+
+
+    return y_start
 
 def draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start):
     x_start = args.margin
@@ -359,6 +434,8 @@ if __name__ == "__main__":
         if args.show_alignment:
             y_start = draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start)
 
+        if args.draw_bed:
+            y_start = draw_bed_track(args, dwg, n1, n2, pos1, pos2, y_start)
 
         lines.append(dwg.line(
             (x_start, y_start),
