@@ -177,6 +177,59 @@ def draw_tf_cols(dwg, dwg_groups, args, y_start):
     return y_start
 
 
+def draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start):
+    x_start = args.margin
+    fasta1 = path.join(args.patser_directory, n1 + '.fasta')
+    fasta2 = path.join(args.patser_directory, n2+'.fasta')
+    if path.exists(fasta1) and path.exists(fasta2):
+        seq1 = SeqIO.read(fasta1, 'fasta').seq
+        seq2 = SeqIO.read(fasta2, 'fasta').seq
+    elif args.fasta:
+        if n1 in args.fasta and n2 in args.fasta:
+            seq1 = args.fasta[n1].seq
+            seq2 = args.fasta[n2].seq
+        else:
+            print("Can't find both sequences: {} and {}".format(n1, n2))
+            seq1 = defaultdict(lambda : 'N')
+            seq2 = defaultdict(lambda : 'N')
+    else:
+        seq1 = defaultdict(lambda : 'N')
+        seq2 = defaultdict(lambda : 'N')
+
+    lines.append(dwg.line(
+        (x_start, y_start),
+        (x_start + x_scale * len(pos1), y_start)))
+
+    indels = diff(pos2) - diff(pos1)
+    id_start = 0
+    # Draw Indels
+    for val, group in it.groupby(indels):
+        for i, _ in enumerate(group):
+            pass
+        i += 1
+        dwg.add(dwg.rect(
+            (x_start + x_scale * id_start, y_start - .1 * args.y_sep * (val < 0)),
+            (x_scale * i, .1 * args.y_sep * (val != 0)),
+            fill="grey"
+            ))
+        if val == 0:
+            for j in range(id_start, id_start + i):
+                if str(seq1[pos1[j]]) != str(seq2[pos2[j]]):
+                    dwg.add(dwg.line(
+                        (x_start + x_scale * j, y_start - .3 * args.y_sep),
+                        (x_start + x_scale * j, y_start),
+                        style="stroke-width:1; stroke:{};".format(seq_colors[str(seq1[pos1[j]])]),
+                        ))
+                    dwg.add(dwg.line(
+                        (x_start + x_scale * j, y_start),
+                        (x_start + x_scale * j, y_start + .3 * args.y_sep),
+                        id='{}:{}--{}>{}'.format(pos1[j], pos2[j], seq1[pos1[j]], seq2[pos2[j]],),
+                        style="stroke-width:1; stroke:{};".format(seq_colors[str(seq2[pos2[j]])]),
+                        ))
+
+        id_start += i
+    y_start += 0.5 * delta_y
+    return y_start
 
 if __name__ == "__main__":
     args = parse_args()
@@ -304,60 +357,8 @@ if __name__ == "__main__":
     tf_changes = {}
     for ((n1, pos1), (n2, pos2)) in alignments:
         if args.show_alignment:
-            fasta1 = path.join(args.patser_directory, n1 + '.fasta')
-            fasta2 = path.join(args.patser_directory, n2+'.fasta')
-            if path.exists(fasta1) and path.exists(fasta2):
-                has_fastas = True
-                seq1 = SeqIO.read(fasta1, 'fasta').seq
-                seq2 = SeqIO.read(fasta2, 'fasta').seq
-            elif args.fasta:
-                if n1 in args.fasta and n2 in args.fasta:
-                    seq1 = args.fasta[n1].seq
-                    seq2 = args.fasta[n2].seq
-                    has_fasta = True
-                else:
-                    print("Can't find both sequences: {} and {}".format(n1, n2))
-                    has_fasta = False
-                    seq1 = defaultdict(lambda : 'N')
-                    seq2 = defaultdict(lambda : 'N')
-            else:
-                has_fastas = False
-                seq1 = defaultdict(lambda : 'N')
-                seq2 = defaultdict(lambda : 'N')
+            y_start = draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start)
 
-            lines.append(dwg.line(
-                (x_start, y_start),
-                (x_start + x_scale * len(pos1), y_start)))
-
-            indels = diff(pos2) - diff(pos1)
-            id_start = 0
-            # Draw Indels
-            for val, group in it.groupby(indels):
-                for i, _ in enumerate(group):
-                    pass
-                i += 1
-                dwg.add(dwg.rect(
-                    (x_start + x_scale * id_start, y_start - .1 * args.y_sep * (val < 0)),
-                    (x_scale * i, .1 * args.y_sep * (val != 0)),
-                    fill="grey"
-                    ))
-                if val == 0:
-                    for j in range(id_start, id_start + i):
-                        if str(seq1[pos1[j]]) != str(seq2[pos2[j]]):
-                            dwg.add(dwg.line(
-                                (x_start + x_scale * j, y_start - .3 * args.y_sep),
-                                (x_start + x_scale * j, y_start),
-                                style="stroke-width:1; stroke:{};".format(seq_colors[str(seq1[pos1[j]])]),
-                                ))
-                            dwg.add(dwg.line(
-                                (x_start + x_scale * j, y_start),
-                                (x_start + x_scale * j, y_start + .3 * args.y_sep),
-                                id='{}:{}--{}>{}'.format(pos1[j], pos2[j], seq1[pos1[j]], seq2[pos2[j]],),
-                                style="stroke-width:1; stroke:{};".format(seq_colors[str(seq2[pos2[j]])]),
-                                ))
-
-                id_start += i
-            y_start += 0.5 * delta_y
 
         lines.append(dwg.line(
             (x_start, y_start),
