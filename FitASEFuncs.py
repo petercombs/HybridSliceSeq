@@ -133,7 +133,7 @@ def calculate_variance_explained(ase, xs, func, params):
 
 
 if __name__ == "__main__":
-    expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).dropna(how='all', axis=1)
+    expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).drop('---', axis=1)
     ase = (pd
            .read_table('analysis_godot/ase_summary_by_read.tsv',
                        **pd_kwargs
