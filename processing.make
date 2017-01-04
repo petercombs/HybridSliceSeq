@@ -7,13 +7,13 @@ $(REFDIR)/melsim_snps.delta : $(MELFASTA2) $(SIMFASTA2)
 
 BDTNP_BIND_DIR=prereqs/BDTNP_in_vivo_binding_Release.2.1/Supplemental_Tables
 
-Reference/bcd_r5_peaks: $(BDTNP_BIND_DIR)
+Reference/binding/bcd_r5_peaks: $(BDTNP_BIND_DIR)
 	for TF in bcd cad D da dl gt hb hkb kni \
 				kr mad med prd run shn slp1 sna tll twi z; do \
 		cat $(BDTNP_BIND_DIR)/$${TF}_[1-3]_* \
 			| awk 'NR > 1 {print $$2":"$$3".."$$4}' \
 			> /tmp/$${TF}_peaks; \
-		echo 'OldPeak	NewPeak' > Reference/$${TF}_peaks; \
+		echo 'OldPeak	NewPeak' > Reference/binding/$${TF}_peaks; \
 		curl -L  'http://flybase.org/cgi-bin/coord_converter.html' \
 			-H 'Referer: http://flybase.org/static_pages/downloads/COORD.html' \
 			-F species=dmel \
@@ -24,17 +24,17 @@ Reference/bcd_r5_peaks: $(BDTNP_BIND_DIR)
 			-F idfile="@/tmp/$${TF}_peaks" \
 			-F .submit=Go \
 			| grep -v '?' \
-			>> Reference/$${TF}_r5_peaks; \
+			>> Reference/binding/$${TF}_r5_peaks; \
 		sleep 5; \
 	done
 
-Reference/bcd_peaks: $(BDTNP_BIND_DIR)
+Reference/binding/bcd_peaks: $(BDTNP_BIND_DIR)
 	for TF in bcd cad D da dl gt hb hkb kni \
 				kr mad med run shn slp1 sna tll twi z; do \
 		cat $(BDTNP_BIND_DIR)/$${TF}_[1-3]_* \
 			| awk 'NR > 1 {print $$2":"$$3".."$$4}' \
 			> /tmp/$${TF}_peaks; \
-		echo 'OldPeak	NewPeak' > Reference/$${TF}_peaks; \
+		echo 'OldPeak	NewPeak' > Reference/binding/$${TF}_peaks; \
 		curl -L  'http://flybase.org/cgi-bin/coord_converter.html' \
 			-H 'Referer: http://flybase.org/static_pages/downloads/COORD.html' \
 			-F species=dmel \
@@ -45,11 +45,11 @@ Reference/bcd_peaks: $(BDTNP_BIND_DIR)
 			-F idfile="@/tmp/$${TF}_peaks" \
 			-F .submit=Go \
 			| grep -v '?' \
-			>> Reference/$${TF}_peaks; \
+			>> Reference/binding/$${TF}_peaks; \
 		sleep 5; \
 	done
 
-Reference/bcd_%_peaks Reference/hb_%_peaks Reference/kr_%_peaks Reference/prd_%_peaks: $(BDTNP_BIND_DIR)
+Reference/binding/bcd_%_peaks Reference/binding/hb_%_peaks Reference/binding/kr_%_peaks Reference/binding/prd_%_peaks: $(BDTNP_BIND_DIR)
 	for TF in bcd cad D da dl gt hb hkb kni \
 				kr mad med prd run shn slp1 sna tll twi z; do \
 		cat `ls $(BDTNP_BIND_DIR)/$${TF}_{1,2,3,BQ,FQ}_*` \
@@ -57,7 +57,7 @@ Reference/bcd_%_peaks Reference/hb_%_peaks Reference/kr_%_peaks Reference/prd_%_
 			| head -n $* \
 			| awk 'NR > 1 {print $$2":"$$3".."$$4}' \
 			> /tmp/$${TF}_peaks; \
-		echo 'OldPeak	NewPeak' > Reference/$${TF}_peaks; \
+		echo 'OldPeak	NewPeak' > Reference/binding/$${TF}_peaks; \
 		curl -L  'http://flybase.org/cgi-bin/coord_converter.html' \
 			-H 'Referer: http://flybase.org/static_pages/downloads/COORD.html' \
 			-F species=dmel \
@@ -68,11 +68,11 @@ Reference/bcd_%_peaks Reference/hb_%_peaks Reference/kr_%_peaks Reference/prd_%_
 			-F idfile="@/tmp/$${TF}_peaks" \
 			-F .submit=Go \
 			| grep -v '?' \
-			>> Reference/$${TF}_$*_peaks; \
+			>> Reference/binding/$${TF}_$*_peaks; \
 		sleep 5; \
 	done
 
-Reference/%_peaks.bed : Reference/%_peaks
+Reference/binding/%_peaks.bed : Reference/binding/%_peaks
 	cat $< \
 		| cut -f 2 \
 		| perl -pe 's/(:|\.\.)/\t/g' \
