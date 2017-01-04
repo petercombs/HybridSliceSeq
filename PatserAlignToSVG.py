@@ -3,7 +3,7 @@ from Bio import  AlignIO, SeqIO
 from argparse import ArgumentParser
 from glob import glob
 from os import path
-from numpy import argwhere, diff, zeros, random
+from numpy import argwhere, diff, zeros, random, ceil
 import pandas as pd
 from ParseDelta import parse_records
 from progressbar import ProgressBar
@@ -86,6 +86,7 @@ def parse_args():
     plot_opts.add_argument('--x-ticks', '-X', type=float, default=1000,
                            help='Put a marker every X-TICKS bases on the'
                            'upper-most strand')
+    plot_opts.add_argument('--margin', '-m', type=float, default=10)
     plot_opts.add_argument('--bar-width', '-w', type=float, default=1)
     plot_opts.add_argument('--show-alignment', '-A', default=False, action=store_true)
     plot_opts.add_argument('--match-dim', '-d', type=float, default=0.5)
@@ -95,6 +96,8 @@ def parse_args():
                            action=store_true)
     parser.add_argument('--print-argv', '-v', default=False,
                         action=store_true,)
+    parser.add_argument('--num-tf-cols', '-C', default=3, type=int,
+                        help="Number of columns in TF labels")
     parser.add_argument('alignments', type=open,
                         help='File containing alignments in MUMmer .delta format')
     parser.add_argument('patser_directory', type=str)
@@ -117,7 +120,59 @@ def parse_args():
         raise ValueError("Different number of TF labels and TFs: {} and {}"
                          .format(args.tf_names, args.tfs))
 
+
     return args
+
+def get_drawing_size(parsed_arguments, alignments):
+
+    width = 200
+    height = 0
+
+    width += 2* parsed_arguments.margin
+    width += x_scale * max(len(a[0][1]) for a in alignments)
+    width = max(width, 500)
+
+    height += .5
+    height += len(alignments)
+    height += len(alignments) * .5 * parsed_arguments.show_alignment
+    height += (0.5 * ceil(len(parsed_arguments.tf)/3))
+
+    height *= 1.5 * parsed_arguments.y_sep
+    height += 200
+
+    return width, height
+
+def draw_tf_cols(dwg, dwg_groups, args, y_start):
+    n_cols = args.num_tf_cols
+    x_start = args.margin
+    delta_y = 1.5 * args.y_sep
+
+    for i, (tf, tf_name) in enumerate(zip(args.tf, args.tf_names)):
+        dwg_groups[tf].add(dwg.rect(
+            (x_start + 120  * (i % n_cols), y_start),
+            (.3*delta_y, .3*delta_y),
+            **{'fill' : colors[i],
+                #'stroke-width': "0",
+                }
+            #style='fill:{}; stroke-width:0;'.format(colors[i])
+
+            ))
+        dwg_groups[tf].add(dwg.text(tf_name,
+            (x_start + 10 + 120  * (i % n_cols)+.3*delta_y, y_start+0.3*delta_y)
+            ))
+        y_start += delta_y * ((i%n_cols) == (n_cols-1))
+
+    for tf in dwg_groups:
+        dwg.add(dwg_groups[tf])
+    for tf in dwg_groups:
+        grp = dwg_groups[tf].copy()
+        grp.attribs['class'] += ' hover_group'
+        dwg.add(grp)
+    for line in lines:
+        dwg.add(line)
+
+    return y_start
+
 
 
 if __name__ == "__main__":
@@ -158,7 +213,7 @@ if __name__ == "__main__":
 
     x_scale = args.x_scale
     y_scale = args.y_scale
-    x_start = 10
+    x_start = args.margin
     y_start = 1.5 * args.y_sep
     delta_y = 1.5 * args.y_sep
     match_dim = args.match_dim
@@ -222,14 +277,13 @@ if __name__ == "__main__":
         for n_aligns, a in enumerate(parse_records(args.alignments)):
             alignments.append(a)
     pb = ProgressBar(maxval=(n_aligns+1)*len(args.tf))
-    dwg = svg.Drawing(args.alignments.name+'.svg',
-                     size=(x_scale * (max(len(a[0][1]) for a in alignments))
-                           + 200
-                           + 2 * x_start,
-                           delta_y * (len(alignments)
-                           * (1 + args.show_alignment) + .5)
-                           + 200
-                          ))
+    print("Number of TFs", len(args.tf))
+
+    width, height = get_drawing_size(args, alignments)
+    dwg = svg.Drawing(
+        args.alignments.name+'.svg',
+        size=(width, height),
+    )
     dwg_groups = {}
     for tf in args.tf:
         dwg_groups[tf] = dwg.g(**{'class':tf})
@@ -428,30 +482,7 @@ if __name__ == "__main__":
         y_start += delta_y
     pb.finish()
     n_cols = 3
-    for i, (tf, tf_name) in enumerate(zip(args.tf, args.tf_names)):
-        dwg_groups[tf].add(dwg.rect(
-            (x_start + 3.5 * delta_y * (i % n_cols), y_start),
-            (.3*delta_y, .3*delta_y),
-            **{'fill' : colors[i],
-                #'stroke-width': "0",
-                }
-            #style='fill:{}; stroke-width:0;'.format(colors[i])
-
-            ))
-        dwg_groups[tf].add(dwg.text(tf_name,
-            (x_start + 10 + 3.5 * delta_y * (i % n_cols)+.3*delta_y, y_start+0.3*delta_y)
-            ))
-        y_start += delta_y * ((i%n_cols) == (n_cols-1))
-
-    for tf in dwg_groups:
-        dwg.add(dwg_groups[tf])
-    for tf in dwg_groups:
-        grp = dwg_groups[tf].copy()
-        grp.attribs['class'] += ' hover_group'
-        dwg.add(grp)
-    for line in lines:
-        dwg.add(line)
-
+    y_start = draw_tf_cols(dwg, dwg_groups, args, y_start)
     dwg.save()
     pprint(tf_changes)
 
