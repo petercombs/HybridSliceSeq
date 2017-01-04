@@ -24,6 +24,8 @@ analysis/targets/%/aligned.needleall.svg: analysis/targets/%/aligned.needleall a
 		--tf-names $(TF_NAMES) \
 		--sequence --fasta $(@D)/melsim.fasta \
 		--needleall $(@D)/aligned.needleall \
+		--bed-track Reference/bdtnp_dnase_2_prepend.bed \
+		--coordinates-bed analysis/targets/hb/mel.bed \
 		$(@D)
 
 analysis/targets/%/melyak.needleall.svg: analysis/targets/%/melyak.needleall analysis/targets/%/mel/fimo.txt analysis/targets/%/yak/fimo.txt analysis/targets/%/melyak.fasta PatserAlignToSVG.py
@@ -38,6 +40,8 @@ analysis/targets/%/melyak.needleall.svg: analysis/targets/%/melyak.needleall ana
 		--tf-names $(TF_NAMES) \
 		--sequence --fasta $(@D)/melyak.fasta \
 		--needleall $< \
+		--bed-track Reference/bdtnp_dnase_2_prepend.bed \
+		--coordinates-bed analysis/targets/hb/mel.bed \
 		$(@D)
 
 analysis/targets/%/fimo.txt: analysis/targets/%.fasta
@@ -55,7 +59,7 @@ analysis/targets/%/melyak.fasta: analysis/targets/%/mel.fasta analysis/targets/%
 
 analysis/targets/%/mel.fasta : analysis/targets/%/mel.bed
 	module load bedtools && \
-	bedtools getfasta -s -name -fi Reference/d$(basename $(@F))_prepend.fasta -fo $@ -bed $<
+	bedtools getfasta -s -name -fi Reference/d$(basename $(@F))r5_prepend.fasta -fo $@ -bed $<
 
 analysis/targets/%/sim.fasta: analysis/targets/%/sim.bed
 	module load bedtools && \
@@ -72,6 +76,7 @@ analysis/targets/%/sim.bed: analysis/targets/%/mel.fasta
 		-outfmt "6 sseqid sstart send qseqid evalue sstrand length qlen slen qstart qend" \
 		-gapextend 0\
 		-query $< \
+		| awk '!_[$$4]++' \
 		| bioawk -t '$$10 > 1 && $$6 ~ /minus/ {$$2 += $$10 + 1}; \
 		             $$10 > 1 && $$6 ~ /plus/ {$$2 -= $$10 + 1}; \
 			     $$11 < $$8 && $$6 ~ /minus/ {$$3 -= ($$8 - $$11) + 1}; \
@@ -84,7 +89,6 @@ analysis/targets/%/yak.bed: analysis/targets/%/mel.fasta
 		blastn -db Reference/yakpse \
 		-outfmt "6 sseqid sstart send qseqid evalue sstrand length qlen slen qstart qend" \
 		-gapextend 0\
-		-max_target_seqs 1\
 		-query $< \
 		| awk '!_[$$4]++' \
 		| bioawk -t '$$10 > 1 && $$6 ~ /minus/ {$$2 += $$10 + 1}; \
