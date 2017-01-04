@@ -82,7 +82,7 @@ $(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(F
 	   --strip-on-unique \
 	   --strip-as-nan \
 	   --mapped-bamfile assigned_dmelR.bam \
-	   --strip-low-map-rate 55 \
+	   --strip-low-map-rate 52 \
 	   --map-stats $(ANALYSIS_DIR)/map_stats.tsv \
 	   --filename $(QUANT_FNAME) \
 	   --key $(QUANT_KEY) \
@@ -351,6 +351,12 @@ $(SIMGFF): $(REFDIR)/sim_$(SIMVERSION) | $(REFDIR) $(PREREQDIR)
 
 $(MELFASTA2): $(MELFASTA) $(REFDIR)/mel_$(MELMAJORVERSION) | $(REFDIR)
 	perl -pe 's/>/>dmel_/' $(MELFASTA) > $@
+
+
+Reference/%_prepend.fa: $$(wildcard prereqs/$$*-all-chromosome-*.fasta.gz)
+	gzip -cd prereqs/$*-all-chromosome-*.fasta.gz  \
+		| perl -pe 's/>/>$*_/' \
+		> $@
 
 $(MELR5FASTA2): $(MELR5FASTA) | $(REFDIR)
 	perl -pe 's/>/>dmel_/' $< > $@
