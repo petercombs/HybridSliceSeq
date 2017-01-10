@@ -6,7 +6,8 @@ from matplotlib import cm
 from numpy import zeros, zeros_like, nanmedian, nanpercentile
 import numpy as np
 import pandas as pd
-from sys import stderr
+from sys import stderr, argv
+from os import path
 from multiprocessing import Pool
 from progressbar import ProgressBar
 from Utils import pd_kwargs, sel_startswith, startswith
@@ -106,8 +107,11 @@ if __name__ == "__main__":
     mel_stage = both_stage
     sim_stage = both_stage
     if 'sim_atlas' not in locals():
-        sim_atlas = pc.PointCloudReader(open('prereqs/dsim-20120727-r2-ZW.vpc'))
-        mel_atlas = pc.PointCloudReader(open('prereqs/D_mel_wt__atlas_r2.vpc'))
+        cwd = path.dirname(argv[0])
+        sim_atlas = pc.PointCloudReader( open(
+            path.join(cwd, 'prereqs/dsim-20120727-r2-ZW.vpc')))
+        mel_atlas = pc.PointCloudReader(open(
+            path.join(cwd, 'prereqs/D_mel_wt__atlas_r2.vpc')))
     else:
         print("Using preloaded data", file=stderr)
     sim_atlas_expr, sim_atlas_pos = sim_atlas.data_to_arrays(usecohorts=True)
@@ -245,7 +249,8 @@ if __name__ == "__main__":
     ax.set_xlim(mel_atlas_pos.ix[:, 'X', mel_stage].min()-15,
                 mel_atlas_pos.ix[:, 'X', mel_stage].max()+15)
     pu.minimize_ink(ax)
-    savefig('analysis/results/{}_atlas_ase'.format(target), transparent=True)
+    savefig(path.join(cwd, 'analysis/results/{}_atlas_ase'.format(target)),
+            transparent=True)
 
     figure()
     scatter(
@@ -261,7 +266,8 @@ if __name__ == "__main__":
     ax.set_xlim(mel_atlas_pos.ix[:, 'X', mel_stage].min()-15,
                 mel_atlas_pos.ix[:, 'X', mel_stage].max()+15)
     pu.minimize_ink(ax)
-    savefig('analysis/results/{}_atlas_mel'.format(target), transparent=True)
+    savefig(path.join(cwd, 'analysis/results/{}_atlas_mel'.format(target)),
+            transparent=True)
 
     figure()
     scatter(
@@ -277,13 +283,16 @@ if __name__ == "__main__":
     ax.set_xlim(mel_atlas_pos.ix[:, 'X', mel_stage].min()-15,
                 mel_atlas_pos.ix[:, 'X', mel_stage].max()+15)
     pu.minimize_ink(ax)
-    savefig('analysis/results/{}_atlas_sim'.format(target), transparent=True)
+    savefig(path.join(cwd, 'analysis/results/{}_atlas_sim'.format(target)),
+            transparent=True)
 
     from GetASEStats import slices_per_embryo
     virtual_slices = {}
-    ase = (pd.read_table('analysis_godot/ase_summary_by_read.tsv', **pd_kwargs)
-           .select(**sel_startswith(('melXsim', 'simXmel')))
-          )
+    ase = (pd.read_table(
+        path.join(cwd, 'analysis_godot/ase_summary_by_read.tsv'),
+        **pd_kwargs)
+        .select(**sel_startswith(('melXsim', 'simXmel')))
+    )
     n_slices = slices_per_embryo(ase)
     actual = []
     computed = []
