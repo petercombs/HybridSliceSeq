@@ -7,6 +7,7 @@ MATCH_DIM=0.7
 #TF_NAMES=bcd hkb  sna
 #MATCH_DIM=0.7
 
+MODULE=/modules/lmod/lmod/libexec/lmod
 .SECONDEXPANSION:
 
 .SECONDARY:
@@ -25,7 +26,7 @@ analysis/targets/%/aligned.needleall.svg: analysis/targets/%/aligned.needleall a
 		--sequence --fasta $(@D)/melsim.fasta \
 		--needleall $(@D)/aligned.needleall \
 		--bed-track Reference/bdtnp_dnase_2_prepend.bed \
-		--coordinates-bed analysis/targets/hb/mel.bed \
+		--coordinates-bed analysis/targets/$*/mel.bed \
 		$(@D)
 
 analysis/targets/%/melyak.needleall.svg: analysis/targets/%/melyak.needleall analysis/targets/%/mel/fimo.txt analysis/targets/%/yak/fimo.txt analysis/targets/%/melyak.fasta PatserAlignToSVG.py
@@ -41,7 +42,7 @@ analysis/targets/%/melyak.needleall.svg: analysis/targets/%/melyak.needleall ana
 		--sequence --fasta $(@D)/melyak.fasta \
 		--needleall $< \
 		--bed-track Reference/bdtnp_dnase_2_prepend.bed \
-		--coordinates-bed analysis/targets/hb/mel.bed \
+		--coordinates-bed analysis/targets/$*/mel.bed \
 		$(@D)
 
 analysis/targets/%/fimo.txt: analysis/targets/%.fasta
@@ -119,8 +120,8 @@ analysis/targets/%/mel.bed: | analysis/targets/%/
 		grep '"$*"' Reference/mel_r5_good.gtf \
 		| bedtools sort \
 		| bedtools merge  \
-		| bedtools window -b - -a Reference/dnase_peaks_prepend.bed \
-		-u -w 5000 \
+		| bedtools window -b - -a Reference/binding/dnase_peaks_prepend.bed \
+		-u -w 15000 \
 		| bioawk -t '{print $$0, "mel_$*_" NR, "0", ".", $$2, $$3}' \
 		> $@
 
