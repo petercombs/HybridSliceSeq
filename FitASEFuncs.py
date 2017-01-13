@@ -203,15 +203,17 @@ if __name__ == "__main__":
     r2_peak_perm = calculate_variance_explained(ase_perm, xs, peak, res_peak_perm)
 
 
-    print("Found {: 4} {:<10} of which {} are likely false".format(sum(r2_logist > 0.5), 'logistic', sum(r2_logist_perm > .5)))
-    print("Found {: 4} {:<10} of which {} are likely false".format(sum(r2_peak > 0.5), 'peak', sum(r2_peak_perm > .5)))
+    co = 0.45
 
-    good_amps_logist = res_logist.Amp[r2_logist>0.5].sort_values(inplace=False)
-    good_amps_peak = res_peak.Amp[r2_peak>0.5].sort_values(inplace=False)
+    print("Found {: 4} {:<10} of which {} are likely false".format(sum(r2_logist > co), 'logistic', sum(r2_logist_perm > co)))
+    print("Found {: 4} {:<10} of which {} are likely false".format(sum(r2_peak > co), 'peak', sum(r2_peak_perm > co)))
+
+    good_amps_logist = res_logist.Amp[r2_logist>co].sort_values(inplace=False)
+    good_amps_peak = res_peak.Amp[r2_peak>co].sort_values(inplace=False)
     #good_amps_logist.to_csv('analysis/results/logist.tsv', sep='\t')
     #good_amps_peak.to_csv('analysis/results/peak.tsv', sep='\t')
-    res_logist.ix[r2_logist > 0.5].to_csv('analysis/results/logist.tsv', sep='\t')
-    res_peak.ix[r2_peak > 0.5].to_csv('analysis/results/peak.tsv', sep='\t')
+    res_logist.ix[r2_logist > co].to_csv('analysis/results/logist.tsv', sep='\t')
+    res_peak.ix[r2_peak > co].to_csv('analysis/results/peak.tsv', sep='\t')
 
     kwargs = dict(
         progress_bar=False,
@@ -228,14 +230,14 @@ if __name__ == "__main__":
 
     r2_peak_genes = {
         gene:r2_peak.ix[gene] for gene in r2_peak.index
-        if ((r2_peak.ix[gene] > .5)
+        if ((r2_peak.ix[gene] > co)
             and not (r2_peak.ix[[gene]] < r2_logist.ix[[gene]]).all())
     }
     r2_peak_genes = res_peak.Amp[r2_peak_genes].sort_values().index
 
     r2_logist_genes = {
         gene:r2_logist.ix[gene] for gene in r2_logist.index
-        if ((r2_logist.ix[gene] > .5)
+        if ((r2_logist.ix[gene] > co)
             and not (r2_logist.ix[[gene]] < r2_peak.ix[[gene]]).all())
     }
     r2_logist_genes = res_logist.Amp[r2_logist_genes].sort_values().index
