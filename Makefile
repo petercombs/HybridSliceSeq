@@ -235,7 +235,7 @@ $(ANALYSIS_DIR)/map_stats.tsv: $$(subst genes.fpkm_tracking,assigned_dmelR.mapst
 	python GetSingleMapStats.py $<
 
 
-%/genes.fpkm_tracking : %/assigned_dmelR.bam $(MELGTF) $(MELFASTA2) $(MELBADGTF)
+%/genes.fpkm_tracking : %/assigned_dmelR.bam $(MELGTFR5) $(MELR5FASTA2) $(MELBADGTFR5) $(ANALYSIS_DIR)/recufflinks
 	@echo '============================='
 	@echo 'Calculating Abundances'
 	@echo '============================='
@@ -245,10 +245,13 @@ $(ANALYSIS_DIR)/map_stats.tsv: $$(subst genes.fpkm_tracking,assigned_dmelR.mapst
 		--num-threads 8 \
 		--output-dir $(@D) \
 		--multi-read-correct \
-		--frag-bias-correct $(MELFASTA2) \
-		--GTF $(MELGTF) \
-		--mask-file $(MELBADGTF) \
+		--frag-bias-correct $(MELR5FASTA2) \
+		--GTF $(MELGTFR5) \
+		--mask-file $(MELBADGTFR5) \
 		$<
+
+$(ANALYSIS_DIR)/recufflinks:  
+	touch $@
 
 %/assigned_dmelR.bam : %/accepted_hits.bam AssignReads2.py
 	samtools view -H $< \
