@@ -99,6 +99,8 @@ def parse_args():
                            action=store_true)
     plot_opts.add_argument('--background', '-B', default=False,
                            action=store_true)
+    plot_opts.add_argument('--bed-height', '-H', default=0, type=float)
+    plot_opts.add_argument('--make-png', '-P', default=False, action=store_true)
     parser.add_argument('--print-argv', '-v', default=False,
                         action=store_true,)
     parser.add_argument('--num-tf-cols', '-C', default=3, type=int,
@@ -228,7 +230,10 @@ def draw_bed_track(args, dwg, n1, n2, pos1, pos2, y_start):
     )
 
     bed_track = args.bed_track.ix[bed_track_lo.index[0]:bed_track_hi.index[-1]]
-    bed_track_score_norm = max(bed_track.score)
+    if args.bed_height:
+        bed_track_score_norm = args.bed_height
+    else:
+        bed_track_score_norm = max(bed_track.score)
 
     for ix, row in bed_track.iterrows():
         if minus_strand:
@@ -568,5 +573,12 @@ if __name__ == "__main__":
     n_cols = 3
     y_start = draw_tf_cols(dwg, dwg_groups, args, y_start)
     dwg.save()
+    if args.make_png:
+        from subprocess import Popen
+        proc = Popen(['convert', args.alignments.name+'.svg',
+               args.alignments.name + '.png'])
+        proc.wait()
+
+
     pprint(tf_changes)
 
