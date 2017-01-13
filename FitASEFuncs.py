@@ -259,6 +259,17 @@ if __name__ == "__main__":
                    cmap=cm.RdBu,
                    **kwargs)
 
+    pu.svg_heatmap(expr.ix[r2_logist_genes].select(**sel_startswith(('melXsim',
+                                                                    'simXmel'))),
+                   'analysis/results/logist_expr_hyb.svg',
+                   norm_rows_by='maxall',
+                   **kwargs)
+
+    pu.svg_heatmap(expr.ix[r2_peak_genes].select(**sel_startswith(('melXsim',
+                                                                  'simXmel'))),
+                   'analysis/results/peak_expr_hyb.svg',
+                   norm_rows_by='maxall',
+                   **kwargs)
 
     pu.svg_heatmap(expr.ix[r2_logist_genes],
                    'analysis/results/logist_expr.svg',
