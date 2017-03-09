@@ -193,7 +193,7 @@ def get_nearest_slice(query, other_frame):
     return abs(query - other_xs).idxmin()
 
 
-def get_chroms():
+def get_chroms(syns=None):
     chrom_of = {}
     for fname in reversed(sorted(glob('prereqs/gene_map_table*.tsv'))):
         for row in open(fname):
@@ -205,5 +205,9 @@ def get_chroms():
                 chrom_of[data[1]] = chrom
             if data[0] not in chrom_of:
                 chrom_of[data[0]] = chrom
+    if syns is not None:
+        for key in syns.index:
+            if key not in chrom_of and syns[key] in chrom_of:
+                chrom_of[key] = chrom_of[syns[key]]
     return pd.Series(chrom_of)
 
