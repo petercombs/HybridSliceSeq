@@ -401,6 +401,10 @@ if __name__ == "__main__":
                     align,
                 ))
                 aligns_by_seq2[a2_name].append((
+                    sum(align[0][i] == align[1][i]
+                        for i in range(len(align[0])))
+                    -sum((align[0][i] == '-') or (align[1][i] == '-')
+                        for i in range(len(align[0]))),
                     -(Counter(align[0])['-']+Counter(align[1])['-']),
                     -len(align[0]),
                     float(line.strip().split(':')[1]),
