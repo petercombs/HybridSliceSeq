@@ -3,6 +3,7 @@ from os import path
 from numpy import shape, linspace, sum, isfinite
 import pandas as pd
 from collections import defaultdict
+from glob import glob
 
 
 def get_bam_length(samfile):
@@ -194,12 +195,15 @@ def get_nearest_slice(query, other_frame):
 
 def get_chroms():
     chrom_of = {}
-    for row in open('prereqs/gene_map_table_fb_2016_01.tsv'):
-        if row.startswith('#') or not row.strip():
-            continue
-        data = row.split()
-        chrom = data[-1].split(':')[0]
-        chrom_of[data[1]] = chrom
-        chrom_of[data[0]] = chrom
+    for fname in reversed(sorted(glob('prereqs/gene_map_table*.tsv'))):
+        for row in open(fname):
+            if row.startswith('#') or not row.strip():
+                continue
+            data = row.split()
+            chrom = data[-1].split(':')[0]
+            if data[1] not in chrom_of:
+                chrom_of[data[1]] = chrom
+            if data[0] not in chrom_of:
+                chrom_of[data[0]] = chrom
     return pd.Series(chrom_of)
 
