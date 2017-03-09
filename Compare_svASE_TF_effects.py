@@ -99,20 +99,25 @@ if __name__ == "__main__":
         distro_mels.append(mel_in_region.dropna())
         distro_sims.append(sim_in_region.dropna())
 
+        cutoff = .25
         data['num_{}_change'.format(region_name)] = (
             sum(abs(mel_in_region - sim_in_region)
-                > .25))
+                > cutoff))
         data['frac_higher_{}'.format(region_name)] = (
-            sum((mel_in_region - sim_in_region) > .25)
+            sum((mel_in_region - sim_in_region) > cutoff)
             / data['num_{}_change'.format(region_name)]
         )
         data['prob_higher_{}'.format(region_name)] = stats.binom_test(
-            [sum((mel_in_region - sim_in_region) > .25),
-             sum((sim_in_region - mel_in_region) > .25)]
+            [sum((mel_in_region - sim_in_region) > cutoff),
+             sum((sim_in_region - mel_in_region) > cutoff)]
         )
-        print(tf, region, res,
-              'mel', mel_in_region.mean(), mel_in_region.ix[tf],
-              'sim', sim_in_region.mean(), sim_in_region.ix[tf])
+        print(region_name, tf, region, data['prob_higher_{}'.format(region_name)],
+              'mel', sum((mel_in_region - sim_in_region) > cutoff),
+              'sim', sum((sim_in_region - mel_in_region) > cutoff),)
+        ((mel_in_region - sim_in_region)
+         .sort_values()
+         .to_csv('analysis/results/{}_melsim_change.tsv'.format(region_name), sep='\t')
+        )
 
     x_range = np.arange(0, 1, .05)
     if HAS_MPL:
