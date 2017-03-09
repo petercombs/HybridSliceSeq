@@ -127,6 +127,15 @@ analysis/targets/%/mel.bed: | analysis/targets/%/
 		-u -w 15000 \
 		| bioawk -t '{print $$0, "mel_$*_" NR, "0", ".", $$2, $$3}' \
 		> $@
+	module load bedtools bioawk && \
+		grep '"$*"' Reference/mel_r5_good.gtf \
+		| bedtools sort \
+		| bedtools merge  \
+		| bedtools window -b - -a Reference/oreganno.prepend.bed \
+		-u -w 15000 \
+		| bioawk -t '{print $$0, "mel_oreganno_$*_" NR, "0", ".", $$2, $$3}' \
+		>> $@
+
 
 
 analysis/targets/%/:
