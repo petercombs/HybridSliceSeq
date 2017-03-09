@@ -272,16 +272,17 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		--output-dir $(@D) \
 		$(foreach F,$($(notdir $*)), $F_1.fastq.gz $F_2.fastq.gz)
 
-%_wasp_dedup.bam: %.bam RestoreQuals.py RandomizeQuals.py
-	./qsubber $(QSUBBER_ARGS) -t 6 \
-	python RandomizeQuals.py $< - \
-		\| samtools rmdup - - \
-		\| python RestoreQuals.py - - \
-		\| samtools sort -n -@ 3 - $(basename $@)
+%_wasp_dedup.bam: %.bam $(ANALYSIS_DIR)/deduplicate
+	./qsubber $(QSUBBER_ARGS) -t 6 --resource mem=32000m --load-module picard/2.8.1 \
+	picard MarkDuplicates \
+		I=$< O=$@ \
+		METRICS_FILE=$@.metrics \
+		REMOVE_DUPLICATES=true \
+		DUPLICATE_SCORING_STRATEGY=RANDOM
 
 %/melsim_SNP_COUNTS.txt : %/assigned_dmelR_wasp_dedup.bam $(VARIANTS)
 	mkdir -p $*/melsim_countsnpase_tmp
-	./qsubber $(QSUBBER_ARGS) \
+	./qsubber --resource mem=4000m $(QSUBBER_ARGS) \
 	python2 CountSNPASE.py \
 		--mode single \
 		--reads $< \
