@@ -1,5 +1,5 @@
-TFS=OTF0070.1 hb  kni gt D FBgn0001325_4 tll hkb  FBgn0000251_3 FBgn0003448_3 twi #Med dl"
-TF_NAMES=bcd  hb  kni gt D Kr            tll hkb cad            sna           twi #med dl"
+TFS=OTF0070.1 hb  kni gt D FBgn0001325_4 tll hkb  FBgn0000251_3 FBgn0003448_3 twi OTF0532.1 OTF0478.1 OTF0181.1 #Med dl"
+TF_NAMES=bcd  hb  kni gt D Kr            tll hkb cad            sna           twi zen       Doc2      rho/pnt   #med dl"
 MATCH_DIM=0.7
 
 
@@ -28,6 +28,9 @@ analysis/targets/%/aligned.needleall.svg: analysis/targets/%/aligned.needleall a
 		--bed-track Reference/bdtnp_dnase_2_prepend.bed \
 		--coordinates-bed analysis/targets/$*/mel.bed \
 		$(@D)
+
+analysis/targets/%_melsim.svg: analysis/targets/%/aligned.needleall.svg
+	cp $< $@
 
 analysis/targets/%/melyak.needleall.svg: analysis/targets/%/melyak.needleall analysis/targets/%/mel/fimo.txt analysis/targets/%/yak/fimo.txt analysis/targets/%/melyak.fasta PatserAlignToSVG.py
 	python PatserAlignToSVG.py -v -X 100 \
@@ -116,7 +119,7 @@ analysis/targets/%/melyak.needleall: analysis/targets/%/mel.fasta analysis/targe
 		-outfile $@
 
 analysis/targets/%/mel.bed: | analysis/targets/%/
-	module load bedtools && \
+	module load bedtools bioawk && \
 		grep '"$*"' Reference/mel_r5_good.gtf \
 		| bedtools sort \
 		| bedtools merge  \
