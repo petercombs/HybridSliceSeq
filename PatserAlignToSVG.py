@@ -439,7 +439,8 @@ if __name__ == "__main__":
     prog = 0
     lines = []
     tf_changes = {}
-    for ((n1, pos1), (n2, pos2)) in sorted(alignments):
+    for ((n1, pos1), (n2, pos2)) in sorted(alignments,
+                                           key=lambda x: (x[0][0], x[1][0])):
         if args.show_alignment:
             y_start = draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start)
 
