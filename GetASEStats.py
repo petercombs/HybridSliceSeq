@@ -98,7 +98,8 @@ if __name__ == "__main__":
     ase = ase.ix[in_both]
     expr = expr.ix[in_both]
 
-    chrom_of = Utils.get_chroms()
+    syns = Utils.get_synonyms()
+    chrom_of = Utils.get_chroms(syns)
 
     males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
     on_x = [chrom_of[gene] == 'X' for gene in ase.index]
@@ -197,8 +198,10 @@ if __name__ == "__main__":
     logist_fd = np.fromfile('analysis/results/fd_logist.numpy')
     data['fd_peak'] = sum(peak_fd > .5)
     data['frac_fdr_peak'] = sum(peak_fd > .5) / len(peak_fd)
+    data['frac_max_fdr_peak'] = 1 / len(peak_fd)
     data['fd_logist'] = sum(logist_fd > .5)
     data['frac_fdr_logist'] = sum(logist_fd > .5) / len(logist_fd)
+    data['frac_max_fdr_logist'] = 1 / len(logist_fd)
 
     hb_bind_data = {line.strip()
                     for line in open('analysis/results/hb_wt_emd_0.1.txt')
