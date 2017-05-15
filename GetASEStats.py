@@ -1,9 +1,11 @@
+from __future__ import print_function
 import numpy as np
 import pandas as pd
 from collections import Counter
 from numpy import isfinite, int64, int32, int16, int8, sign, abs, nan
 from scipy.stats import ttest_1samp
 import Utils
+import Utils as ut
 import PlotUtils as pu
 from Utils import startswith, fbgns, pd_kwargs
 import HybridUtils as hu
@@ -69,10 +71,11 @@ plot_kwargs = {'box_height': 25,
 if __name__ == "__main__":
     if 'ase' not in locals() or ('reload_ase' in locals() and locals()['reload_ase']):
         print("Reloading data")
-        ase = (pd.read_table('analysis_godot/ase_summary_by_read_with_wasp.tsv', **pd_kwargs)
+        ase = (pd.read_table('analysis_godot/ase_summary_by_read.tsv', **pd_kwargs)
                .dropna(how='all', axis=1)
                .select(**Utils.sel_startswith(('melXsim', 'simXmel')))
               )
+        all_ase = ase.copy()
         expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).dropna(how='all', axis=1)
         lott = pd.read_table('prereqs/journal.pbio.1000590.s002', index_col=0, keep_default_na=False, na_values=[''])
         reload_ase = False
@@ -148,8 +151,17 @@ if __name__ == "__main__":
     maternal = pd.Series(index=ase.index,
                          data=[all(bias_dirs.ix[gene] == (-1, 1)) for gene in
                                ase.index]
-                        )
+                       )
+    maternal_ttest = pd.Series(index=all_ase.index,
+                               data=1.0)
+    for gene in maternal_ttest.index:
+        if all_ase.ix[gene].count() > 10:
+            tstat, pval = ttest_1samp(all_ase.ix[gene] * parent_of_origin, 0,
+                                      nan_policy='omit')
+            maternal_ttest[gene] = pval# < 1e-1 / len(maternal_ttest)
 
+    print(*ut.true_index(maternal_ttest < (1e-2)), sep='\n',
+          file=open('analysis/results/strict_maternal_gene_names.txt', 'w'))
     paternal_mxs = pd.Series(index=ase_nomaleX.index, data=pd.np.nan)
     paternal_sxm = pd.Series(index=ase_nomaleX.index, data=pd.np.nan)
     samedir = pd.Series(index=ase_nomaleX.index, data=pd.np.nan)
