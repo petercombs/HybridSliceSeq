@@ -27,7 +27,8 @@ analysis/targets/%/aligned.needleall.svg: analysis/targets/%/aligned.needleall a
 		--needleall $(@D)/aligned.needleall \
 		--bed-track Reference/bdtnp_dnase_2_prepend.bed \
 		--coordinates-bed analysis/targets/$*/mel.bed \
-		$(@D)
+		$(@D) \
+		> $(@D)/melsim_bind_diff.txt
 
 analysis/targets/%_melsim.svg: analysis/targets/%/aligned.needleall.svg
 	cp $< $@
