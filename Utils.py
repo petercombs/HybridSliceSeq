@@ -48,10 +48,16 @@ def contains(string_or_iterable):
     else:
         return lambda x: any(i in x for i in string_or_iterable)
 
+def not_contains(string_or_iterable):
+    return lambda x: not contains(string_or_iterable)(x)
+
 def startswith(string_or_iterable):
     if not isinstance(string_or_iterable, str):
         string_or_iterable = tuple(string_or_iterable)
     return lambda x: x.startswith(string_or_iterable)
+
+def not_startswith(string_or_iterable):
+    return lambda x: not startswith(string_or_iterable)(x)
 
 def sel_contains(string_or_iterable):
     return dict(crit=contains(string_or_iterable), axis=1)
