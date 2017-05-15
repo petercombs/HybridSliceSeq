@@ -198,6 +198,27 @@ def get_nearest_slice(query, other_frame):
     other_xs = get_xs(other_frame)
     return abs(query - other_xs).idxmin()
 
+def get_coords(syns=None):
+    coord_of = {}
+    for fname in reversed(sorted(glob('prereqs/gene_map_table*.tsv'))):
+        for row in open(fname):
+            if row.startswith('#') or not row.strip():
+                continue
+            data = row.split()
+            try:
+                coord = int(data[-1].split(':')[1].split('..')[0])
+                if data[1] not in coord_of:
+                    coord_of[data[1]] = coord
+                if data[0] not in coord_of:
+                    coord_of[data[0]] = coord
+            except:
+                continue
+    if syns is not None:
+        for key in syns.index:
+            if key not in coord_of and syns[key] in coord_of:
+                coord_of[key] = coord_of[syns[key]]
+    return pd.Series(coord_of)
+
 
 def get_chroms(syns=None):
     chrom_of = {}
