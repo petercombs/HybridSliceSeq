@@ -23,7 +23,7 @@ oefemale_r2 = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_TGACAGAC_pf
 fbfemale_r2 = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_CGATGTTT_pf
 fbmale_r2   = sequence/150814_BRISCOE_0251_BC7LJDACXX_L1_TAGAACAC_pf
 
-QSUBBER_ARGS =  $(QSUBBER_LOCAL) --keep-temporary tmp --log-base $(basename $@)  --job-name $(basename $(@F))
+QSUBBER_ARGS =  $(QSUBBER_LOCAL) --sleep-random 10 --keep-temporary tmp --log-base $(basename $@)  --job-name $(basename $(@F))
 
 sequence/%:
 	wget -c -P sequence ftp://ftp.sra.ebi.ac.uk/vol1/fastq/$(call substr,$*,1,6)/$*/$*_1.fastq.gz
@@ -53,7 +53,7 @@ $(ANALYSIS_DIR)/on_sim/%_bowtie.bam: $(%) $(basename $(SIMFASTA2)).1.ebwt | $(AN
 $(ANALYSIS_DIR)/on_%_bowtie2_se.bam: $$(basename $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2)).1.bt2 $$($$(notdir $$*)) | $(ANALYSIS_DIR)
 	mkdir -p $(@D)
 	./qsubber --job-name $*_bowtie2 --queue batch --keep-temporary tmp -t 4 \
-		-l mem=2gb -l pmem=2gb --log-base $(basename $@) \
+		-l mem=8gb -l pmem=8gb --log-base $(basename $@) \
 	bowtie2 \
 		--very-sensitive \
 		-p 8 \
@@ -71,7 +71,7 @@ $(ANALYSIS_DIR)/on_%_bowtie2_se.bam: $$(basename $$($$(call uc,$$(subst /,,$$(di
 $(ANALYSIS_DIR)/on_%_bowtie2.bam: $$(basename $$($$(call uc,$$(subst /,,$$(dir $$*)))FASTA2)).1.bt2 $$($$(notdir $$*)) | $(ANALYSIS_DIR)
 	mkdir -p $(@D)
 	./qsubber --job-name $*_bowtie2 --queue batch --keep-temporary tmp -t 4 \
-		-l mem=2gb -l pmem=2gb --log-base $(basename $@) \
+		-l mem=8gb -l pmem=8gb --log-base $(basename $@) \
 	bowtie2 \
 		--very-sensitive-local \
 		-p 8 \
@@ -139,7 +139,7 @@ $(ANALYSIS_DIR)/on_%_raw_variants_uncalibrated.p.g.vcf: $$($$(subst /,,$$(call u
 
 $(ANALYSIS_DIR)/on_%_STAR_RNASEQ.bam: $$(@D)/masked/Genome $$($$(notdir $$*))
 	rm -rf $(basename $@)_tmp/
-	./qsubber  $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 \
+	./qsubber  $(QSUBBER_ARGS) --resource "mem=8gb" -t 4 \
 	STAR \
 		--parametersFiles $(STARCONFIG) \
 		--genomeDir $(dir $@)masked \
@@ -425,17 +425,17 @@ WASPMAP = $(HOME)/FWASP/mapping
 		\> $*_find_snps.log
 
 %.remap.bam: %.remap.fq1.gz %.remap.fq2.gz
-	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 --load-module STAR \
+	./qsubber $(QSUBBER_ARGS) --resource "mem=8gb" -t 4 --load-module STAR \
 		STAR --parametersFiles $(STARCONFIG) \
 		--genomeDir Reference/melsim --outFileNamePrefix $(@D)/ \
 		--outSAMattributes MD NH --clip5pNbases 6 \
 		--readFilesIn $^
-	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 --load-module samtools \
+	./qsubber $(QSUBBER_ARGS) --resource "mem=6gb" -t 4 --load-module samtools \
 	samtools view -bS -o $@ $(@D)/Aligned.out.sam
 	rm $(@D)/Aligned.out.sam
 
 %.remap.kept.bam: %.remap.bam %.to.remap.num.gz
-	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 1 \
+	./qsubber $(QSUBBER_ARGS) --resource "mem=8gb" -t 1 \
 	python2 $(WASPMAP)/filter_remapped_reads.py \
 		-p \
 		$*.to.remap.bam \
@@ -450,12 +450,12 @@ WASPMAP = $(HOME)/FWASP/mapping
 	samtools merge -f $@ $^
 
 %.sorted.bam: %.bam
-	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 \
+	./qsubber $(QSUBBER_ARGS) --resource "mem=8gb" -t 4 \
 	samtools sort $(SORT_OPTS) -@ 4 $< $*.sorted
 	samtools index $@
 
 %/mel_only.bam %/sim_only.bam: %/assigned_dmelR_wasp_dedup.sorted.bam
-	./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 \
+	./qsubber $(QSUBBER_ARGS) --resource "mem=8gb" -t 4 \
 	 python PartitionReads.py \
 		 --reference-species mel --alt-species sim \
 		 --paired \
