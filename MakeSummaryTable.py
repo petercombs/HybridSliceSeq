@@ -110,8 +110,10 @@ def get_expr_values(fname):
                               keep_default_na=False,
                               header=None if not args.header else 0)
     except Exception as err:
-        print(fname, file=sys.stderr)
+        print("Error on", fname, file=sys.stderr)
+        print("Error on", fname, file=sys.stdout)
         sys.stderr.flush()
+        sys.stdout.flush()
         raise err
     alldir, fname = path.split(fname)
     if args.in_subdirectory:
@@ -131,6 +133,13 @@ def get_expr_values(fname):
             .drop(labels=['ORIENTATION'], axis=1, errors='ignore')
              .dropna(axis=1, how='all')
              .dropna(axis=0, how='any'))
+    if args.key not in table.index and args.key not in table.columns:
+        print("Error on", old_dirname, fname, file=sys.stderr)
+        print("Error on", old_dirname, fname, file=sys.stdout)
+        print(table, file=sys.stderr)
+        sys.stderr.flush()
+        sys.stdout.flush()
+        return (None, None)
     table.set_index(args.key, inplace=True, verify_integrity=True)
     if args.has_params and dirname not in params.index:
         return (None, None)
