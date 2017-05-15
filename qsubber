@@ -154,7 +154,14 @@ else:
     id = output.decode().split('.')[0]
     print("ID: '''{}'''".format(id))
     while check_job(id) != 'C':
-        sleep(5)
+        try:
+            sleep(5)
+        except KeyboardInterrupt:
+            print("Killing", id)
+            proc = sp.Popen(['qdel', str(id)],)
+            proc.wait()
+            exit(9)
+
     status = 0
 
 sf = open(scriptfile.name)
