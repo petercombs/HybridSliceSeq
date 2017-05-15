@@ -479,3 +479,50 @@ WASPMAP = $(HOME)/FWASP/mapping
 		$<
 
 
+%/sign_test.tsv: %/melsim_gene_ase_by_read.tsv $(ANALYSIS_DIR)/redo_sign_test
+	./qsubber $(QSUBBER_ARGS)_$(*F) \
+	python sign_test.py \
+		--drop-genes analysis/results/strict_maternal_gene_names.txt \
+		--print-header \
+		--print-counts \
+		--min-genes 10 \
+		$< \
+		Reference/mel_goterms.gmt \
+		$@ \
+		200
+
+$(ANALYSIS_DIR)/redo_sign_test:
+	touch $@
+
+
+
+$(ANALYSIS_DIR)/sign_test_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,sign_test.tsv,$$(FPKMS)) $(ANALYSIS_DIR)/map_stats.tsv
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
+	python MakeSummaryTable.py \
+			--params Parameters/RunConfig.cfg \
+			--filename sign_test.tsv \
+			--column "pval" \
+			--strip-low-reads 3000000 \
+			--strip-on-unique \
+			--strip-as-nan \
+			--map-stats $(ANALYSIS_DIR)/map_stats.tsv \
+			--key "category" \
+			--out-basename sign_test_summary \
+			--float-format "%0.18g" \
+			$(ANALYSIS_DIR)
+
+
+$(ANALYSIS_DIR)/sign_test_or_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,sign_test.tsv,$$(FPKMS)) $(ANALYSIS_DIR)/map_stats.tsv
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
+	python MakeSummaryTable.py \
+			--params Parameters/RunConfig.cfg \
+			--filename sign_test.tsv \
+			--column "oddsratio" \
+			--strip-low-reads 3000000 \
+			--strip-on-unique \
+			--strip-as-nan \
+			--map-stats $(ANALYSIS_DIR)/map_stats.tsv \
+			--key "category" \
+			--out-basename sign_test_or_summary \
+			--float-format "%0.18g" \
+			$(ANALYSIS_DIR)
