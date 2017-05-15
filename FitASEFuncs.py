@@ -13,6 +13,7 @@ import inspect
 from progressbar import ProgressBar
 import PlotUtils as pu
 from matplotlib import cm
+import Utils as ut
 
 def logistic(x, A, k, x0, y0):
     return A/(1+exp(k*(x-x0))) - y0
@@ -47,9 +48,15 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
         else:
             amp = neg_amp
         p0 = [amp, 20, xs.mean(), ys.median()]
+    w_min = 1
+    w_max = inf
+    x0_min = -0.1
+    x0_max = 1.1
     if func == peak:
         w_min = 0.15
         w_max = 0.6
+        x0_min = 0.0
+        x0_max = 1.0
         p0[1] = 0.4
         if (ys.max() - ys.median()) < (ys.median() - ys.min()):
             p0[0] = ys.median() - ys.min()
@@ -57,8 +64,7 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
         else:
             p0[2] = xs[ys.argmax()]
     else:
-        w_min = 1
-        w_max = inf
+        pass
     try:
         if print_error:
             print(p0)
@@ -66,8 +72,8 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
                          xs[keep],
                          ys[keep],
                          p0,
-                         bounds=[[-2, w_min, -0.1, -1],
-                                 [2, w_max, 1.1, 1]],
+                         bounds=[[-2, w_min, x0_min, -1],
+                                 [2, w_max, x0_max, 1]],
                         )[0]
     except (ValueError, RuntimeError) as err:
         if print_error:
@@ -218,7 +224,7 @@ if __name__ == "__main__":
     kwargs = dict(
         progress_bar=False,
         col_sep='_sl',
-        total_width=200,
+        total_width=150,
         box_height=25,
         split_columns=True,
         draw_box=True,
@@ -259,6 +265,17 @@ if __name__ == "__main__":
                    cmap=cm.RdBu,
                    **kwargs)
 
+    pu.svg_heatmap(ase.ix[r2_logist_genes].select(**ut.sel_contains('rep1')),
+                   'analysis/results/logist_ase_r1.svg',
+                   norm_rows_by='center0pre',
+                   cmap=cm.RdBu,
+                   **kwargs)
+
+    pu.svg_heatmap(ase.ix[r2_peak_genes].select(**ut.sel_contains('rep1')),
+                   'analysis/results/peak_ase_r1.svg',
+                   norm_rows_by='center0pre',
+                   cmap=cm.RdBu,
+                   **kwargs)
     pu.svg_heatmap(expr.ix[r2_logist_genes].select(**sel_startswith(('melXsim',
                                                                     'simXmel'))),
                    'analysis/results/logist_expr_hyb.svg',
