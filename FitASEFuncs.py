@@ -138,6 +138,12 @@ def calculate_variance_explained(ase, xs, func, params):
     return r2
 
 
+overlap_genes = ['CG43355',  # with sala
+                 'CG45087',  # with Pepck
+                 'CG30080',  # with CG42662
+                ]
+# Genes with significantly overlapping exons, but different CDSes. Called
+# manually based on identical ASE for the genes.
 if __name__ == "__main__":
     expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).drop('---', axis=1)
     ase = (pd
@@ -146,6 +152,7 @@ if __name__ == "__main__":
                        )
            .dropna(how='all', axis=1)
            .dropna(how='all', axis=0)
+           .drop(overlap_genes)
            .select(**sel_startswith(('melXsim', 'simXmel')))
           )
     ase_perm = pd.DataFrame(
