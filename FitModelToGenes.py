@@ -3,6 +3,7 @@ import PointClouds as pc
 #from sklearn.linear_model import logistic
 from statsmodels.api import Logit
 import PlotUtils as pu
+import matplotlib as mplbase
 from matplotlib import pyplot as mpl
 from matplotlib.path import Path
 from matplotlib.patches import PathPatch
@@ -18,6 +19,7 @@ from sys import argv
 from os import path
 import Utils as ut
 from argparse import ArgumentParser
+from re import sub
 
 
 #target_gene = 'hb'
@@ -240,6 +242,31 @@ def plot_virtual_ase_slices(model, changes, atlas, new_figure=True, n_slices=25,
     ax.set_xticks([])
     ax.set_yticks([])
     return denoms, virtualslices
+
+def plot_both(model, changes, atlas, n_slices=27, fitter=None, denom_cutoff=5,
+              xlims=None, ylims=None):
+    mpl.figure()
+    ax1 = mpl.subplot2grid((3,1), (0,0), 2, 1)
+    plot_changes(model, changes, atlas.ix[atlas.in_central], xlims=xlims,
+                 ylims=ylims, new_figure=False)
+    ax2 = mpl.subplot2grid((3,1), (2,0), 2, 1)
+    plot_virtual_ase_slices(model, changes, atlas.ix[atlas.in_central],
+                            fitter=fitter,
+                            new_figure=False, n_slices=n_slices, denom_cutoff=denom_cutoff)
+    ax2.set_frame_on(False)
+    mpl.tight_layout()
+    mpl.ioff()
+    mpl.draw()
+    mpl.show()
+    mpl.ion()
+    mpl.draw_if_interactive()
+    mpl.show()
+    bbox1_pts = ax1.get_position().get_points()
+    bbox2_pts = ax2.get_position().get_points()
+    bbox2_pts[:, 0] = bbox1_pts[:, 0]
+    ax1.set_position(Bbox(bbox1_pts))
+    ax2.set_position(Bbox(bbox2_pts))
+    return ax1, ax2
 
 
 class Predictor():
@@ -552,31 +579,11 @@ if __name__ == "__main__":
               ):
         mpl.cm.RdBu.set_bad((0.5, 0.5, 0.5))
         mpl.cm.RdBu_r.set_bad((0.5, 0.5, 0.5))
-        fig = mpl.figure()
-        ax1 = mpl.subplot2grid((3,1), (0,0), 2, 1)
-        plot_changes(best_model, {tf: changes[tf]}, small_atlas.ix[small_atlas.in_central], xlims=xlims,
-                     ylims=ylims, new_figure=False)
-        ax2 = mpl.subplot2grid((3,1), (2,0), 2, 1)
-        plot_virtual_ase_slices(best_model, {tf: changes[tf]}, small_atlas.ix[small_atlas.in_central],
-                     new_figure=False, n_slices=27, denom_cutoff=-n_good)
-        ax2.set_frame_on(False)
-        mpl.tight_layout()
-        mpl.ioff()
-        mpl.draw()
-        mpl.show()
-        mpl.ion()
-        mpl.draw_if_interactive()
-        mpl.show()
-        mpl.savefig(path.join(dir, 'analysis/results/model_tweak/{}_{}'
-                    .format(target_gene, tf)))
-        bbox1_pts = ax1.get_position().get_points()
-        bbox2_pts = ax2.get_position().get_points()
-        bbox2_pts[:, 0] = bbox1_pts[:, 0]
-        ax1.set_position(Bbox(bbox1_pts))
-        ax2.set_position(Bbox(bbox2_pts))
+        ax1, ax2 = plot_both(best_model, {tf: changes[tf]},
+                             small_atlas, xlims=xlims, ylims=ylims,
+                             denom_cutoff=0)
 
 
-        #mpl.tight_layout()
         mpl.savefig(path.join(dir, 'analysis/results/model_tweak/{}_{}'
                     .format(target_gene, tf)))
         setcolor.set_backgroundcolor(ax1, 'k')
