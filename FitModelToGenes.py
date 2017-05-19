@@ -80,7 +80,9 @@ all_changes = {
 
     },
     'bmm':{
-
+        'D': 0.5, 'cad': .5,
+        'sna': 0.5,
+        'Kr': 2.0, 'hb': 2.0, 'kni':2.0,
     },
     'CG8147':{
         'twi': 0.5, 'hkb': 2.0, 'Kr':2.0, 'D': 2.0,
@@ -597,6 +599,89 @@ if __name__ == "__main__":
                         denom_cutoff='adaptive'
                        )[0]
              )
+
+
+    if args.find_best_tweaks:
+        tweaked = {}
+        for tf in pbar()(changes):
+            deltas, corrs, r2s = compare_ase_range(
+                ase, best_model,
+                [tf],
+                small_atlas.ix[small_atlas.in_central],
+                denom_cutoff=0,
+                num_points=51,
+                range_low=.05,
+                range_high=20,
+            )
+            if tf == 'bcdP2':
+                tf = 'bcd$^2$'
+            elif tf == 'bcdP':
+                tf = 'bcd'
+            tweaked[tf] = deltas, corrs, r2s
+
+        if 'bcdP' in best_model.params and 'bcdP2' in best_model.params:
+            deltas, corrs, r2s = compare_ase_range(
+                ase, best_model,
+                ['bcdP', 'bcdP2'],
+                small_atlas.ix[small_atlas.in_central],
+                denom_cutoff=0,
+                num_points=51,
+                range_low=.05,
+                range_high=20,
+            )
+            tweaked['bcd + bcd$^2$'] = deltas, corrs, r2s
+
+        corrfig = mpl.figure(figsize=(16, 6))
+        ax1 = mpl.subplot(1, 2, 1)
+        ax2 = mpl.subplot(1, 2, 2)
+        kwargs =(
+            mplbase.cycler('linestyle', ['-', '--', '-.', ':'])
+            *mplbase.cycler('color', ['b', 'g', 'r', 'c', 'm', 'y', 'k'])
+        )
+        for (tf, (deltas, corrs, r2s)), kwarg in zip(sorted(tweaked.items()),
+                                                     kwargs):
+            print(kwarg)
+            ax1.semilogx(deltas, corrs, basex=2, label=tf, **kwarg)
+            ax2.semilogx(deltas, r2s.clip(-0.1, 1)*100, basex=2, label=tf,
+                         **kwarg)
+            try:
+                best_corr = deltas[np.nanargmax(corrs)]
+                best_r2 = deltas[np.nanargmax(r2s)]
+                if tf == 'bcd':
+                    tfchange = {'bcdP': best_corr}
+                elif tf == 'bcd$^2$':
+                    tfchange = {'bcdP2': best_corr}
+                elif tf == 'bcd + bcd$^2$':
+                    tfchange = {'bcdP': best_corr, 'bcdP2': best_corr}
+                else:
+                    tfchange = {tf: best_corr}
+
+                plot_both(best_model, tfchange, small_atlas,
+                          denom_cutoff = 0, xlims=xlims, ylims=ylims)
+                mpl.savefig('{}/analysis/results/model_tweak/paramsearch/{}_corr_{}'
+                        .format(dir, target_gene, sub('[\^\$ \+]', '', tf)))
+                mpl.close()
+                for a in tfchange:
+                    tfchange[a] = best_r2
+                plot_both(best_model, tfchange, small_atlas,
+                          denom_cutoff = 0, xlims=xlims, ylims=ylims)
+                mpl.savefig('{}/analysis/results/model_tweak/paramsearch/{}_varexp_{}'
+                        .format(dir, target_gene, sub('[\^\$ \+]', '', tf)))
+                mpl.close()
+
+            except ValueError:
+                pass
+        ax1.legend(loc='lower right')
+        ax1.vlines(1, -1, 1)
+        ax2.vlines(1, *ax2.get_ybound())
+        ax1.set_xlabel('TF Binding Strength Multiplier')
+        ax2.set_xlabel('TF Binding Strength Multiplier')
+        ax1.set_ylabel('Correlation with ASE')
+        ax2.set_ylabel('Percent Variance Explained')
+        corrfig.savefig('{}/analysis/results/model_tweak/paramsearch/{}_param_search.png'
+                    .format(dir, target_gene))
+
+
 
 
 
