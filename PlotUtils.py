@@ -305,9 +305,9 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
 
     if row_labels is None:
         if index is not None:
-            row_labels = index
+            row_labels = list(index)
         elif hasattr(data[0], 'index'):
-            row_labels = data[0].index
+            row_labels = list(data[0].index)
         else:
             row_labels = ['' for row in range(rows)]
 
