@@ -135,6 +135,7 @@ kwargs_heatmap = dict(
 
 kwargs_ase_heatmap = kwargs_heatmap.copy()
 kwargs_ase_heatmap['cmap'] = cm.RdBu
+kwargs_ase_heatmap['cmap'].set_bad((.5, .5, .5))
 kwargs_ase_heatmap['norm_rows_by'] = 'center0pre'
 
 kwargs_expr_heatmap = kwargs_heatmap.copy()
