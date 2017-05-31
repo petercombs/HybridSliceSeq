@@ -45,7 +45,7 @@ if __name__ == "__main__":
     distro_sims = []
 
     target_regions = {
-        'kr_ant_bg': ('Kr', (0.33, 0.44)),
+        'Kr_ant_bg': ('Kr', (0.33, 0.44)),
         'Kr_central': ('Kr', (0.55, 0.72)),
         'Kr_post_bg': ('Kr', (0.74, 0.85)),
         'hb_ant_tip': ('hb', (0, .10)),
