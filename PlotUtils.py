@@ -161,6 +161,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 split_columns=False,
                 vspacer=30,
                 hatch_nan=True, hatch_size=20,
+                figure_title=None,
                 nan_replace=None,
                 first_col='', last_col=''):
     """
@@ -278,6 +279,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                                 + (num_plotted_rows
                                    * (rows)
                                    * box_height)
+                                + 80 * (figure_title is not None)
                                 + 80 * draw_name
                                 + (num_plotted_rows - 1) * vspacer))
     elif total_width is not None:
@@ -285,7 +287,8 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
         height = rows * box_height
         dwg = svg.Drawing(filename,
                           size=(width + 2 * x_min + 200 * draw_row_labels,
-                                height + 2 * y_min + 80 * draw_name)
+                                height + 2 * y_min + 80 * draw_name
+                                + (80 * (figure_title is not None)))
                          )
     else:
         dwg = svg.Drawing(filename)
@@ -348,6 +351,10 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
     y_diff = 0
     iterator = zip(data, cmap, data_names, norm_rows_by, spacers,
                    colname_tuple)
+    if figure_title:
+        dwg.add(dwg.text(figure_title, (x_start, y_start+60,),
+                         style="font-size:1.5em"))
+        y_start += 80
     if progress_bar:
         from progressbar import ProgressBar
         pbar = ProgressBar(maxval=len(data)*rows).start()
