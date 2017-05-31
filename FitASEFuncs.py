@@ -14,6 +14,7 @@ from progressbar import ProgressBar
 import PlotUtils as pu
 from matplotlib import cm
 import Utils as ut
+import matplotlib.pyplot as mpl
 
 def logistic(x, A, k, x0, y0):
     return A/(1+exp(k*(x-x0))) - y0
@@ -313,6 +314,28 @@ if __name__ == "__main__":
             best_r2[gene] = r2_logist[gene]
 
     best_r2.to_csv('analysis/results/svase_best', sep='\t')
+
+    mpl.figure(figsize=(2, len(r2_logist_genes)))
+    for i, gene in enumerate(r2_logist_genes):
+        mpl.subplot(len(r2_logist_genes), 1, i+1)
+        mpl.plot(sorted(xs), logistic(sorted(xs), *res_logist.ix[gene]),
+             'g-', linewidth=3)
+        mpl.yticks([])
+        mpl.xticks([])
+        mpl.xlim(0, 1)
+    mpl.tight_layout(pad=0, h_pad=0, w_pad=0)
+    mpl.savefig('analysis/results/logist_fits')
+
+    mpl.figure(figsize=(2, len(r2_peak_genes)))
+    for i, gene in enumerate(r2_peak_genes):
+        mpl.subplot(len(r2_peak_genes), 1, i+1)
+        mpl.plot(sorted(xs), peak(sorted(xs), *res_peak.ix[gene]),
+             'g-', linewidth=3)
+        mpl.yticks([])
+        mpl.xticks([])
+        mpl.xlim(0, 1)
+    mpl.tight_layout(pad=0, h_pad=0, w_pad=0)
+    mpl.savefig('analysis/results/peak_fits')
 
     if locals().get('print_kegg', False):
         synonyms = get_synonyms()
