@@ -37,9 +37,10 @@ if __name__ == "__main__":
     parental_xs = ut.get_xs(parental)
 
     kwargs = pu.kwargs_expr_heatmap.copy()
+    kwargs['progress_bar'] = False
+    kwargs_with_labels = pu.kwargs_expr_heatmap.copy()
     kwargs['draw_row_labels'] = False
     kwargs['box_height'] = 1
-    kwargs['progress_bar'] = False
 
     distro_mels = []
     distro_sims = []
@@ -119,6 +120,21 @@ if __name__ == "__main__":
          .to_csv('analysis/results/{}_melsim_change.tsv'.format(region_name), sep='\t')
         )
 
+        pu.svg_heatmap(
+            expr
+            .ix[ut.true_index((mel_in_region - sim_in_region) > cutoff)]
+            .select(**ut.sel_startswith(('melXmel', 'simXsim'))),
+            'analysis/results/{}_mel_higher.svg'.format(region_name),
+            **kwargs_with_labels
+        )
+        pu.svg_heatmap(
+            expr
+            .ix[ut.true_index((mel_in_region - sim_in_region) < -cutoff)]
+            .select(**ut.sel_startswith(('melXmel', 'simXsim'))),
+            'analysis/results/{}_sim_higher.svg'.format(region_name),
+            **kwargs_with_labels
+        )
+
     x_range = np.arange(0, 1, .05)
     if HAS_MPL:
         print("Violinning")
@@ -133,9 +149,9 @@ if __name__ == "__main__":
 
         tfs = [region_name.split('_')[0] for region_name in target_regions]
         for tf in tfs:
-            fig1 = mpl.figure()
+            fig1 = mpl.figure(figsize=(8, 6))
             ax1 = mpl.gca()
-            fig2 = mpl.figure()
+            fig2 = mpl.figure(figsize=(8, 6))
             ax2 = mpl.gca()
             for nmeg, dm, ds, region_name in zip(
                 nmegs, distro_mels, distro_sims, target_regions,
@@ -151,6 +167,7 @@ if __name__ == "__main__":
                 ax1.semilogy(100*x_range,
                              [sum(region_diffs > i)/ sum(region_diffs < -i)
                               for i in x_range],
+                             linewidth=4,
                              label='{:0.0%} - {:0.0%}'.format( *region), basey=2)
                 ax2.semilogy(100*x_range,
                              [
@@ -164,8 +181,10 @@ if __name__ == "__main__":
                                                  )
                                  for i in x_range
                              ],
+                             linewidth=4,
                              label='{:0.0%} - {:0.0%}'.format( *region),
                              basey=10)
+            ax2.invert_yaxis()
             ax1.legend(loc='upper left')
             ax1.hlines(1, 0, 100)
             ax1.set_ylabel(r'$\#(\Delta > x) \div \#(\Delta < -x)$')
