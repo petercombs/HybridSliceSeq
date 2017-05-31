@@ -333,10 +333,10 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
 
     if ((isinstance(norm_rows_by, repeat)
          and isinstance(next(norm_rows_by), str)
-         and next(norm_rows_by) == 'center0all')
+         and next(norm_rows_by).startswith('center0all'))
         or (not isinstance(norm_rows_by, repeat)
             and isinstance(norm_rows_by[0], str)
-            and 'center0all' in norm_rows_by)):
+            and np.any([i.startswith('center0all') for i in norm_rows_by]))):
         all_data = pd.concat(data, axis=1)
 
     if squeeze_rows is not None:
@@ -418,6 +418,20 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                          0.5 * frame.divide(frame.dropna(axis=1).abs().max(axis=1),
                                       axis=0)
                         )
+        elif isinstance(normer, str) and normer.startswith('center0min'):
+            min_norm = (
+                frame.dropna(axis=1).abs() .max(axis=1).clip(float(normer[10:]), 1e6)
+            )
+            norm_data = array(0.5+
+                              0.5 * frame.divide(min_norm, axis=0))
+
+        elif isinstance(normer, str) and normer.startswith('center0allmin'):
+            min_norm = (
+                all_data.dropna(axis=1).abs() .max(axis=1).clip(float(normer[13:]), 1e6)
+            )
+            norm_data = array(0.5+
+                              0.5 * frame.divide(min_norm, axis=0))
+
         elif normer == 'center0all':
             norm_data = array(0.5 +
                          0.5 *
@@ -426,6 +440,9 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                         )
         elif normer == 'center0pre':
             norm_data = array(0.5 + 0.5 * frame)
+        elif isinstance(normer, (int, float)):
+            norm_data = array(frame / normer)
+            normer = 'constant'
         elif index is not None and hasattr(normer, "ix"):
             norm_data = array(frame.divide(normer.ix[index], axis=0))
         elif hasattr(normer, "__len__") and len(normer) == rows:
