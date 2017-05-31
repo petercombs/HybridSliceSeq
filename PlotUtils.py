@@ -5,6 +5,7 @@ try:
     from matplotlib.colors import hsv_to_rgb, LinearSegmentedColormap
     from matplotlib import cm
     from matplotlib import pyplot as mpl
+    import pandas as pd
 except:
     import tempfile
     import atexit
@@ -670,3 +671,49 @@ def minimize_ink(axes):
     axes.spines['top'].set_color('none')
     axes.yaxis.set_ticks_position('left')
     axes.xaxis.set_ticks_position('bottom')
+
+
+def plot_coordinates(chroms, coords, **kwargs):
+    offsets = pd.Series({
+        '2L': 23011544,
+        '2R': 0,
+        '3L': 24543557,
+        '3R': 0,
+        '4': 0,
+        'X': 0
+    })
+    chrom_lens = {
+        "YHet"                       :347038,
+        "2RHet"                      :3288761,
+        "2LHet"                     :368872,
+        "3LHet"                      :2555491,
+        "3RHet"                      :2517507,
+        "U"                          :10049037,
+        "XHet"                       :204112,
+        "dmel_mitochondrion_genome"  :19517,
+        "2L"                         :23011544,
+        "X"                          :22422827,
+        "3L"                         :24543557,
+        "4"                          :1351857,
+        "2R"                         :21146708,
+        "3R"                         :27905053,
+        "Uextra"                     :29004656,
+    }
+
+    chrom_y_coords = pd.Series({
+        '2L': 1,
+        '2R': 1,
+        '3L': 2,
+        '3R': 2,
+        '4': 3,
+        'X': 4,
+    })
+
+    for chrom in chrom_y_coords.index:
+        mpl.hlines(chrom_y_coords[chrom], chrom_lens[chrom] - offsets[chrom],
+                   -offsets[chrom])
+    return mpl.scatter(
+        coords - pd.Series(index=chroms.index, data=offsets[chroms].as_matrix()),
+        chrom_y_coords[chroms],
+        **kwargs
+    )
