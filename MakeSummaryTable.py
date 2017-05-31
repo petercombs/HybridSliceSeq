@@ -93,16 +93,7 @@ def parse_args():
     return args
 
 
-def get_stagenum(name, series, dir):
-    if not [c for c in name if c.isdigit()]:
-        return 0
-    # Slice until the first digit
-    name_base = name[:[i for i, c in enumerate(name) if c.isdigit()][0]]
-    dir = {'+': 1, '?': 1, '-': -1}[dir]
-    return (sorted(ix for ix in series if ix.startswith(name_base))[::dir]
-            .index(name)) + 1
-
-
+from GetMapStats import get_stagenum
 
 def get_expr_values(fname):
     try:
