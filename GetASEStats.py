@@ -4,7 +4,6 @@ import pandas as pd
 from collections import Counter
 from numpy import isfinite, int64, int32, int16, int8, sign, abs, nan
 from scipy.stats import ttest_1samp
-import Utils
 import Utils as ut
 import PlotUtils as pu
 from Utils import startswith, fbgns, pd_kwargs
@@ -49,7 +48,7 @@ def get_class(gene, ase, subset='', slices_with_expr=None, expr=None):
 
 
 
-
+lott_sort = lambda x: (int(x[1:3]), x[3:])
 
 
 EXPR_MIN = 10
@@ -73,14 +72,18 @@ if __name__ == "__main__":
         print("Reloading data")
         ase = (pd.read_table('analysis_godot/ase_summary_by_read.tsv', **pd_kwargs)
                .dropna(how='all', axis=1)
-               .select(**Utils.sel_startswith(('melXsim', 'simXmel')))
+               .select(**ut.sel_startswith(('melXsim', 'simXmel')))
               )
         all_ase = ase.copy()
         expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).dropna(how='all', axis=1)
         lott = pd.read_table('prereqs/journal.pbio.1000590.s002', index_col=0, keep_default_na=False, na_values=[''])
+        lott_expr = (lott
+                     .ix[:, sorted(lott.columns[5:29], key=lott_sort)]
+                     .rename_axis(axis=1, mapper=lambda x: 'lott_sl'+x)
+                    )
         reload_ase = False
         to_gn = pd.read_table('prereqs/gene_map_table_fb_2016_01.tsv', index_col=1, skiprows=4).ix[:,0]
-        to_fbgn = Utils.get_synonyms()
+        to_fbgn = ut.get_synonyms()
 
         classes = pd.DataFrame(index=ase.index, columns=['melXsim', 'simXmel'], data=pd.np.nan)
         for ix in ProgressBar()(classes.index):
@@ -101,14 +104,15 @@ if __name__ == "__main__":
     ase = ase.ix[in_both]
     expr = expr.ix[in_both]
 
-    syns = Utils.get_synonyms()
-    chrom_of = Utils.get_chroms(syns)
+    syns = ut.get_synonyms()
+    chrom_of = ut.get_chroms(syns)
 
     males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
     on_x = [chrom_of[gene] == 'X' for gene in ase.index]
     is_male = [col.startswith(males) for col in ase.columns]
     ase_nomaleX = ase.copy()
     ase_nomaleX.ix[on_x, is_male] = pd.np.nan
+    ase = ase_nomaleX
 
 
     # Mutliplying your ASE values by parent of origin should make it so that
@@ -152,6 +156,12 @@ if __name__ == "__main__":
                          data=[all(bias_dirs.ix[gene] == (-1, 1)) for gene in
                                ase.index]
                        )
+    zygotic = pd.Series(index=ase.index,
+                         data=[all(bias_dirs.ix[gene] == (0, 0)) for gene in
+                               ase.index]
+                       )
+
+
     maternal_ttest = pd.Series(index=all_ase.index,
                                data=1.0)
     for gene in maternal_ttest.index:
@@ -196,9 +206,11 @@ if __name__ == "__main__":
     data['lott_maternal_agree'] = sum(has_ase_lott*maternal.ix[has_ase_lott.index])
 
     me_mat_lott_zyg = set(lott[lott.CLASS == 'zyg'].index).intersection(maternal[maternal].index)
-    data['lott_disagree'] = len(me_mat_lott_zyg)
-    pu.svg_heatmap(ase.ix[me_mat_lott_zyg], 'analysis/results/me_mat_lott_zyg.svg',
-                   norm_rows_by='center0pre', cmap=cm.RdBu,  **plot_kwargs)
+    me_zyg_lott_mat = set(lott[lott.CLASS == 'mat'].index).intersection(ut.true_index(zygotic))
+    data['lott_disagreeT1'] = len(me_mat_lott_zyg)
+    data['lott_disagreeT2'] = len(me_zyg_lott_mat)
+    pu.svg_heatmap((ase.ix[me_mat_lott_zyg], lott_expr.ix[me_mat_lott_zyg]), 'analysis/results/me_mat_lott_zyg.svg',
+                   norm_rows_by=('center0pre', 'max'), cmap=(cm.RdBu, cm.viridis),  **plot_kwargs)
 
     peak_genes = [line.strip() for line in open('analysis/results/peak_genes.txt')]
     logist_genes = [line.strip() for line in open('analysis/results/logist_genes.txt')]
