@@ -550,3 +550,7 @@ Reference/tss_r5: Reference/dmel_R5.gtf
 	ln -f -s subset$(notdir $*)M/ $(@D)
 	./qsubber --job-name $(notdir $(*D))_subset$(notdir $*) --keep-temporary tmp -t 1 --log-base $(basename $@) \
 	python ./SubSample.py $(dir $*)/assigned_dmelR_wasp_dedup.sorted.bam $(notdir $*)
+
+
+%/velvetant.tsv: %/assigned_dmelR_wasp_dedup.sorted.bam %/assigned_dmelR_wasp_dedup.sorted.bam.bai VelvetAnt.py
+	python VelvetAnt.py -x --snps-bed analysis_godot/on_melr5/melsim_variant.bed --splicing-clusters analysis/VelvetAnt/all_juncs_perind.counts.gz -o $@ $<
