@@ -68,6 +68,8 @@ def parse_args():
             help="Floating point format string")
     parser.add_argument('--make-geo', default=False, action='store_true',
             help="Create a makefile to easily package files for GEO submission")
+    parser.add_argument('--skip-bad', default=False, action='store_true',
+                        help="Try to skip files with no readable data")
     parser.add_argument('basedir',
                         help='The directory containing directories, which '
                         'contain genes.fpkm_tracking files')
@@ -105,7 +107,10 @@ def get_expr_values(fname):
         print("Error on", fname, file=sys.stdout)
         sys.stderr.flush()
         sys.stdout.flush()
-        raise err
+        if args.skip_bad:
+            return (None, None)
+        else:
+            raise err
     alldir, fname = path.split(fname)
     if args.in_subdirectory:
         alldir = (alldir.replace(args.in_subdirectory, '')
