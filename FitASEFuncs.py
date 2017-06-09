@@ -145,15 +145,39 @@ overlap_genes = ['CG43355',  # with sala
                 ]
 # Genes with significantly overlapping exons, but different CDSes. Called
 # manually based on identical ASE for the genes.
+
+males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
+
+def parse_args():
+    from argparse import ArgumentParser
+
+    parser = ArgumentParser()
+    parser.add_argument('--expression-file', '-x',
+                        default='analysis_godot/summary.tsv')
+    parser.add_argument('--ase-file', '-a',
+                        default='analysis_godot/ase_summary_by_read.tsv')
+    parser.add_argument('--prefix', '-p', default='')
+    parser.add_argument('--suffix', '-s', default='')
+    parser.add_argument('--overlapping-genes', default=overlap_genes, nargs='*')
+    parser.add_argument('--male-samples', default=males, nargs='+')
+    parser.add_argument('--print-keggs', default=False, action='store_true')
+    parser.add_argument('--cutoff-r2', default=0.45, type=float)
+    args = parser.parse_args()
+    args.male_samples = tuple(args.male_samples)
+    return args
+
+
+
 if __name__ == "__main__":
-    expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).drop('---', axis=1)
+    args = parse_args()
+    expr = pd.read_table(args.expression_file, **pd_kwargs).drop('---', axis=1)
     ase = (pd
-           .read_table('analysis_godot/ase_summary_by_read.tsv',
+           .read_table(args.ase_file,
                        **pd_kwargs
                        )
            .dropna(how='all', axis=1)
            .dropna(how='all', axis=0)
-           .drop(overlap_genes)
+           .drop(args.overlapping_genes, errors='ignore')
            .select(**sel_startswith(('melXsim', 'simXmel')))
           )
     ase_perm = pd.DataFrame(
@@ -163,9 +187,8 @@ if __name__ == "__main__":
             )
     chrom_of = get_chroms()
 
-    males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
     on_x = chrom_of[ase.index] == 'X'
-    is_male = [col.startswith(males) for col in ase.columns]
+    is_male = [col.startswith(args.male_samples) for col in ase.columns]
     ase.ix[on_x, is_male] = np.nan
 
 
@@ -217,7 +240,7 @@ if __name__ == "__main__":
     r2_peak_perm = calculate_variance_explained(ase_perm, xs, peak, res_peak_perm)
 
 
-    co = 0.45
+    co = args.cutoff_r2
 
     print("Found {: 4} {:<10} of which {} are likely false".format(sum(r2_logist > co), 'logistic', sum(r2_logist_perm > co)))
     print("Found {: 4} {:<10} of which {} are likely false".format(sum(r2_peak > co), 'peak', sum(r2_peak_perm > co)))
@@ -226,8 +249,14 @@ if __name__ == "__main__":
     good_amps_peak = res_peak.Amp[r2_peak>co].sort_values(inplace=False)
     #good_amps_logist.to_csv('analysis/results/logist.tsv', sep='\t')
     #good_amps_peak.to_csv('analysis/results/peak.tsv', sep='\t')
-    res_logist.ix[r2_logist > co].to_csv('analysis/results/logist.tsv', sep='\t')
-    res_peak.ix[r2_peak > co].to_csv('analysis/results/peak.tsv', sep='\t')
+    res_logist.ix[r2_logist > co].to_csv(
+        'analysis/results/{prefix}logist{suffix}.tsv'
+        .format(prefix=args.prefix, suffix=args.suffix),
+        sep='\t')
+    res_peak.ix[r2_peak > co].to_csv(
+        'analysis/results/{prefix}peak{suffix}.tsv'
+        .format(prefix=args.prefix, suffix=args.suffix),
+        sep='\t')
 
     kwargs = dict(
         progress_bar=False,
@@ -257,52 +286,64 @@ if __name__ == "__main__":
     r2_logist_genes = res_logist.Amp[r2_logist_genes].sort_values().index
 
     print('\n'.join(r2_peak_genes),
-          file=open('analysis/results/peak_genes.txt', 'w'))
+          file=open('analysis/results/{prefix}peak{suffix}_genes.txt'
+                    .format(prefix=args.prefix, suffix=args.suffix),
+                    'w'))
     print('\n'.join(r2_logist_genes),
-          file=open('analysis/results/logist_genes.txt', 'w'))
+          file=open('analysis/results/{prefix}logist{suffix}_genes.txt'
+                    .format(prefix=args.prefix, suffix=args.suffix),
+                    'w'))
 
     pu.svg_heatmap(ase.ix[r2_logist_genes],
-                   'analysis/results/logist_ase.svg',
+                   'analysis/results/{prefix}logist{suffix}_ase.svg'
+                   .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
                    **kwargs)
 
     pu.svg_heatmap(ase.ix[r2_peak_genes],
-                   'analysis/results/peak_ase.svg',
+                   'analysis/results/{prefix}peak{suffix}_ase.svg'
+                   .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
                    **kwargs)
 
     pu.svg_heatmap(ase.ix[r2_logist_genes].select(**ut.sel_contains('rep1')),
-                   'analysis/results/logist_ase_r1.svg',
+                   'analysis/results/{prefix}logist{suffix}_ase_r1.svg'
+        .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
                    **kwargs)
 
     pu.svg_heatmap(ase.ix[r2_peak_genes].select(**ut.sel_contains('rep1')),
-                   'analysis/results/peak_ase_r1.svg',
+                   'analysis/results/{prefix}peak{suffix}_ase_r1.svg'
+                   .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
                    **kwargs)
     pu.svg_heatmap(expr.ix[r2_logist_genes].select(**sel_startswith(('melXsim',
                                                                     'simXmel'))),
-                   'analysis/results/logist_expr_hyb.svg',
+                   'analysis/results/{prefix}logist{suffix}_expr_hyb.svg'
+                   .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
 
     pu.svg_heatmap(expr.ix[r2_peak_genes].select(**sel_startswith(('melXsim',
                                                                   'simXmel'))),
-                   'analysis/results/peak_expr_hyb.svg',
+                   'analysis/results/{prefix}peak{suffix}_expr_hyb.svg'
+                   .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
 
     pu.svg_heatmap(expr.ix[r2_logist_genes],
-                   'analysis/results/logist_expr.svg',
+                   'analysis/results/{prefix}logist{suffix}_expr.svg'
+                   .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
 
     pu.svg_heatmap(expr.ix[r2_peak_genes],
-                   'analysis/results/peak_expr.svg',
+                   'analysis/results/{prefix}peak{suffix}_expr.svg'
+                   .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
 
@@ -313,7 +354,7 @@ if __name__ == "__main__":
             or (gene not in best_r2)):
             best_r2[gene] = r2_logist[gene]
 
-    best_r2.to_csv('analysis/results/svase_best', sep='\t')
+    best_r2.to_csv('analysis/results/{prefix}svase{suffix}_best', sep='\t')
 
     mpl.figure(figsize=(2, len(r2_logist_genes)))
     for i, gene in enumerate(r2_logist_genes):
@@ -323,8 +364,10 @@ if __name__ == "__main__":
         mpl.yticks([])
         mpl.xticks([])
         mpl.xlim(0, 1)
+        mpl.ylim(-1, 1)
     mpl.tight_layout(pad=0, h_pad=0, w_pad=0)
-    mpl.savefig('analysis/results/logist_fits')
+    mpl.savefig('analysis/results/{prefix}logist{suffix}_fits'
+                .format(prefix=args.prefix, suffix=args.suffix),)
 
     mpl.figure(figsize=(2, len(r2_peak_genes)))
     for i, gene in enumerate(r2_peak_genes):
@@ -334,10 +377,13 @@ if __name__ == "__main__":
         mpl.yticks([])
         mpl.xticks([])
         mpl.xlim(0, 1)
+        mpl.ylim(-1, 1)
     mpl.tight_layout(pad=0, h_pad=0, w_pad=0)
-    mpl.savefig('analysis/results/peak_fits')
+    mpl.savefig('analysis/results/{prefix}peak{suffix}_fits'
+                .format(prefix=args.prefix, suffix=args.suffix),
+               )
 
-    if locals().get('print_kegg', False):
+    if args.print_keggs:
         synonyms = get_synonyms()
         wnt_genes = [line.strip() for line in open('prereqs/wnt.kegg.genes')]
         wnt_scores = pd.Series(index=synonyms[wnt_genes],
