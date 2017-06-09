@@ -169,6 +169,7 @@ if __name__ == "__main__":
     args.samfile.close()
     out['pref_index'] = (out.ALT - out.REF)/(out.ALT + out.REF)
     out.ix[out.ALT + out.REF < args.min_reads, 'pref_index'] = pd.np.nan
+    out.index.name = 'clu'
     out.to_csv(args.outfile, sep='\t', na_rep='N/A')
 
 
