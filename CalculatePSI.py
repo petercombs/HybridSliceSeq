@@ -3,6 +3,7 @@ from collections import defaultdict
 from pysam import Samfile
 from progressbar import ProgressBar as PBar
 import pandas as pd
+import numpy as np
 from argparse import ArgumentParser
 from sys import stdout
 
@@ -52,7 +53,7 @@ def get_supported_exons(read, exons_in_gene):
                 cur_pos += length
     except StopIteration:
         #print("StoppedIteration", cur_exon)
-        raise StopIteration()
+        pass
     finally:
         return supported_lens, supported_exons, excluded_exons
 
@@ -60,7 +61,9 @@ def get_supported_exons(read, exons_in_gene):
 def get_exon_dictionary(gtf_file):
     current_gene = ''
     all_exons_by_chrom_by_gene = defaultdict(list)
+    exon_names = {}
 
+    num_exons = 0
     for line in open(gtf_file):
         data = line.strip().split('\t')
         left = int(data[3])
@@ -76,12 +79,14 @@ def get_exon_dictionary(gtf_file):
                 (left, right, current_gene, current_exons)
             )
         elif data[2] == 'exonic_part':
-            current_exons.append((left, right,
+            current_exons.append((left, right, num_exons,
                                   '{}_{}'.format(
                                       annot['gene_id'], annot['exonic_part_number']
                                   )
                                  ))
-    return all_exons_by_chrom_by_gene
+            exon_names[num_exons] = '{}_{}'.format( annot['gene_id'], annot['exonic_part_number'])
+            num_exons += 1
+    return all_exons_by_chrom_by_gene, exon_names
 
 
 def parse_overlapping_reads(samfile, raw_exon_counts, exons_on_chrom):
@@ -101,22 +106,28 @@ def parse_overlapping_reads(samfile, raw_exon_counts, exons_on_chrom):
                         else:
                             pass
 
-def iterate_over_samfile(samfile, exon_dictionary, timeit=1e100):
+def iterate_over_samfile(samfile, exon_dictionary, exon_names, timeit=1e100):
     samfile.reset()
     curr_reference = ''
-    all_exons = pd.DataFrame(index=[exon
-                                    for genes in exon_dictionary.values()
-                                    for _, _, _, exons in genes
-                                    for _, _, exon in exons
-                                   ],
+    all_exons = pd.DataFrame(index=exon_names.keys(),
                              columns=['SUPPORTED', 'EXCLUDED',
                                      'N_SUPPORTED', 'N_EXCLUDED'],
                              data=0.0, dtype=float,
                              #data={'SUPPORTED': 0.0, 'EXCLUDED': 0.0,
                                    #'N_SUPPORTED': 0, 'N_EXCLUDED': 0}
                             )
+    num_exons = len(exon_names)
+    arr_supported = np.zeros(num_exons, dtype=float)
+    arr_excluded = np.zeros(num_exons, dtype=float)
+    arr_n_supported = np.zeros(num_exons, dtype=int)
+    arr_n_excluded = np.zeros(num_exons, dtype=int)
     references=samfile.references
-    for i, read in PBar(maxval=samfile.mapped)(enumerate(samfile)):
+    pb = PBar(maxval=samfile.mapped)
+    pb.start()
+    #pb = lambda x: x
+    for i, read in enumerate(samfile):
+        if i % 1e5 == 0:
+            pb.update(i)
         refid = read.reference_id
         if refid != curr_reference:
             curr_reference = refid
@@ -131,15 +142,19 @@ def iterate_over_samfile(samfile, exon_dictionary, timeit=1e100):
             readlen = sum(i for t, i in read.cigartuples if t == 0)
             lens, supported, excluded = get_supported_exons(read, exons)
             for length, ix in zip(lens, supported):
-                assert ix in all_exons.index
-                all_exons.ix[ix, 'SUPPORTED'] += 1/(length + readlen - 1)
-                all_exons.ix[ix, 'N_SUPPORTED'] += 1
+                arr_supported[ix] += 1/(length + readlen - 1)
+                arr_n_supported[ix] += 1
             for ix in excluded:
-                assert ix in all_exons.index
-                all_exons.ix[ix, 'EXCLUDED'] += 1/(readlen - 1)
-                all_exons.ix[ix, 'N_EXCLUDED'] += 1
+                arr_excluded[ix] += 1/(readlen - 1)
+                arr_n_excluded[ix] += 1
         if i > timeit:
-            return all_exons
+            break
+    pb.finish()
+    all_exons['SUPPORTED'] = arr_supported
+    all_exons['EXCLUDED'] = arr_excluded
+    all_exons['N_SUPPORTED'] = arr_n_supported
+    all_exons['N_EXCLUDED'] = arr_n_excluded
+    all_exons.rename(index=exon_names, inplace=True)
     return all_exons
 
 def iterate_over_references(samfile, exon_dictionary):
@@ -183,8 +198,8 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    exon_dict = get_exon_dictionary(args.gtf_file)
-    all_exons = iterate_over_samfile(args.samfile, exon_dict, args.timeit)
+    exon_dict, exon_names = get_exon_dictionary(args.gtf_file)
+    all_exons = iterate_over_samfile(args.samfile, exon_dict, exon_names, args.timeit)
     all_exons.index.name = 'exon_id'
     all_exons['psi'] = all_exons.SUPPORTED / (all_exons.SUPPORTED +
                                               all_exons.EXCLUDED)
