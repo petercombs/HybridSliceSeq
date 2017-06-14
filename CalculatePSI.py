@@ -55,7 +55,11 @@ def get_supported_exons(read, exons_in_gene):
         #print("StoppedIteration", cur_exon)
         pass
     finally:
-        return supported_lens, supported_exons, excluded_exons
+        return (
+            supported_lens,
+            supported_exons,
+            (excluded_exons if supported_exons else [])
+        )
 
 
 def get_exon_dictionary(gtf_file):
