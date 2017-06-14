@@ -187,9 +187,10 @@ if __name__ == "__main__":
             )
     chrom_of = get_chroms()
 
-    on_x = chrom_of[ase.index] == 'X'
-    is_male = [col.startswith(args.male_samples) for col in ase.columns]
-    ase.ix[on_x, is_male] = np.nan
+    if args.male_samples and 'keep' not in args.male_samples:
+        on_x = chrom_of[ase.index] == 'X'
+        is_male = [col.startswith(args.male_samples) for col in ase.columns]
+        ase.ix[on_x, is_male] = np.nan
 
 
     xs = get_xs(ase)
