@@ -162,6 +162,8 @@ def parse_args():
     parser.add_argument('--male-samples', default=males, nargs='+')
     parser.add_argument('--print-keggs', default=False, action='store_true')
     parser.add_argument('--cutoff-r2', default=0.45, type=float)
+    parser.add_argument('--min-samples', default=20, type=int)
+    parser.add_argument('--min-var', default=False, type=float)
     args = parser.parse_args()
     args.male_samples = tuple(args.male_samples)
     return args
@@ -191,6 +193,10 @@ if __name__ == "__main__":
         on_x = chrom_of[ase.index] == 'X'
         is_male = [col.startswith(args.male_samples) for col in ase.columns]
         ase.ix[on_x, is_male] = np.nan
+    ase = ase.ix[ase.T.count() >= args.min_samples]
+    if args.min_var:
+        ase = ase.ix[ase.T.var() >= args.min_var]
+    ase_perm = ase_perm.ix[ase.index]
 
 
     xs = get_xs(ase)
