@@ -50,7 +50,7 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
             amp = neg_amp
         p0 = [amp, 20, xs.mean(), ys.median()]
     w_min = 1
-    w_max = inf
+    w_max = 200
     x0_min = -0.1
     x0_max = 1.1
     if func == peak:
