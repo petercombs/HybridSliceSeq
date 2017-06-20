@@ -353,8 +353,8 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
     iterator = zip(data, cmap, data_names, norm_rows_by, spacers,
                    colname_tuple)
     if figure_title:
-        dwg.add(dwg.text(figure_title, (x_start, y_start+60,),
-                         style="font-size:1.5em"))
+        dwg.add(dwg.text(figure_title, (x_start, y_start+75,),
+                         style="font-size:3em"))
         y_start += 80
     if progress_bar:
         from progressbar import ProgressBar
@@ -641,10 +641,19 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 )
             else:
                 style = "font-size: {}".format(box_height)
-            labeltext = (dwg.text(row_labels[i],
-                             (x_start, y_start + i*box_height+box_height),
-                             style=style,
-                            ))
+            if isinstance(row_labels[i], tuple):
+                labeltext = dwg.g()
+                for lnum, ltext in enumerate(row_labels[i]):
+                    labeltext.add(dwg.text(ltext,
+                                           (x_start + lnum * 50,
+                                            y_start + i * box_height + box_height),
+                                           style=style,
+                                          ))
+            else:
+                labeltext = (dwg.text(row_labels[i],
+                                      (x_start, y_start + i*box_height+box_height),
+                                      style=style,
+                                     ))
             if make_hyperlinks:
                 if make_hyperlinks is True:
                     link = dwg.a('http://insitu.fruitfly.org/cgi-bin/ex/report.pl?ftype={}&ftext={}'
