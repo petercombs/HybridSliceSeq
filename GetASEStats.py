@@ -75,7 +75,10 @@ if __name__ == "__main__":
                .select(**ut.sel_startswith(('melXsim', 'simXmel')))
               )
         all_ase = ase.copy()
-        expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).dropna(how='all', axis=1)
+        expr = (pd.read_table('analysis_godot/summary.tsv', **pd_kwargs)
+                .drop('---', axis=1, errors='ignore')
+                #.dropna(how='all', axis=1)
+               )
         lott = pd.read_table('prereqs/journal.pbio.1000590.s002', index_col=0, keep_default_na=False, na_values=[''])
         lott_expr = (lott
                      .ix[:, sorted(lott.columns[5:29], key=lott_sort)]
@@ -103,6 +106,12 @@ if __name__ == "__main__":
     in_both = ase.index.intersection(expr.index)
     ase = ase.ix[in_both]
     expr = expr.ix[in_both]
+    rn = lambda x: 'parental_' + x.split('_')[2]
+    mel_parental = expr.select(**ut.sel_startswith('melXmel')).rename_axis(rn,
+                                                                           axis="columns")
+    sim_parental = expr.select(**ut.sel_startswith('simXsim')).rename_axis(rn,
+                                                                           axis="columns")
+
 
     syns = ut.get_synonyms()
     chrom_of = ut.get_chroms(syns)
@@ -197,6 +206,37 @@ if __name__ == "__main__":
     data['num_paternal'] = biases[(1, -1)]
     data['mel_dominant'] = biases[(-1, -1)]
     data['sim_dominant'] = biases[(1, 1)]
+
+    # Species dominance
+    mel_dom = ut.true_index((bias_dirs.T == [-1, -1]).sum() == 2)
+    sim_dom = ut.true_index((bias_dirs.T == [ 1,  1]).sum() == 2)
+
+    mel_dom = expr.select(**ut.sel_startswith('simXsim')).T.max()[mel_dom].sort_values().index
+    sim_dom = expr.select(**ut.sel_startswith('melXmel')).T.max()[sim_dom].sort_values().index
+
+    print("Making species bias figs")
+    pu.svg_heatmap((expr, (sim_parental - mel_parental)/(sim_parental + mel_parental), ase), 'analysis/results/mel_dom.svg',
+                   index=mel_dom,
+                   norm_rows_by=('maxall', 'center0pre', 'center0pre'),
+                   cmap=(pu.ISH, cm.RdBu, cm.RdBu),
+                   progress_bar=True,
+                   row_labels=[('{:6.1f}'.format(expr.ix[i].max()),
+                                chrom_of[i], i)
+                               for i in mel_dom],
+                   nan_replace='no',
+                   **pu.kwargs_heatmap)
+
+    pu.svg_heatmap((expr, (sim_parental - mel_parental)/(sim_parental + mel_parental), ase), 'analysis/results/sim_dom.svg',
+                   index=sim_dom,
+                   norm_rows_by=('maxall', 'center0pre', 'center0pre'),
+                   cmap=(pu.ISH, cm.RdBu, cm.RdBu),
+                   progress_bar=True,
+                   row_labels=[('{:6.1f}'.format(expr.ix[i].max()),
+                                chrom_of[i], i)
+                               for i in sim_dom],
+                   nan_replace='no',
+                   **pu.kwargs_heatmap)
+
 
     low_expr_lott = slices_with_expr[lott.index[lott.CLASS == 'mat']] < FRAC_FOR_MATERNAL * len(expr.columns)
     data['lott_maternal_low'] = sum(low_expr_lott)
