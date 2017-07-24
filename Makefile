@@ -90,6 +90,22 @@ $(ANALYSIS_DIR)/summary.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(F
 		$(ANALYSIS_DIR) \
 		\| tee $(ANALYSIS_DIR)/mst.log
 
+$(ANALYSIS_DIR)/summary_for_geo.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) $(ANALYSIS_DIR)/map_stats.tsv| $(ANALYSIS_DIR)
+	python MakeSummaryTable.py \
+	       --params $(RUNCONFIG) \
+	       --make-geo \
+	       --strip-low-reads 1000000 \
+	       --strip-on-unique \
+	       --strip-as-nan \
+	       --mapped-bamfile assigned_dmelR.bam \
+	       --strip-low-map-rate 52 \
+	       --map-stats $(ANALYSIS_DIR)/map_stats.tsv \
+	       --filename $(QUANT_FNAME) \
+	       --key $(QUANT_KEY) \
+	       --column $(QUANT_COL) \
+	       --out-basename summary_for_geo \
+	       $(ANALYSIS_DIR) \
+
 
 $(ANALYSIS_DIR)/summary_fb.tsv : $(ANALYSIS_DIR)/retabulate MakeSummaryTable.py $(FPKMS) $(RUNCONFIG) $(ANALYSIS_DIR)/map_stats.tsv | $(ANALYSIS_DIR)
 	@echo '============================='
@@ -260,7 +276,7 @@ $(ANALYSIS_DIR)/map_stats.tsv: $$(subst genes.fpkm_tracking,assigned_dmelR.mapst
 		--mask-file $(MELBADGTFR5) \
 		$<
 
-$(ANALYSIS_DIR)/recufflinks:  
+$(ANALYSIS_DIR)/recufflinks:
 	touch $@
 
 %/assigned_dmelR.bam : %/accepted_hits.bam AssignReads2.py
