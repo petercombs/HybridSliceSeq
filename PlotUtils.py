@@ -274,13 +274,19 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
 
         num_plotted_rows = np.ceil(len(data) / boxes_per_row
                                    + (draw_average or draw_average_only))
+        if figure_title is None:
+            fig_title_height = 0
+        elif isinstance(figure_title, tuple):
+            fig_title_height = len(figure_title)
+        else:
+            fig_title_height = 1
         dwg = svg.Drawing(filename,
                           size=(max_width + 2 * x_min + 200 * draw_row_labels,
                                 2 * y_min
                                 + (num_plotted_rows
                                    * (rows)
                                    * box_height)
-                                + 80 * (figure_title is not None)
+                                + 80 * (fig_title_height)
                                 + 80 * draw_name
                                 + (num_plotted_rows - 1) * vspacer))
     elif total_width is not None:
@@ -353,9 +359,16 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
     iterator = zip(data, cmap, data_names, norm_rows_by, spacers,
                    colname_tuple)
     if figure_title:
-        dwg.add(dwg.text(figure_title, (x_start, y_start+75,),
-                         style="font-size:3em"))
-        y_start += 80
+        if isinstance(figure_title, tuple):
+            for title_line in figure_title:
+                dwg.add(dwg.text(title_line, (x_start, y_start+75,),
+                                 style="font-size:3em"))
+                y_start += 80
+
+        else:
+            dwg.add(dwg.text(figure_title, (x_start, y_start+75,),
+                             style="font-size:3em"))
+            y_start += 80
     if progress_bar:
         from progressbar import ProgressBar
         pbar = ProgressBar(maxval=len(data)*rows).start()
