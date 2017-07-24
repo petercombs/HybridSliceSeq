@@ -37,8 +37,8 @@ pu_kwargs = {
 
 
 def get_diffs(expr, mel_spline, sim_spline, col_headers, offset=EXPR_MIN):
-    mel = expr.select(startswith('mel_'))
-    sim = expr.select(startswith('sim_'))
+    mel = expr.select(startswith('melXmel_'))
+    sim = expr.select(startswith('simXsim_'))
     melXsim = expr.select(startswith('melXsim_'))
     simXmel = expr.select(startswith('simXmel_'))
     hybrids = expr.select(startswith(('melXsim', 'simXmel')))
@@ -92,8 +92,8 @@ def get_diffs(expr, mel_spline, sim_spline, col_headers, offset=EXPR_MIN):
     )
 
 def plot_expr_comparison(expr, gene, prefix=None, smoothed=0):
-    mel = expr.select(**sel_startswith('mel_')).ix[gene]
-    sim = expr.select(**sel_startswith('sim_')).ix[gene]
+    mel = expr.select(**sel_startswith('melXmel_')).ix[gene]
+    sim = expr.select(**sel_startswith('simXsim_')).ix[gene]
     hyb = expr.select(**sel_startswith(('melXsim', 'simXmel'))).ix[gene]
 
     if smoothed:
@@ -121,8 +121,8 @@ if __name__ == "__main__":
                         **pd_kwargs).drop('---', axis='columns')
 
 
-    mel = expr.select(**sel_startswith('mel_'))
-    sim = expr.select(**sel_startswith('sim_'))
+    mel = expr.select(**sel_startswith('melXmel_'))
+    sim = expr.select(**sel_startswith('simXsim_'))
     hybrids = expr.select(**sel_startswith(('melXsim', 'simXmel')))
     melXsim = expr.select(**sel_startswith('melXsim'))
     simXmel = expr.select(**sel_startswith('simXmel'))
