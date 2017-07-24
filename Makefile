@@ -222,6 +222,16 @@ $(ANALYSIS_DIR)/cds_ase_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.f
 			--out-basename cds_ase_summary \
 			$(ANALYSIS_DIR)
 
+$(ANALYSIS_DIR)/psi_summary.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,psi.tsv,$$(FPKMS))
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
+	python MakeSummaryTable.py \
+			--params Parameters/RunConfig.cfg \
+			--filename psi.tsv \
+			--column "psi" \
+			--key "exon_id" \
+			--out-basename psi_summary \
+			$(ANALYSIS_DIR)
+
 $(ANALYSIS_DIR)/map_stats.tsv: $$(subst genes.fpkm_tracking,assigned_dmelR.mapstats,$$(FPKMS))
 	python GetMapStats.py \
 		--params Parameters/RunConfig.cfg \
@@ -554,3 +564,27 @@ Reference/tss_r5: Reference/dmel_R5.gtf
 
 %/velvetant.tsv: %/assigned_dmelR_wasp_dedup.sorted.bam %/assigned_dmelR_wasp_dedup.sorted.bam.bai VelvetAnt.py
 	python VelvetAnt.py -x --snps-bed analysis_godot/on_melr5/melsim_variant.bed --splicing-clusters analysis/VelvetAnt/all_juncs_perind.counts.gz -o $@ $<
+
+
+Reference/MISO/%.gtf: prereqs/MISO/modENCODE_%_MISO.gff3
+	cat $< \
+		| perl -pe 's/^chr/dmel_/' \
+		> $@
+
+Reference/MISO/%/genes.gff: Reference/MISO/%.gtf
+	mkdir -p $(@D)
+	index_gff --index $< $(@D)
+
+%.clipped.bam: %.bam
+	gatk -T ClipReads -CT "7-75" -I $< -o $@
+
+%/MISO_A5SS.tsv : %/assigned_dmelR_wasp_dedup.sorted.bam Reference/MISO/A5SS/genes.gff
+	miso --run Reference/MISO/A5SS  $< --output-dir $(@D) --read-len 70 -p 1
+
+%/psi.tsv: %/assigned_dmelR_wasp_dedup.sorted.bam %/assigned_dmelR_wasp_dedup.sorted.bam.bai Reference/mel_r5_exons.gtf analysis/recalc_psi
+	./qsubber --job-name $(*F)_psi --queue batch --keep-temporary tmp -t 1 --log-base $(basename $@) \
+	python CalculatePSI.py -o $@ $< Reference/mel_r5_exons.gtf
+
+
+analysis/results/svsplice: analysis_godot/psi_summary.tsv
+	python  FitASEFuncs.py --prefix svsplice_ --ase-file $< --cutoff-r2 .25 --min-var 1e-3 --male-samples keep
