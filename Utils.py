@@ -18,7 +18,7 @@ def strip_to_number(dataval, chars='\'" \t #'):
 
 def true_index(series):
     'Returns elements in the index of the series where the element is true'
-    return series.index[series]
+    return series.index[series.astype(bool)]
 
 
 def to_number(dataval):
