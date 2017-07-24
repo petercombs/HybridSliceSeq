@@ -301,6 +301,16 @@ if __name__ == "__main__":
                     .format(prefix=args.prefix, suffix=args.suffix),
                     'w'))
 
+    best_r2 = r2_peak.copy()
+    for gene in r2_logist.index:
+        # Note that I use "and not > " rather than "<" to catch nans
+        if ((gene in best_r2 and not best_r2[gene] > r2_logist[gene])
+            or (gene not in best_r2)):
+            best_r2[gene] = r2_logist[gene]
+
+    best_r2.to_csv('analysis/results/{prefix}svase{suffix}_best', sep='\t')
+
+
     pu.svg_heatmap(ase.ix[r2_logist_genes],
                    'analysis/results/{prefix}logist{suffix}_ase.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
@@ -353,15 +363,6 @@ if __name__ == "__main__":
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
-
-    best_r2 = r2_peak.copy()
-    for gene in r2_logist.index:
-        # Note that I use "and not > " rather than "<" to catch nans
-        if ((gene in best_r2 and not best_r2[gene] > r2_logist[gene])
-            or (gene not in best_r2)):
-            best_r2[gene] = r2_logist[gene]
-
-    best_r2.to_csv('analysis/results/{prefix}svase{suffix}_best', sep='\t')
 
     mpl.figure(figsize=(2, len(r2_logist_genes)))
     for i, gene in enumerate(r2_logist_genes):
