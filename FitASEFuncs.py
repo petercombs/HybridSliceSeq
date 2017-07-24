@@ -315,6 +315,8 @@ if __name__ == "__main__":
                    'analysis/results/{prefix}logist{suffix}_ase.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
+                   row_labels=['{:.02f} {}'.format(best_r2[g], g) for g in
+                               r2_logist_genes],
                    cmap=cm.RdBu,
                    **kwargs)
 
@@ -322,6 +324,8 @@ if __name__ == "__main__":
                    'analysis/results/{prefix}peak{suffix}_ase.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
+                   row_labels=['{:.02f} {}'.format(best_r2[g], g) for g in
+                               r2_peak_genes],
                    cmap=cm.RdBu,
                    **kwargs)
 
