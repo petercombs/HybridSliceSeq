@@ -145,8 +145,8 @@ if __name__ == "__main__":
     slices_with_expr = (expr > EXPR_MIN).sum(axis=1)
     slices_with_ase = (ase > ASE_MIN).sum(axis=1)
     slices_with_aseval = ase.count(axis=1)
-    slices_with_aseval = slices_with_aseval.where(slices_with_aseval>slices_with_expr, slices_with_expr)
-    slices_with_aseval = slices_with_aseval.where(slices_with_aseval>5, 5)
+    #slices_with_aseval = slices_with_aseval.where(slices_with_aseval>slices_with_expr, slices_with_expr)
+    #slices_with_aseval = slices_with_aseval.where(slices_with_aseval>5, 5)
 
     bias_dirs = pd.DataFrame(data=pd.np.nan, index=ase.index,
                              columns=['melXsim', 'simXmel'])
@@ -260,12 +260,15 @@ if __name__ == "__main__":
 
     peak_fd = np.fromfile('analysis/results/fd_peak.numpy')
     logist_fd = np.fromfile('analysis/results/fd_logist.numpy')
-    data['fd_peak'] = sum(peak_fd > .5)
-    data['frac_fdr_peak'] = sum(peak_fd > .5) / len(peak_fd)
-    data['frac_max_fdr_peak'] = 1 / len(peak_fd)
-    data['fd_logist'] = sum(logist_fd > .5)
-    data['frac_fdr_logist'] = sum(logist_fd > .5) / len(logist_fd)
-    data['frac_max_fdr_logist'] = 1 / len(logist_fd)
+    peak_r2s = pd.Series.from_csv('analysis/results/all_peak_r2s.csv')
+    logist_r2s = pd.Series.from_csv('analysis/results/all_logist_r2s.csv')
+    co = 0.45
+    data['fd_peak'] = sum(peak_fd > co)
+    data['frac_fdr_peak'] = (sum(peak_fd > co) / len(peak_fd)) / (sum(peak_r2s > co) / len(peak_r2s))
+    data['frac_max_fdr_peak'] = (1 / len(peak_fd)) / (sum(peak_r2s > co) / len(peak_r2s))
+    data['fd_logist'] = sum(logist_fd > co)
+    data['frac_fdr_logist'] = sum(logist_fd > co) / len(logist_fd) / (sum(peak_r2s > co) / len(peak_r2s))
+    data['frac_max_fdr_logist'] = 1 / len(logist_fd)/ (sum(peak_r2s > co) / len(peak_r2s))
 
     hb_bind_data = {line.strip()
                     for line in open('analysis/results/hb_wt_emd_0.1.txt')
