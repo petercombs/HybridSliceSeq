@@ -99,7 +99,7 @@ from GetMapStats import get_stagenum
 
 def get_expr_values(fname):
     try:
-        table = pandas.read_table(fname, na_values=['-', 'NA'], converters={args.key: str},
+        table = pandas.read_table(fname, na_values=['-', 'NA', 'N/A'], converters={args.key: str},
                               keep_default_na=False,
                               header=None if not args.header else 0)
     except Exception as err:
@@ -125,10 +125,11 @@ def get_expr_values(fname):
         return (None, None)
         raise ValueError("argument {} not in table {} columns: {}".format(
             args.column, path.join(alldir, fname), table.columns))
-    table = (table.drop_duplicates(args.key)
-            .drop(labels=['ORIENTATION'], axis=1, errors='ignore')
-             .dropna(axis=1, how='all')
-             .dropna(axis=0, how='any'))
+    if args.key in table.columns:
+        table = (table.drop_duplicates(args.key)
+                 .drop(labels=['ORIENTATION'], axis=1, errors='ignore')
+                 .dropna(axis=1, how='all')
+                 .dropna(axis=0, how='any'))
     if args.key not in table.index and args.key not in table.columns:
         print("Error on", old_dirname, fname, file=sys.stderr)
         print("Error on", old_dirname, fname, file=sys.stdout)
@@ -136,7 +137,11 @@ def get_expr_values(fname):
         sys.stderr.flush()
         sys.stdout.flush()
         return (None, None)
-    table.set_index(args.key, inplace=True, verify_integrity=True)
+    if isinstance(args.key, int) and args.key not in table.columns:
+        table.set_index(table.columns[args.key], inplace=True,
+                        verify_integrity=True)
+    else:
+        table.set_index(args.key, inplace=True, verify_integrity=True)
     if args.has_params and dirname not in params.index:
         return (None, None)
 
