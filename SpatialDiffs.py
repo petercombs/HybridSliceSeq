@@ -110,11 +110,19 @@ def plot_expr_comparison(expr, gene, prefix=None, smoothed=0):
         **pu_kwargs
     )
 
+def parse_args():
+    from argparse import ArgumentParser
+    parser = ArgumentParser()
+    parser.add_argument('--multi', default=True, action='store_true')
+    parser.add_argument('--no-multi', dest='multi', action='store_false')
+    return parser.parse_args()
+
 
 
 if __name__ == "__main__":
     synonyms = get_synonyms()
 
+    args = parse_args()
     expr = pd.read_table('analysis_godot/summary.tsv', **pd_kwargs).drop('---',
                                                                          axis='columns')
     ase = pd.read_table('analysis_godot/ase_summary_by_read.tsv',
@@ -166,15 +174,33 @@ if __name__ == "__main__":
     avgs = pd.DataFrame(index=hyb_spatial_difference.index,
                         columns=['avg_sl{}'.format(i+1) for i in range(20)])
 
-    with Pool() as p:
-        results = (p.apply_async(get_diffs, (expr.ix[gene], mel_splines[gene],
-                                             sim_splines[gene], avgs.columns))
-                  for gene in hyb_spatial_difference.index)
-        for gene in pbar()(hyb_spatial_difference.index):
+    if args.multi:
+        with Pool() as p:
+            results = (p.apply_async(get_diffs, (expr.ix[gene], mel_splines[gene],
+                                                 sim_splines[gene], avgs.columns))
+                      for gene in hyb_spatial_difference.index)
+            for gene in pbar()(hyb_spatial_difference.index):
 
-            res = next(results).get()
-            #res = get_diffs(expr.ix[gene], mel_splines[gene], sim_splines[gene],
-                            #avgs.columns)
+                res = next(results).get()
+                #res = get_diffs(expr.ix[gene], mel_splines[gene], sim_splines[gene],
+                                #avgs.columns)
+                (hyb_hyb_diffs[gene],
+                 parental_diffs[gene],
+                 mel_hyb_diffs[gene],
+                 sim_hyb_diffs[gene],
+                 avgs.ix[gene],
+                 avg_hyb_diffs[gene],
+                 avg_levels[gene], hyb_levels.ix[gene],
+                 within_diffs_mXs[gene],
+                 within_diffs_sXm[gene],
+                ) = res
+                hyb_spatial_difference[gene] = (avg_hyb_diffs[gene]
+                                                - parental_diffs[gene])
+    else:
+        for gene in hyb_spatial_difference.index:
+            print("About to try:", gene)
+            res = get_diffs(expr.ix[gene], mel_splines[gene], sim_splines[gene],
+                                avgs.columns)
             (hyb_hyb_diffs[gene],
              parental_diffs[gene],
              mel_hyb_diffs[gene],
