@@ -36,36 +36,37 @@ pu_kwargs = {
     'vspacer': 10}
 
 
-def get_diffs(expr, mel_spline, sim_spline, col_headers):
+def get_diffs(expr, mel_spline, sim_spline, col_headers, offset=EXPR_MIN):
     mel = expr.select(startswith('mel_'))
     sim = expr.select(startswith('sim_'))
     melXsim = expr.select(startswith('melXsim_'))
     simXmel = expr.select(startswith('simXmel_'))
     hybrids = expr.select(startswith(('melXsim', 'simXmel')))
     parental_diffs = dd.earth_mover_multi_rep(
-        mel, sim,
-        normer=lambda x: expr.max(),
+        mel+offset, sim+offset,
+        #normer=lambda x: expr.max(),
     )
     mel_hyb_diffs = dd.earth_mover_multi_rep(
-        mel, melXsim,
-        normer=lambda x: expr.max(),
+        mel+offset, melXsim+offset,
+        #normer=lambda x: expr.max(),
     )
     sim_hyb_diffs = dd.earth_mover_multi_rep(
-        sim, simXmel,
-        normer=lambda x: expr.max(),
+        sim+offset, simXmel+offset,
+        #normer=lambda x: expr.max(),
     )
 
     hyb_hyb_diffs = dd.earth_mover_multi_rep(
-        melXsim, simXmel,
-        normer=lambda x: expr.max(),
+        melXsim+offset, simXmel+offset,
+        #normer=lambda x: expr.max(),
+        #normer=pd.np.sum,
     )
     within_melXsim_diff = dd.earth_mover_within(
-        melXsim,
-        normer=expr.max(),
+        melXsim+offset,
+        #normer=expr.max(),
     )
     within_simXmel_diff = dd.earth_mover_within(
-        simXmel,
-        normer=expr.max(),
+        simXmel+offset,
+        #normer=expr.max(),
     )
 
 
