@@ -287,13 +287,17 @@ if __name__ == "__main__":
             os.makedirs(path.join(args.basedir, 'geo'))
 
         commands = open(path.join(args.basedir, 'geo.make'), 'w')
+        print("Names: '{}'".format(names))
         commands.write('all: {} \n'.format(' '.join('geo/'+
                                                     f.replace('_FPKM',
                                                                '_R1.fastq.gz.md5')
-                                                     for f in names)))
+                                                     for f in names if f)))
         commands.write('%.md5 : % \n\tmd5sum $< > $@\n\n\n')
         for bamname, fname  in zip(fnames, names):
-            bamname = bamname.replace(args.filename, args.mapped_bamfile)
-            commands.write(('geo/{fname}_R1.fastq.gz: {bamname}\n'
-                '\tpython CompileForGEO.py {bamname} geo/{fname}\n\n')
-                .format(fname=fname.replace('_FPKM', ''), bamname=bamname))
+            try:
+                bamname = bamname.replace(args.filename, args.mapped_bamfile)
+                commands.write(('geo/{fname}_R1.fastq.gz: {bamname}\n'
+                    '\tpython CompileForGEO.py {bamname} geo/{fname}\n\n')
+                    .format(fname=fname.replace('_FPKM', ''), bamname=bamname))
+            except Exception as err:
+                print("Skipping exception: \n", bamname, fname, err)
