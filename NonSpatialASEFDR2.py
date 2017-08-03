@@ -39,7 +39,21 @@ if __name__ == "__main__":
            .drop('---', axis=1, errors='ignore')
           )
 
-    good_ase = ase.applymap(ase_score_to_prob).ix[ase.T.count() > MIN_SLICES_FOR_ASE]
+
+    good_ase = (ase
+                .copy()
+                #.applymap(ase_score_to_prob)
+                .ix[ase.T.count() > MIN_SLICES_FOR_ASE]
+               )
+    if 'syns' not in locals():
+        syns = ut.get_synonyms()
+        chrom_of = ut.get_chroms(syns)
+        males = ('melXsim_cyc14C_rep3', 'simXmel_cyc14C_rep2')
+        on_x = pd.Series({gene: chrom_of[gene] == 'X'
+                          for gene in good_ase.index})
+        is_male = [col.startswith(males) for col in good_ase.columns]
+    good_ase.ix[on_x, is_male] = pd.np.nan
+
     embs = {col.split('_sl')[0] for col in ase.columns}
     by_emb_sums = pd.DataFrame(index=good_ase.index, columns=sorted(embs))
     for emb in embs:
@@ -84,11 +98,16 @@ if __name__ == "__main__":
 
     combined_pvals = pd.Series(index=good_ase.index)
     for gene in combined_pvals.index:
-        combined_pvals.ix[gene] = fishers_method(pvals_by_emb.ix[gene])
+        if on_x[gene]:
+            combined_pvals.ix[gene] = fishers_method(pvals_by_emb.ix[gene].drop(list(males)))
+        else:
+            combined_pvals.ix[gene] = fishers_method(pvals_by_emb.ix[gene])
 
+    # Note the double negation to fix instances of NaN's, a common source of
+    # which is X genes in males
     inconsistent_dir = ~(
-        (np.sign(by_emb_sums).T == 1.0).all()
-        | (np.sign(by_emb_sums).T == -1.0).all()
+        (~(np.sign(by_emb_sums).T != 1.0)).all()
+        | (~(np.sign(by_emb_sums).T != -1.0)).all()
     )
 
     combined_pvals.ix[inconsistent_dir] = 1
