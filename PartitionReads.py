@@ -115,7 +115,7 @@ if __name__ == "__main__":
                 outs[phase_other].write(other_read)
             else:
                 outs[0].write(read)
-                outs[0].write(read)
+                outs[0].write(other_read)
         else:
             unmatched_reads[read.is_read2][read.qname] = read
 
