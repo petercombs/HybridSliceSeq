@@ -345,6 +345,7 @@ def draw_gtf_track(args, dwg, n1, n2, pos1, pos2, y_start):
 
 
 def draw_bed_track(args, dwg, n1, n2, pos1, pos2, y_start):
+    g = dwg.g()
     minus_strand = False
     if n1 in args.coordinates_bed.index:
         chrom = args.coordinates_bed.ix[n1, 'chr']
@@ -390,7 +391,7 @@ def draw_bed_track(args, dwg, n1, n2, pos1, pos2, y_start):
 
             width = (x_end - x_start)
             height = row.score / bed_track_score_norm * .4 * args.y_sep
-            dwg.add(dwg.rect(
+            g.add(dwg.rect(
                 (x_start*args.x_scale + args.margin, y_start-height),
                 (width*args.x_scale, height),
                 **{'fill': 'gray'}
@@ -498,6 +499,7 @@ def draw_multialign(args, dwg, aligns_by_names, y_start):
 
 
 def draw_pairwise(args, dwg, n1, n2, pos1, pos2, y_start):
+    g = dwg.g()
     x_start = args.margin
     fasta1 = path.join(args.patser_directory, n1 + '.fasta')
     fasta2 = path.join(args.patser_directory, n2+'.fasta')
@@ -527,23 +529,23 @@ def draw_pairwise(args, dwg, n1, n2, pos1, pos2, y_start):
         for i, _ in enumerate(group):
             pass
         i += 1
-        dwg.add(dwg.rect(
-            (x_start + x_scale * id_start, y_start - .1 * args.y_sep * (val < 0)),
-            (x_scale * i, .1 * args.y_sep * (val != 0)),
+        g.add(dwg.rect(
+            (x_start + args.x_scale * id_start, y_start - .1 * args.y_sep * (val < 0)),
+            (args.x_scale * i, .1 * args.y_sep * (val != 0)),
             fill="grey"
             ))
         # SNPs
         if val == 0:
             for j in range(id_start, id_start + i):
                 if str(seq1[pos1[j]]) != str(seq2[pos2[j]]):
-                    dwg.add(dwg.line(
-                        (x_start + x_scale * j, y_start - .3 * args.y_sep),
-                        (x_start + x_scale * j, y_start),
+                    g.add(dwg.line(
+                        (x_start + args.x_scale * j, y_start - .3 * args.y_sep),
+                        (x_start + args.x_scale * j, y_start),
                         style="stroke-width:1; stroke:{};".format(seq_colors[str(seq1[pos1[j]])]),
                         ))
-                    dwg.add(dwg.line(
-                        (x_start + x_scale * j, y_start),
-                        (x_start + x_scale * j, y_start + .3 * args.y_sep),
+                    g.add(dwg.line(
+                        (x_start + args.x_scale * j, y_start),
+                        (x_start + args.x_scale * j, y_start + .3 * args.y_sep),
                         id='{}:{}--{}>{}'.format(pos1[j], pos2[j], seq1[pos1[j]], seq2[pos2[j]],),
                         style="stroke-width:1; stroke:{};".format(seq_colors[str(seq2[pos2[j]])]),
                         ))
@@ -875,9 +877,8 @@ if __name__ == "__main__":
             )
 
 
-    x_scale = args.x_scale
+    #x_scale = args.x_scale
     y_scale = args.y_scale
-    x_start = args.margin
     y_start = 1.5 * args.y_sep
     delta_y = 1.5 * args.y_sep
     match_dim = args.match_dim
