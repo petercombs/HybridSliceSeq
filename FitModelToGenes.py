@@ -99,6 +99,7 @@ all_changes = {
 
 
 def plot_changes(model, changes, atlas, new_figure=True, xlims=None, ylims=None,
+                 simplify_title=False,
                 hide_low_expr=False):
     X = atlas.ix[:, model.params.index]
     p1 = model.predict(X)
@@ -131,7 +132,11 @@ def plot_changes(model, changes, atlas, new_figure=True, xlims=None, ylims=None,
         )
 
     #mpl.ylabel('predicted ASE data')
-    mpl.title(str(changes))
+    if simplify_title:
+        mpl.title(', '.join(['Increase ', 'Decrease '][value < 1] + key
+                            for key, value in changes.items()))
+    else:
+        mpl.title(str(changes))
     ax = mpl.gca()
     ax.set_aspect(1)
     ax.set_axis_bgcolor((.6, .6, .6))
