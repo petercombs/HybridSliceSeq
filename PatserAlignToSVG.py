@@ -1,20 +1,22 @@
 from __future__ import print_function
 import svgwrite as svg
 from Bio import  AlignIO, SeqIO
-from argparse import ArgumentParser
+from argparse import ArgumentParser, FileType
 from glob import glob
 from os import path
-from numpy import where, argwhere, diff, zeros, random, ceil
+from numpy import where, argwhere, diff, zeros, random, ceil, vstack
 import pandas as pd
 from progressbar import ProgressBar
 import itertools as it
 from collections import defaultdict, Counter
 from pprint import pprint
+from sys import stderr
 
 seq_colors = defaultdict(
     lambda : 'gray',
     {'T' : 'red', 'A': 'green', 'C': 'blue', 'G':'gold'}
 )
+
 
 def get_header_size(filename):
     for i, line in enumerate(open(filename)):
@@ -22,8 +24,9 @@ def get_header_size(filename):
             return i
     return 0
 
-def has_match(pos, patser1, patser2, pos1, pos2, dist=5, reltol=.2):
-    score = patser1.score[pos]
+def has_match(pos, patser1, patser2, pos1, pos2, dist=5, reltol=.2, score=None):
+    if score is None:
+        score = patser1.score[pos]
     try:
         new_pos = pos2[argwhere(pos1 == pos)][0,0]
     except IndexError:
@@ -60,6 +63,13 @@ def parse_best_aligns(aligns_by_seq1, take_best=min):
         out.append(((bestal[0].id, pos1), (bestal[1].id, pos2)))
     return out
 
+def get_pos_from_alignment(single_seq):
+    positions = zeros(len(single_seq), dtype=int)
+    apos = 0
+    for pos, base in enumerate(single_seq):
+        positions[pos] = apos
+        apos += (base != '-')
+    return positions
 
 
 
@@ -76,13 +86,18 @@ def parse_args():
     data_opts.add_argument('--sequence', '-s', default=False, action=store_true,
                            help='Patser output the sequence of the match as well')
     data_opts.add_argument('--fasta', '-F', default=None)
-    data_opts.add_argument('--needleall', '-N', default=False, action=store_true,
+    format = parser.add_mutually_exclusive_group()
+    format.add_argument('--needleall', '-N', default=False, action=store_true,
                            help='Input alignments are actually needleall output'
                            " files in EMBOSS srs format")
+    format.add_argument('--clustal', default=False, action=store_true,
+                        help="Input alignemnts are CLUSTAL files")
     data_opts.add_argument('--meme-suite', '-M', default=False,
                            action=store_true,
                            help='Directory is actually the output of FIMO or '
                            'another MEME suite program')
+
+    data_opts.add_argument('--output-bed', default=False, type=FileType('w'))
     data_opts.add_argument('--bed-track', '-b', default=False)
     data_opts.add_argument('--gtf-track', '-g', default=False)
     data_opts.add_argument('--coordinates-bed', default=False)
@@ -161,7 +176,16 @@ def parse_args():
     else:
         args.draw_gtf = False
 
-
+    if ',' in args.comp1:
+        assert args.clustal
+        args.comp1 = tuple(args.comp1.split(','))
+    else:
+        args.comp1 = (args.comp1, )
+    if ',' in args.comp2:
+        assert args.clustal
+        args.comp2 = tuple(args.comp2.split(','))
+    else:
+        args.comp2 = (args.comp2, )
     return args
 
 def get_drawing_size(parsed_arguments, alignments):
@@ -374,10 +398,106 @@ def draw_bed_track(args, dwg, n1, n2, pos1, pos2, y_start):
 
     y_start += args.y_sep * .9
 
-
+    dwg.add(g)
     return y_start
 
-def draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start):
+def draw_multialign(args, dwg, aligns_by_names, y_start):
+    g = dwg.g()
+    x_start = args.margin
+    align_len = len(list(aligns_by_names.values())[0])
+
+    top = y_start - .5 * args.y_sep
+    middle = y_start
+    bottom = y_start + .5 * args.y_sep
+
+    #try:
+    if True:
+        melseq = next(i for i in aligns_by_names if i.startswith('mel'))
+        melpos = get_pos_from_alignment(aligns_by_names[melseq])
+        if args.has_coordinates:
+            melpos += args.coordinates_bed.ix[melseq].start
+        print("Successfully got mel position")
+        '''
+    except Exception as err:
+        melpos = None
+        print("Could not get mel positions", err)
+        '''
+
+    g.add(dwg.line(
+        (x_start, y_start),
+        (x_start + args.x_scale * align_len, y_start)
+    ))
+    types = defaultdict(int)
+    for pos in range(align_len):
+        group1_bases = set(
+            aligns_by_names[n][pos] for n in aligns_by_names
+            if n.startswith(args.comp1)
+        )
+
+        group2_bases = set(
+            aligns_by_names[n][pos] for n in aligns_by_names
+            if n.startswith(args.comp2)
+        )
+
+        if group1_bases == group2_bases: continue
+
+        if len(group1_bases) == 1:
+            if len(group2_bases) == 1:
+                #print("Fixed substitution at", pos)
+                g.add(dwg.line((x_start + args.x_scale * pos, top),
+                               (x_start + args.x_scale * pos, bottom),
+                               class_="fixed"))
+                types['fixed'] += 1
+                if melpos is not None and args.output_bed:
+                    print(chr, melpos[pos], melpos[pos]+1,
+                          "{}_{}_{}_{}".format('Group1:', group1_bases,'Group2:',
+                                               group2_bases),
+                          sep='\t', end='\n',
+                          file=args.output_bed)
+
+                pass
+            elif group1_bases.issubset(group2_bases):
+                #print("Segregating substitution in group 2 at ", pos)
+                g.add(dwg.line((x_start + args.x_scale * pos, middle),
+                               (x_start + args.x_scale * pos, bottom),
+                               class_="segregating"))
+                types['segregating2'] += 1
+                pass
+            else:
+                types['complex'] += 1
+                #print("Confusing bases at ", pos, group1_bases, group2_bases)
+                pass
+        elif len(group2_bases) == 1:
+            if group1_bases.issuperset(group2_bases):
+                #print("Segregating substitution in group 1 at", pos)
+                g.add(dwg.line((x_start + args.x_scale * pos, top),
+                               (x_start + args.x_scale * pos, middle),
+                               class_="segregating"))
+                types['segregating1'] += 1
+                pass
+            else:
+                #print("Confusing bases at", pos, group1_bases, group2_bases)
+                types['complex'] += 1
+                pass
+        else:
+            g.add(dwg.line((x_start + args.x_scale * pos, top),
+                           (x_start + args.x_scale * pos, bottom),
+                           class_="diverged"))
+            types['diverged'] += 1
+            #print("Non-segregating substitution at", pos, group1_bases,
+                  #group2_bases)
+            pass
+
+
+    print(types)
+    print(align_len)
+    y_start += args.y_sep * .9
+    dwg.add(g)
+    return y_start
+
+
+
+def draw_pairwise(args, dwg, n1, n2, pos1, pos2, y_start):
     x_start = args.margin
     fasta1 = path.join(args.patser_directory, n1 + '.fasta')
     fasta2 = path.join(args.patser_directory, n2+'.fasta')
@@ -412,6 +532,7 @@ def draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start):
             (x_scale * i, .1 * args.y_sep * (val != 0)),
             fill="grey"
             ))
+        # SNPs
         if val == 0:
             for j in range(id_start, id_start + i):
                 if str(seq1[pos1[j]]) != str(seq2[pos2[j]]):
@@ -429,26 +550,313 @@ def draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start):
 
         id_start += i
     y_start += 0.5 * delta_y
+    dwg.add(g)
+    return y_start
+
+def draw_multibinding_track(args, dwg, y_start, all_binds, all_pos):
+    x_start = args.margin
+    x_scale = args.x_scale
+    comp1_only = Counter()
+    comp2_only = Counter()
+    max_coord = vstack(alignments[0][1][1].values()).max(axis=0)
+    g = dwg.g()
+    g.add(dwg.line(
+        (x_start, y_start),
+        (x_start + x_scale * len(max_coord), y_start),
+        style='stroke:#000000;stroke-width:1',
+    ))
+
+    ticks = set()
+    for pos in range(len(max_coord)):
+        if (max_coord[pos] % 100 == 0) and (max_coord[pos] not in ticks):
+            ticks.add(max_coord[pos])
+            g.add(dwg.line(
+                (x_start + x_scale * pos, y_start - .1 * delta_y),
+                (x_start + x_scale * pos, y_start + .1 * delta_y),
+            ))
+
+
+    # If we want to look only at motifs that are present in all species of a
+    # given type, we should be fine starting with those that are in only one of
+    # them.
+    comp10 = args.comp1[0]
+    seq10 = next(seq for seq in all_pos if seq.startswith(comp10))
+    comp20 = args.comp2[0]
+    seq20 = next(seq for seq in all_pos if seq.startswith(comp20))
+    refbind = all_binds[comp10]
+
+    tftabs = {}
+    for tf in set(refbind.tf):
+        for comp in all_binds:
+            tftabs[tf, comp] = all_binds[comp].query('tf == "{}"'.format(tf))
+
+    pbar = ProgressBar(maxval=len(all_binds[comp10]))
+    i = 0
+    pbar.start()
+    for ix, motif in all_binds[comp10].iterrows():
+        pbar.update(i)
+        i += 1
+        if motif.sequence_name != seq10: continue
+        tf_class = (motif.tf
+                    .replace('.', '_')
+                    .replace(')', '')
+                    .replace('(','')
+                   ) + ' hover_group'
+        matches1 = {}
+        matches2 = {}
+        for comp in args.comp1:
+            if comp == comp10: continue
+            seq = next(seq for seq in all_pos if seq.startswith(comp))
+            matches1[comp] = (has_match(motif.pos,
+                                        tftabs[motif.tf, comp10],
+                                        tftabs[motif.tf, comp],
+                                        all_pos[seq10], all_pos[seq],
+                                        score=motif.score))
+
+        for comp in args.comp2:
+            seq = next(seq for seq in all_pos if seq.startswith(comp))
+            matches2[comp] = (has_match(motif.pos,
+                                        tftabs[motif.tf, comp10],
+                                        tftabs[motif.tf, comp],
+                                        all_pos[seq10], all_pos[seq],
+                                        score=motif.score))
+
+        if all(matches1.values()) and all(matches2.values()):
+            pass
+           #print(motif)
+        elif all(matches1.values()) and any(matches2.values()):
+            pass
+            #print(motif)
+        elif all(matches1.values()):
+            comp1_only[motif.tf] += 1
+            r = dwg.rect((x_start + argwhere(all_pos[seq10]==motif.pos)[0,0]*x_scale,
+                          y_start - motif.score * args.y_scale),
+                         (args.bar_width, motif.score * args.y_scale),
+                         class_=tf_class,
+                        )
+            r.add(svg.base.Title(
+                '{tf} \n {sequence_name}:{start}-{stop}\n{score}\n{matched_sequence}'
+                .format(**motif)
+            ))
+            g.add(r)
+
+
+    pbar.finish()
+    i = 0
+    pbar = ProgressBar(maxval=len(all_binds[comp20]))
+    pbar.start()
+    refbind = all_binds[comp20]
+    for ix, motif in all_binds[comp20].iterrows():
+        pbar.update(i)
+        i += 1
+        if motif.sequence_name != seq20: continue
+        tf_class = (motif.tf
+                    .replace('.', '_')
+                    .replace(')', '')
+                    .replace('(','')
+                   ) + ' hover_group'
+        matches1 = {}
+        matches2 = {}
+        for comp in args.comp1:
+            seq = next(seq for seq in all_pos if seq.startswith(comp))
+            matches1[comp] = (has_match(motif.pos,
+                                        tftabs[motif.tf, comp20],
+                                        tftabs[motif.tf, comp],
+                                        all_pos[seq20],
+                                        all_pos[seq],
+                                        score=motif.score))
+
+        for comp in args.comp2:
+            if comp == comp20: continue
+            seq = next(seq for seq in all_pos if seq.startswith(comp))
+            matches2[comp] = (has_match(motif.pos,
+                                        tftabs[motif.tf, comp20],
+                                        tftabs[motif.tf, comp],
+                                        all_pos[seq20], all_pos[seq],
+                                        score=motif.score))
+
+        if all(matches2.values()) and any(matches1.values()):
+            pass
+            #print(motif)
+        elif all(matches2.values()):
+            comp2_only[motif.tf] += 1
+            r = dwg.rect((x_start + argwhere(all_pos[seq10]==motif.pos)[0,0]*x_scale,
+                          y_start),
+                         (args.bar_width, motif.score * args.y_scale),
+                         class_=tf_class,
+                        )
+            r.add(svg.base.Title(
+                '{tf} \n {sequence_name}:{start}-{stop}\n{score}\n{matched_sequence}'
+                .format(**motif)
+            ))
+            g.add(r)
+
+    pbar.finish()
+    print("Comp1: ", comp1_only)
+    print("Comp2: ", comp2_only)
+
+
+    dwg.add(g)
+    y_start += delta_y
+    return y_start, comp1_only, comp2_only
+
+def draw_binding_track(args, dwg, y_start, meme1, meme2, pos1, pos2):
+    x_start = args.margin
+    x_scale = args.x_scale
+    g = dwg.g()
+    lines.append(dwg.line(
+        (x_start, y_start),
+        (x_start + x_scale * len(pos1), y_start),
+        style='stroke:#000000;stroke-width:1',
+    ))
+    g.add(dwg.text(
+        n1,
+        (2*x_start + x_scale * len(pos1), y_start-10)
+    ))
+    g.add(dwg.text(
+        n2,
+        (2*x_start + x_scale * len(pos1), y_start+10)
+    ))
+
+    # Plot ticks
+    for i in argwhere(pos1 % args.x_ticks == 1).flat:
+        lines.append(dwg.line(
+            (x_start + i*x_scale+.01, y_start - 0.15 * args.y_sep),
+            (x_start + i*x_scale+.01, y_start + 0.15 * args.y_sep),
+            style='stroke:#000000;stroke-width:1',
+        ))
+
+    if args.background:
+        dwg.add(dwg.rect(
+            (x_start, y_start - 5 * y_scale),
+            (x_scale  * len(pos1), 10 * y_scale),
+            style='stroke-width:0; fill:#BBBBBB;'
+        ))
+        dwg.add(dwg.line(
+            (x_start, y_start - 2.5 * y_scale),
+            (x_start + x_scale * len(pos1), y_start - 2.5 * y_scale),
+            style='stroke:#FFFFFF;stroke-width:1;'
+        ))
+        dwg.add(dwg.line(
+            (x_start, y_start + 2.5 * y_scale),
+            (x_start + x_scale * len(pos1), y_start + 2.5 * y_scale),
+            style='stroke:#FFFFFF;stroke-width:1;'
+        ))
+    tf_changes_i = Counter()
+    for i_tf, (tf, tf_name) in enumerate(zip(args.tf, args.tf_names)):
+        if args.meme_suite:
+            patser1 = meme1.ix[(meme1.tf == tf) & (meme1.sequence_name == n1)]
+            patser2 = meme2.ix[(meme2.tf == tf) & (meme2.sequence_name == n2)]
+
+            patser1 = patser1.sort_values(by='score').drop_duplicates(subset='pos', keep='last')
+            patser2 = patser2.sort_values(by='score').drop_duplicates(subset='pos', keep='last')
+
+            if args.rescale_bars:
+                print(patser1.score.max())
+                top_score = max(patser1.score.max(), patser2.score.max())
+                patser1.score /= top_score / 5
+                patser2.score /= top_score / 5
+                print(patser1.score.max())
+
+            patser1.index = patser1.pos
+            patser2.index = patser2.pos
+
+            patser1.index.name = 'pos'
+            patser2.index.name = 'pos'
+
+        else:
+            args.comp1 = args.comp1[0]
+            args.comp2 = args.comp2[0]
+            in_file1 = glob(path.join(args.patser_directory, args.comp1+'*'+tf+'*'))[0]
+            in_file2 = glob(path.join(args.patser_directory, args.comp2+'*'+tf+'*'))[0]
+
+            hs1 = get_header_size(in_file1)
+            if hs1:
+                patser1 = pd.read_table(in_file1, skiprows=hs1, **patser_args)
+            else:
+                patser1 = pd.DataFrame(columns=patser_args['names'])
+            hs2 = get_header_size(in_file2)
+            if hs2:
+                patser2 = pd.read_table(in_file2, skiprows=hs2, **patser_args)
+            else:
+                patser2 = pd.DataFrame(columns=patser_args['names'])
+
+            patser1.index = [int(str(ix).strip('C')) for ix in patser1.index]
+            patser2.index = [int(str(ix).strip('C')) for ix in patser2.index]
+            patser1.index.name = 'pos'
+            patser2.index.name = 'pos'
+            patser1['pos'] = patser1.index
+            patser2['pos'] = patser2.index
+            patser1 = patser1.sort_values(by='pval').drop_duplicates(subset='pos')
+            patser2 = patser2.sort_values(by='pval').drop_duplicates(subset='pos')
+            patser1 = patser1.ix[patser1.seq == n1]
+            patser2 = patser2.ix[patser2.seq == n2]
+        pos = 0
+        for pos in patser1.index:
+            matched = has_match(pos, patser1, patser2, pos1, pos2)
+            if not matched:
+                tf_changes_i['-'+tf_name] += 1
+            s = float(patser1.ix[pos, 'score'])*y_scale
+            r = dwg.rect(
+                (x_start + argwhere(pos1 == pos)[0,0]*x_scale, y_start-s),
+                (args.bar_width, s),
+                fill=colors[i_tf],
+                **{
+                    'fill-opacity': "{:.2f}".format(1.0-match_dim*matched),
+                    #'stroke-width': '0',
+                    }
+
+                )
+            r.add(svg.base.Title(tf_name + "\n" + str(patser1.ix[pos])))
+            dwg_groups[tf].add(r)
+        for pos in patser2.index:
+            matched = has_match(pos, patser2, patser1, pos2, pos1)
+            if not matched:
+                tf_changes_i['+'+tf_name] += 1
+            pos = int(pos)
+            s = float(patser2.ix[pos, 'score'])*y_scale
+            try:
+                r = (dwg.rect(
+                    (x_start + argwhere(pos2 == pos)[0,0]*x_scale, y_start),
+                    (args.bar_width, s),
+                    style='fill:{}; fill-opacity:{:.2f};'.format(
+                        colors[i_tf],
+                        1.0-match_dim*matched,
+                        ),
+                    ))
+                r.add(svg.base.Title(tf_name + "\n" + str(patser2.ix[pos])))
+                dwg_groups[tf].add(r)
+            except IndexError:
+                pass
+        #pb.update(prog)
+        #prog += 1
+    tf_changes[n1, n2] = tf_changes_i
+
+    y_start += delta_y
     return y_start
 
 if __name__ == "__main__":
     args = parse_args()
 
     if args.meme_suite:
-        meme1 = (
-            pd.read_table( path.join(args.patser_directory, args.comp1, 'fimo.txt'),)
-            .rename(columns=lambda x: x.strip('#'))
-            .rename(columns=lambda x: x.replace(' ', '_'))
-        )
-        meme1['pos'] = (meme1.start + meme1.stop)//2
-        meme1['tf'] = meme1['pattern_name']
-        meme2 = (
-            pd.read_table( path.join(args.patser_directory, args.comp2, 'fimo.txt'),)
-            .rename(columns=lambda x: x.strip('#'))
-            .rename(columns=lambda x: x.replace(' ', '_'))
-        )
-        meme2['pos'] = (meme2.start + meme2.stop)//2
-        meme2['tf'] = meme2['pattern_name']
+        bind_tables = { comp:
+                 pd.read_table( path.join(args.patser_directory, comp, 'fimo.txt'),)
+                 .rename(columns=lambda x: x.strip('#'))
+                 .rename(columns=lambda x: x.replace(' ', '_'))
+                 for comp in (args.comp1 + args.comp2)
+        }
+        for table in bind_tables.values():
+            table['pos'] = (table.start + table.stop)//2
+            table['tf'] = table['pattern_name']
+            table.drop_duplicates(subset=['tf', 'pos'], inplace=True)
+        if args.clustal:
+            pass
+        else:
+            meme1 = bind_tables[args.comp1[0]]
+            meme2 = bind_tables[args.comp2[0]]
+    else:
+        meme1 = None
+        meme2 = None
 
 
 
@@ -533,6 +941,21 @@ if __name__ == "__main__":
                 ))
         alignments = parse_best_aligns(aligns_by_seq2, max)
         n_aligns = len(alignments)
+    elif args.clustal:
+        align = AlignIO.read(args.alignments, 'clustal')
+        all_aligns = {aln.id: aln for aln in align}
+        if args.draw_gtf:
+            positions = {id: get_pos_from_alignment(all_aligns[id])
+                         for id in all_aligns}
+            key_name = args.coordinates_bed.index[0]
+            alignments = [((key_name, positions[key_name]),
+                           ('multi', positions))]
+        else:
+            alignments = [(('multi', align), ('multi', all_aligns)),]
+        aligns_by_seq1 = { id: align for id in all_aligns}
+        aligns_by_seq2 = { id: align for id in all_aligns}
+        n_aligns = len(all_aligns)
+
     else:
         try:
             from ParseDelta import parse_records
@@ -574,140 +997,30 @@ if __name__ == "__main__":
     for ((n1, pos1), (n2, pos2)) in sorted(alignments,
                                            key=lambda x: (x[0][0], x[1][0])):
         if args.draw_alignment:
-            y_start = draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start)
+            if args.clustal:
+                y_start = draw_multialign(args, dwg, all_aligns, y_start)
+            else:
+                y_start = draw_pairwise(args, dwg, n1, n2, pos1, pos2, y_start)
 
         if args.draw_bed:
             y_start = draw_bed_track(args, dwg, n1, n2, pos1, pos2, y_start)
-
         if args.draw_gtf:
             y_start = draw_gtf_track(args, dwg, n1, n2, pos1, pos2, y_start)
-        lines.append(dwg.line(
-            (x_start, y_start),
-            (x_start + x_scale * len(pos1), y_start),
-            style='stroke:#000000;stroke-width:1',
-            ))
-        dwg.add(dwg.text(
-            n1,
-            (2*x_start + x_scale * len(pos1), y_start-10)
-            ))
-        dwg.add(dwg.text(
-            n2,
-            (2*x_start + x_scale * len(pos1), y_start+10)
-            ))
-
-        # Plot ticks
-        for i in argwhere(pos1 % args.x_ticks == 1).flat:
-            lines.append(dwg.line(
-                (x_start + i*x_scale+.01, y_start - 0.15 * args.y_sep),
-                (x_start + i*x_scale+.01, y_start + 0.15 * args.y_sep),
-                style='stroke:#000000;stroke-width:1',
-            ))
-
-        if args.background:
-            dwg.add(dwg.rect(
-                (x_start, y_start - 5 * y_scale),
-                (x_scale  * len(pos1), 10 * y_scale),
-                style='stroke-width:0; fill:#BBBBBB;'
-            ))
-            dwg.add(dwg.line(
-                (x_start, y_start - 2.5 * y_scale),
-                (x_start + x_scale * len(pos1), y_start - 2.5 * y_scale),
-                style='stroke:#FFFFFF;stroke-width:1;'
-            ))
-            dwg.add(dwg.line(
-                (x_start, y_start + 2.5 * y_scale),
-                (x_start + x_scale * len(pos1), y_start + 2.5 * y_scale),
-                style='stroke:#FFFFFF;stroke-width:1;'
-            ))
-        tf_changes_i = Counter()
-        for i_tf, (tf, tf_name) in enumerate(zip(args.tf, args.tf_names)):
-            if args.meme_suite:
-                patser1 = meme1.ix[(meme1.tf == tf) & (meme1.sequence_name == n1)]
-                patser2 = meme2.ix[(meme2.tf == tf) & (meme2.sequence_name == n2)]
-
-                patser1 = patser1.sort_values(by='score').drop_duplicates(subset='pos', keep='last')
-                patser2 = patser2.sort_values(by='score').drop_duplicates(subset='pos', keep='last')
-
-                if args.rescale_bars:
-                    print(patser1.score.max())
-                    top_score = max(patser1.score.max(), patser2.score.max())
-                    patser1.score /= top_score / 5
-                    patser2.score /= top_score / 5
-                    print(patser1.score.max())
-
-                patser1.index = patser1.pos
-                patser2.index = patser2.pos
-
-                patser1.index.name = 'pos'
-                patser2.index.name = 'pos'
+        if args.draw_binding:
+            if args.clustal:
+                y_start, c1b, c2b = draw_multibinding_track(args, dwg, y_start,
+                                                            bind_tables, pos2)
+                keys = list(c1b) + list(c2b)
+                stylestrs = []
+                for color, tf in zip(it.cycle(colors), keys):
+                    stylestrs.append('.{} {{ fill:{}}}'.format(tf, color))
+                dwg.add(dwg.style('\n'.join(stylestrs)))
 
             else:
-                in_file1 = glob(path.join(args.patser_directory, args.comp1+'*'+tf+'*'))[0]
-                in_file2 = glob(path.join(args.patser_directory, args.comp2+'*'+tf+'*'))[0]
+                y_start = draw_binding_track(args, dwg, y_start, meme1, meme2,
+                                             pos1, pos2)
 
-                hs1 = get_header_size(in_file1)
-                if hs1:
-                    patser1 = pd.read_table(in_file1, skiprows=hs1, **patser_args)
-                else:
-                    patser1 = pd.DataFrame(columns=patser_args['names'])
-                hs2 = get_header_size(in_file2)
-                if hs2:
-                    patser2 = pd.read_table(in_file2, skiprows=hs2, **patser_args)
-                else:
-                    patser2 = pd.DataFrame(columns=patser_args['names'])
 
-                patser1.index = [int(str(ix).strip('C')) for ix in patser1.index]
-                patser2.index = [int(str(ix).strip('C')) for ix in patser2.index]
-                patser1.index.name = 'pos'
-                patser2.index.name = 'pos'
-                patser1['pos'] = patser1.index
-                patser2['pos'] = patser2.index
-                patser1 = patser1.sort_values(by='pval').drop_duplicates(subset='pos')
-                patser2 = patser2.sort_values(by='pval').drop_duplicates(subset='pos')
-                patser1 = patser1.ix[patser1.seq == n1]
-                patser2 = patser2.ix[patser2.seq == n2]
-            pos = 0
-            for pos in patser1.index:
-                matched = has_match(pos, patser1, patser2, pos1, pos2)
-                if not matched:
-                    tf_changes_i['-'+tf_name] += 1
-                s = float(patser1.ix[pos, 'score'])*y_scale
-                r = dwg.rect(
-                    (x_start + argwhere(pos1 == pos)[0,0]*x_scale, y_start-s),
-                    (args.bar_width, s),
-                    fill=colors[i_tf],
-                    **{
-                        'fill-opacity': "{:.2f}".format(1.0-match_dim*matched),
-                        #'stroke-width': '0',
-                        }
-
-                    )
-                r.add(svg.base.Title(tf_name + "\n" + str(patser1.ix[pos])))
-                dwg_groups[tf].add(r)
-            for pos in patser2.index:
-                matched = has_match(pos, patser2, patser1, pos2, pos1)
-                if not matched:
-                    tf_changes_i['+'+tf_name] += 1
-                pos = int(pos)
-                s = float(patser2.ix[pos, 'score'])*y_scale
-                try:
-                    r = (dwg.rect(
-                        (x_start + argwhere(pos2 == pos)[0,0]*x_scale, y_start),
-                        (args.bar_width, s),
-                        style='fill:{}; fill-opacity:{:.2f};'.format(
-                            colors[i_tf],
-                            1.0-match_dim*matched,
-                            ),
-                        ))
-                    r.add(svg.base.Title(tf_name + "\n" + str(patser2.ix[pos])))
-                    dwg_groups[tf].add(r)
-                except IndexError:
-                    pass
-            pb.update(prog)
-            prog += 1
-        tf_changes[n1, n2] = tf_changes_i
-
-        y_start += delta_y
     pb.finish()
     n_cols = 3
     y_start = draw_tf_cols(dwg, dwg_groups, args, y_start)
