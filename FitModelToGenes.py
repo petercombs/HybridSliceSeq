@@ -140,6 +140,7 @@ def plot_changes(model, changes, atlas, new_figure=True, xlims=None, ylims=None,
     ax = mpl.gca()
     ax.set_aspect(1)
     ax.set_axis_bgcolor((.6, .6, .6))
+    return p1, p2
 
 def get_virtual_ase_slices(model, changes, atlas, n_slices, fitter=None,
                            denom_cutoff=5):
@@ -233,7 +234,8 @@ def compare_ase_range(ase, model, tfs, atlas, range_low=0.1, range_high=10,
 
 
 def plot_virtual_ase_slices(model, changes, atlas, new_figure=True, n_slices=25,
-                       fitter=None, denom_cutoff=5):
+                            xlims=None,
+                            fitter=None, denom_cutoff=5):
 
     denoms, virtualslices, fitter = get_virtual_ase_slices(
         model, changes, atlas, n_slices,
@@ -245,41 +247,82 @@ def plot_virtual_ase_slices(model, changes, atlas, new_figure=True, n_slices=25,
     mpl.cm.RdBu.set_bad((0.5, 0.5, 0.5))
     mpl.cm.RdBu.set_over((0.5, 0.5, 0.5))
     mpl.cm.RdBu.set_under((0.5, 0.5, 0.5))
-    mpl.pcolormesh(virtualslices, cmap=mpl.cm.RdBu, vmin=-1, vmax=1)
+    xs = np.linspace(atlas.x.min(), atlas.x.max(), n_slices, endpoint=True)
+    mpl.pcolormesh(xs, [0,1], virtualslices, cmap=mpl.cm.RdBu, vmin=-1, vmax=1)
     ax = mpl.gca()
     #ax.set_aspect(1)
-    ax.hlines([0, 1], 0, n_slices)
-    ax.vlines([0, n_slices], 0, 1)
-    ax.set_xlim(-n_slices * .1, n_slices * 1.1)
+    ax.hlines([0, 1], xs[0], xs[-1])
+    ax.vlines([xs[0], xs[-1]], 0, 1)
+    if xlims:
+        ax.set_xlim(xlims)
     ax.set_ylim(-0.1, 1.1)
     ax.set_xticks([])
     ax.set_yticks([])
     return denoms, virtualslices
 
 def plot_both(model, changes, atlas, n_slices=27, fitter=None, denom_cutoff=5,
+              plot_other=2,
               xlims=None, ylims=None):
-    mpl.figure()
-    ax1 = mpl.subplot2grid((3,1), (0,0), 2, 1)
-    plot_changes(model, changes, atlas.ix[atlas.in_central], xlims=xlims,
-                 ylims=ylims, new_figure=False)
-    ax2 = mpl.subplot2grid((3,1), (2,0), 2, 1)
+    fig = mpl.figure()
+    width = .9
+    left = 0.5 - width / 2
+    width2 = 420/800 if plot_other else 650/800
+    left2 = 0.5-width2 / 2
+    height = 1/(2 + 1 + plot_other)-.01
+    ax1 = fig.add_axes([left,height, width, 2*height], aspect=1,xlim=xlims)
+    #ax1 = mpl.subplot2grid((3+plot_other,1), (plot_other,0), 2, 1)
+    p1, p2 = plot_changes(model, changes, atlas.ix[atlas.in_central], xlims=xlims,
+                          simplify_title=True,
+                          ylims=ylims, new_figure=False)
+    #ax2 = mpl.subplot2grid((3+plot_other,1), (2+plot_other,0), 1, 1)
+    ax2 = fig.add_axes([left2, 0, width2, height])
     plot_virtual_ase_slices(model, changes, atlas.ix[atlas.in_central],
                             fitter=fitter,
+                            xlims=xlims,
                             new_figure=False, n_slices=n_slices, denom_cutoff=denom_cutoff)
+    if plot_other:
+        #ax0 = mpl.subplot2grid((5, 1), (0, 0), plot_other, 1)
+        ax0 = fig.add_axes([left, 3*height+.04, width, plot_other * height])
+        ax0.scatter(atlas.x, atlas.z, s=60,
+                    c=p2,
+                    edgecolors=(0, 0, 0, 0),
+                    cmap=pu.ISH,
+                   )
+        ax0.set_aspect(1)
+        ax0.set_axis_bgcolor((.6, .6, .6))
+        ax0.set_xticks([])
+        ax0.set_yticks([])
+        if xlims:
+            ax0.set_xlim(*xlims)
+        if ylims:
+            ax0.set_ylim(*ylims)
+
     ax2.set_frame_on(False)
-    mpl.tight_layout()
-    mpl.ioff()
-    mpl.draw()
-    mpl.show()
-    mpl.ion()
-    mpl.draw_if_interactive()
-    mpl.show()
+    #mpl.tight_layout()
+    #mpl.ioff()
+    #mpl.draw()
+    #mpl.show(block=False)
+    #mpl.ion()
+    #mpl.draw_if_interactive()
+    #mpl.show()
+    #bbox1_pts = ax1.get_position().get_points()
+    #ax1.set_position(Bbox(bbox1_pts))
+    #mpl.draw()
+    #mpl.show(block=False)
+    #bbox1_pts = ax1.get_position().get_points()
+    #ax1.set_position(Bbox(bbox1_pts))
+    #bbox2_pts = ax2.get_position().get_points()
+    #bbox2_pts[:, 0] = bbox1_pts[:, 0]
+    #ax1.set_position(Bbox(bbox1_pts))
+    #ax2.set_position(Bbox(bbox2_pts))
+    return fig, ax1, ax2
+
+def set_widths(ax1, ax2):
     bbox1_pts = ax1.get_position().get_points()
     bbox2_pts = ax2.get_position().get_points()
     bbox2_pts[:, 0] = bbox1_pts[:, 0]
     ax1.set_position(Bbox(bbox1_pts))
     ax2.set_position(Bbox(bbox2_pts))
-    return ax1, ax2
 
 
 class Predictor():
@@ -325,7 +368,7 @@ if __name__ == "__main__":
         atlas_expr, atlas_coords = pcr.data_to_arrays()
         atlas_expr.ix[:, 'const', :] = 1
         atlas_expr.ix[:, 'bcdP2', :] = atlas_expr.ix[:, 'bcdP', :]**2
-        atlas_expr.ix[:, 'hkb2', :] = atlas_expr.ix[:, 'hkb', :]**2
+        #atlas_expr.ix[:, 'hkb2', :] = atlas_expr.ix[:, 'hkb', :]**2
 
     for gene in atlas_expr.major_axis:
         last_t = None
@@ -434,7 +477,7 @@ if __name__ == "__main__":
                         'tll', 'D',  'kni',
                         'sna',
                         'h', 'dl', 'mad', 'shn', 'twi', 'const'}
-            best_tfs = {'const', 'bcdP', 'bcdP2', 'D', 'twi'}
+            #best_tfs = {'const', 'bcdP', 'bcdP2', 'D', 'twi'}
             best_tfs.discard(target_gene)
             best_tfs.discard(target_gene + 'P')
             best_model = fit_model(atlas_expr.ix[in_central, best_tfs,
@@ -442,12 +485,15 @@ if __name__ == "__main__":
                                    Y_tmp, co=co)
             best_tfs = best_model.params.index
         else:
-            with mp.Pool(1) as p:
+            with mp.Pool() as p:
                 pool = {}
                 for comb in it.combinations(all_regs, 4):
                     comb = tuple(set(comb) |
                                  set(all_changes[target_gene].keys()))
                     comb = comb + ('const', )
+                    if 'bcdP' in comb and 'bcdP2' not in comb:
+                        comb = comb + ('bcdP2', )
+
                     X_tmp = (atlas_expr.ix[in_central, comb, time_point]
                              .T.copy()
                              .dropna(how='all', axis=1)
@@ -477,7 +523,7 @@ if __name__ == "__main__":
             small_atlas[tf] = atlas_expr.ix[:, tf, time_point]
         small_atlas.sort_values(by='c', inplace=True)
 
-        ax = mpl.subplot(3, 2, 1, aspect='equal')
+        ax = mpl.subplot(1, 2, 1, aspect='equal')
         mpl.scatter(
             small_atlas.x,
             small_atlas.z,
@@ -488,8 +534,8 @@ if __name__ == "__main__":
         )
         ax.set_axis_bgcolor((.6, .6, .6))
         mpl.ylabel('Original data')
-        print(len(small_atlas.c))
-        ax.add_patch(PathPatch(poly, fill=False))
+        #print(len(small_atlas.c))
+        #ax.add_patch(PathPatch(poly, fill=False))
         #xlims = mpl.xlim()
         #xlims = (xlims[0] - 10, xlims[1] + 10)
         emb_width = small_atlas.x.max() - small_atlas.x.min()
@@ -516,7 +562,7 @@ if __name__ == "__main__":
         mpl.ylabel('Fitting')
         '''
 
-        ax = mpl.subplot(3, 2, 3, aspect='equal')
+        ax = mpl.subplot(1, 2, 2, aspect='equal')
 
         p1 = best_model.predict(best_X.ix[in_central])
         mpl.scatter(
@@ -533,8 +579,9 @@ if __name__ == "__main__":
         mpl.xlim(*xlims)
         mpl.ylim(*ylims)
         mpl.yticks([])
-        #mpl.ylabel('Predicted Mel Data')
+        mpl.ylabel('Predicted Mel Data')
 
+        '''
         ax = mpl.subplot(3, 2, 5, aspect='equal')
 
         fitter2 = Predictor(best_model, changes)
@@ -568,6 +615,7 @@ if __name__ == "__main__":
         mpl.ylim(*ylims)
         mpl.yticks([])
         mpl.ylabel('predicted sim data')
+        '''
 
     mpl.savefig(path.join(dir,
                           'analysis/results/model_tweak/{}'.format(target_gene)))
@@ -585,6 +633,13 @@ if __name__ == "__main__":
         .ix[target_gene]
         .select(ut.startswith(('melXsim', 'simXmel')))
     )
+    pu.svg_heatmap(ase,
+                   'analysis/results/model_tweak/{}_ase.svg'.format(target_gene),
+                   norm_rows_by='center0pre',
+                   cmap=pu.cm.RdBu,
+                   **pu.kwargs_single_column
+                  )
+
     n_good = ase.select(ut.startswith('melXsim_cyc14C_rep1')).count()
     for tf in (best_model
                .params.index.intersection(
@@ -592,16 +647,17 @@ if __name__ == "__main__":
               ):
         mpl.cm.RdBu.set_bad((0.5, 0.5, 0.5))
         mpl.cm.RdBu_r.set_bad((0.5, 0.5, 0.5))
-        ax1, ax2 = plot_both(best_model, {tf: changes[tf]},
-                             small_atlas, xlims=xlims, ylims=ylims,
-                             denom_cutoff=0)
+        fig, ax1, ax2 = plot_both(best_model, {tf: changes[tf]},
+                                  small_atlas.ix[small_atlas.in_central],
+                                  xlims=xlims, ylims=ylims,
+                                  denom_cutoff=0)
 
 
-        mpl.savefig(path.join(dir, 'analysis/results/model_tweak/{}_{}'
+        fig.savefig(path.join(dir, 'analysis/results/model_tweak/{}_{}'
                     .format(target_gene, tf)))
         setcolor.set_backgroundcolor(ax1, 'k')
         setcolor.set_foregroundcolor(ax1, 'w')
-        mpl.savefig(path.join(dir, 'analysis/results/model_tweak/{}_{}_bgblk'
+        fig.savefig(path.join(dir, 'analysis/results/model_tweak/{}_{}_bgblk'
                     .format(target_gene, tf)))
         print(
             {tf: changes[tf]},
@@ -610,6 +666,7 @@ if __name__ == "__main__":
                         denom_cutoff='adaptive'
                        )[0]
              )
+        mpl.close(fig)
 
 
     if args.find_best_tweaks:
@@ -651,7 +708,6 @@ if __name__ == "__main__":
         )
         for (tf, (deltas, corrs, r2s)), kwarg in zip(sorted(tweaked.items()),
                                                      kwargs):
-            print(kwarg)
             ax1.semilogx(deltas, corrs, basex=2, label=tf, **kwarg)
             ax2.semilogx(deltas, r2s.clip(-0.1, 1)*100, basex=2, label=tf,
                          **kwarg)
@@ -667,22 +723,27 @@ if __name__ == "__main__":
                 else:
                     tfchange = {tf: best_corr}
 
-                plot_both(best_model, tfchange, small_atlas,
-                          denom_cutoff = 0, xlims=xlims, ylims=ylims)
-                mpl.savefig('{}/analysis/results/model_tweak/paramsearch/{}_corr_{}'
+                fig, a1, a2 = plot_both(best_model, tfchange,
+                                        small_atlas.ix[small_atlas.in_central],
+                                        denom_cutoff = 0, xlims=xlims, ylims=ylims)
+                print('{}/analysis/results/model_tweak/paramsearch/{}_corr_{}'
+                        .format(dir, target_gene, sub('[\^\$ \+]', '', tf))
+                )
+                fig.savefig('{}/analysis/results/model_tweak/paramsearch/{}_corr_{}'
                         .format(dir, target_gene, sub('[\^\$ \+]', '', tf)))
-                mpl.close()
+                #mpl.close(fig)
                 for a in tfchange:
                     tfchange[a] = best_r2
-                plot_both(best_model, tfchange, small_atlas,
-                          denom_cutoff = 0, xlims=xlims, ylims=ylims)
+                fig, a1, a2 = plot_both(best_model, tfchange,
+                                        small_atlas.ix[small_atlas.in_central],
+                                        denom_cutoff = 0, xlims=xlims, ylims=ylims)
                 mpl.savefig('{}/analysis/results/model_tweak/paramsearch/{}_varexp_{}'
                         .format(dir, target_gene, sub('[\^\$ \+]', '', tf)))
-                mpl.close()
+                #mpl.close(fig)
 
             except ValueError:
                 pass
-        ax1.legend(loc='lower right')
+        ax2.legend(loc='lower left')
         ax1.vlines(1, -1, 1)
         ax2.vlines(1, *ax2.get_ybound())
         ax1.set_xlabel('TF Binding Strength Multiplier')
@@ -710,7 +771,7 @@ if __name__ == "__main__":
                     .format(target_gene)))
         mpl.ioff()
         mpl.draw()
-        mpl.show()
+        #mpl.show()
         mpl.ion()
         ax2.set_frame_on(False)
         bbox1_pts = ax1.get_position().get_points()
@@ -719,7 +780,6 @@ if __name__ == "__main__":
         bbox1_pts[:, 0] = bbox2_pts[:, 0]
         ax1.set_position(Bbox(bbox1_pts))
         ax2.set_position(Bbox(bbox2_pts))
-        print(ax1.get_position())
         mpl.savefig(path.join(dir, 'analysis/results/model_tweak/{}_bcdbcd2'
                     .format(target_gene)))
         setcolor.set_backgroundcolor(ax1, 'k')
