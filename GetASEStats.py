@@ -247,8 +247,8 @@ if __name__ == "__main__":
 
     me_mat_lott_zyg = set(lott[lott.CLASS == 'zyg'].index).intersection(maternal[maternal].index)
     me_zyg_lott_mat = set(lott[lott.CLASS == 'mat'].index).intersection(ut.true_index(zygotic))
-    data['lott_disagreeT1'] = len(me_mat_lott_zyg)
-    data['lott_disagreeT2'] = len(me_zyg_lott_mat)
+    data['lott_disagree_t_one'] = len(me_mat_lott_zyg)
+    data['lott_disagree_t_two'] = len(me_zyg_lott_mat)
     pu.svg_heatmap((ase.ix[me_mat_lott_zyg], lott_expr.ix[me_mat_lott_zyg]), 'analysis/results/me_mat_lott_zyg.svg',
                    norm_rows_by=('center0pre', 'max'), cmap=(cm.RdBu, cm.viridis),  **plot_kwargs)
 
