@@ -242,9 +242,9 @@ if __name__ == "__main__":
 
 
     r2_logist = calculate_variance_explained(ase, xs, logistic, res_logist)
-    r2_logist_perm = calculate_variance_explained(ase_perm, xs, logistic, res_logist_perm)
+    r2_logist_perm = np.zeros_like(r2_logist)
     r2_peak = calculate_variance_explained(ase, xs, peak, res_peak)
-    r2_peak_perm = calculate_variance_explained(ase_perm, xs, peak, res_peak_perm)
+    r2_peak_perm = np.zeros_like(r2_peak)
 
 
     co = args.cutoff_r2
