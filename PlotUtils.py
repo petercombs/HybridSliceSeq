@@ -360,14 +360,16 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                    colname_tuple)
     if figure_title:
         if isinstance(figure_title, tuple):
+            font_size = '3em'
             for title_line in figure_title:
                 dwg.add(dwg.text(title_line, (x_start, y_start+75,),
-                                 style="font-size:3em"))
+                                 style="font-size:{};font-family:Sans-Serif".format(font_size)))
                 y_start += 80
+                font_size = '1.5em'
 
         else:
             dwg.add(dwg.text(figure_title, (x_start, y_start+75,),
-                             style="font-size:3em"))
+                             style="font-size:3em;font-family:Sans-Serif"))
             y_start += 80
     if progress_bar:
         from progressbar import ProgressBar
@@ -691,7 +693,9 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
         cmd = [
             'convert',
             filename,
-            '-density', '300',
+            '-units', 'PixelsPerInch',
+            '+antialias',
+            '-density', '600',
             '-background', 'none',
             '-transparent', 'white',
             filename.replace('svg', 'png'),
