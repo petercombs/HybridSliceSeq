@@ -84,6 +84,7 @@ def parse_args():
                            help='Directory is actually the output of FIMO or '
                            'another MEME suite program')
     data_opts.add_argument('--bed-track', '-b', default=False)
+    data_opts.add_argument('--gtf-track', '-g', default=False)
     data_opts.add_argument('--coordinates-bed', default=False)
     plot_opts.add_argument('--x-scale', '-x', type=float, default=.1)
     plot_opts.add_argument('--y-scale', '-y', type=float, default=1.0)
@@ -127,14 +128,19 @@ def parse_args():
         raise ValueError("Different number of TF labels and TFs: {} and {}"
                          .format(args.tf_names, args.tfs))
 
-    if args.coordinates_bed and args.bed_track:
+    if args.coordinates_bed:
+        args.has_coordinates = True
         args.coordinates_bed = pd.read_table(
             args.coordinates_bed,
             header=None, names=['chr', 'start', 'stop', 'feature', 'score',
                                 'strand', 'thickStart', 'thickEnd'],
             index_col='feature',
         )
+    else:
+        args.has_coordinates = False
 
+
+    if args.has_coordinates and args.bed_track:
         args.bed_track = pd.read_table(
             args.bed_track,
             comment='#',
@@ -144,6 +150,15 @@ def parse_args():
     else:
         args.draw_bed = False
 
+    if args.has_coordinates and args.gtf_track:
+        args.gtf_track = pd.read_table(
+            args.gtf_track,
+            header=None, names=['chr', 'source', 'type', 'start', 'stop',
+                                'score', 'strand', 'offset', 'annotation']
+        )
+        args.draw_gtf = True
+    else:
+        args.draw_gtf = False
 
 
     return args
@@ -162,6 +177,7 @@ def get_drawing_size(parsed_arguments, alignments):
     height += len(alignments) * .5 * parsed_arguments.show_alignment
     height += (0.5 * ceil(len(parsed_arguments.tf)/3))
     height += len(alignments) * .9 * args.draw_bed
+    height += len(alignments) * .9 * args.draw_gtf
 
     height *= 1.5 * parsed_arguments.y_sep
     height += 200
@@ -196,6 +212,109 @@ def draw_tf_cols(dwg, dwg_groups, args, y_start):
         dwg.add(grp)
     for line in lines:
         dwg.add(line)
+
+    return y_start
+
+
+def draw_gtf_track(args, dwg, n1, n2, pos1, pos2, y_start):
+    g = dwg.g()
+    minus_strand = False
+    '''
+    print(args.coordinates_bed.index,
+          n1, n2,
+          args.coordinates_bed.ix[:, 'strand'],
+          file=stderr)
+          '''
+    if n1 in args.coordinates_bed.index:
+        if args.coordinates_bed.ix[n1, 'strand'] == '-':
+            bed_pos = args.coordinates_bed.ix[n1, 'stop'] - pos1
+            minus_strand = True
+        else:
+            bed_pos = pos1 + args.coordinates_bed.ix[n1, 'start']
+    elif n2 in args.coordinates_bed.index:
+        if args.coordinates_bed.ix[n2, 'strand'] == '-':
+            bed_pos = args.coordinates_bed.ix[n2, 'stop'] - pos2
+            minus_strand = True
+        else:
+            bed_pos = pos2 + args.coordinates_bed.ix[n2, 'start']
+    else:
+        raise RuntimeError("Cannot find coordinates for: {}".format(n1))
+
+
+    #print(bed_pos, file=stderr)
+    #print(args.coordinates_bed.to_csv(sep='\t'))
+    '''
+    print(pos1 + args.coordinates_bed.ix[n2, 'start'], file=stderr)
+    print(pos2 + args.coordinates_bed.ix[n2, 'start'], file=stderr)
+    '''
+    height = 0.15 * delta_y
+    for ix, row in args.gtf_track.iterrows():
+        #print(minus_strand, row.strand, row.annotation, file=stderr)
+        if minus_strand:
+            left = min(row.stop, bed_pos[0])
+            right = max(row.start, bed_pos[-1])
+            x_starts = where(bed_pos == left)[0]
+            x_ends = where(bed_pos == right)[0]
+            x_start = x_starts[0] if len(x_starts) else 0
+            x_end = x_ends[-1] if len(x_ends) else len(bed_pos)
+            width = x_end - x_start
+            if row.strand == '+':
+                x_start = x_start * args.x_scale + args.margin
+                x_end = x_start + width * args.x_scale
+                r = dwg.path(
+                    'M{r},{t} H{rm} L{l},{m} L{rm},{b} H{r} Z'
+                    .format(l=x_start, r = x_end, rm=x_start + height/2,
+                            t=y_start-height, m=y_start - height/2,
+                            b=y_start),
+                    **{'fill': 'gray', 'class_': 'hoverstroke'}
+                )
+            else:
+                x_start = x_start * args.x_scale + args.margin
+                x_end = x_start + width * args.x_scale
+                r = dwg.path(
+                    'M{l},{t} H{rm} L{r},{m} L{rm},{b} H{l} Z'
+                    .format(l=x_start, r = x_end, rm=x_end-height/2,
+                            t=y_start-height, m=y_start - height/2,
+                            b=y_start),
+                    **{'fill': 'gray', 'class_': 'hoverstroke',
+                      }
+                )
+        else:
+            left = max(row.start, bed_pos[0])
+            right = min(row.stop, bed_pos[-1])
+            x_starts = where(bed_pos == left)[0]
+            x_ends = where(bed_pos == right)[0]
+            x_start = x_starts[0] if len(x_starts) else len(bed_pos)
+            x_end = x_ends[-1] if len(x_ends) else 0
+            #print(left, right, '---', x_start, x_end, file=stderr)
+            width = x_end - x_start
+            if row.strand == '+':
+                x_start = x_start * args.x_scale + args.margin
+                x_end = x_start + width * args.x_scale
+                r = dwg.path(
+                    'M{l},{t} H{rm} L{r},{m} L{rm},{b} H{l} Z'
+                    .format(l=x_start, r = x_end, rm=x_end - height/2,
+                            t=y_start-height, m=y_start - height/2,
+                            b=y_start),
+                    **{'fill': 'gray', 'class_': 'hoverstroke'}
+                )
+            else:
+                x_start = x_start * args.x_scale + args.margin
+                x_end = x_start + width * args.x_scale
+                r = dwg.path(
+                    'M{r},{t} H{rm} L{l},{m} L{rm},{b} H{r} Z'
+                    .format(l=x_start, r = x_end, rm=x_start + height/2,
+                            t=y_start-height, m=y_start - height/2,
+                            b=y_start),
+                    **{'fill': 'gray', 'class_': 'hoverstroke',
+                      }
+                )
+        r.add(svg.base.Title(row.annotation))
+        g.add(r)
+
+    y_start += args.y_sep * .9
+    dwg.add(g)
+
 
     return y_start
 
@@ -459,6 +578,8 @@ if __name__ == "__main__":
         if args.draw_bed:
             y_start = draw_bed_track(args, dwg, n1, n2, pos1, pos2, y_start)
 
+        if args.draw_gtf:
+            y_start = draw_gtf_track(args, dwg, n1, n2, pos1, pos2, y_start)
         lines.append(dwg.line(
             (x_start, y_start),
             (x_start + x_scale * len(pos1), y_start),
