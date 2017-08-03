@@ -1,3 +1,4 @@
+from __future__ import print_function
 import svgwrite as svg
 from Bio import  AlignIO, SeqIO
 from argparse import ArgumentParser
@@ -5,7 +6,6 @@ from glob import glob
 from os import path
 from numpy import where, argwhere, diff, zeros, random, ceil
 import pandas as pd
-from ParseDelta import parse_records
 from progressbar import ProgressBar
 import itertools as it
 from collections import defaultdict, Counter
@@ -414,6 +414,12 @@ if __name__ == "__main__":
         alignments = parse_best_aligns(aligns_by_seq2, max)
         n_aligns = len(alignments)
     else:
+        try:
+            from ParseDelta import parse_records
+        except err as ImportError:
+            print("Ask Peter Combs for the ParseDelta.py file")
+            raise err
+
         for n_aligns, a in enumerate(parse_records(args.alignments)):
             alignments.append(a)
     pb = ProgressBar(maxval=(n_aligns+1)*len(args.tf))
@@ -426,14 +432,20 @@ if __name__ == "__main__":
     )
     dwg_groups = {}
     for tf in args.tf:
-        dwg_groups[tf] = dwg.g(**{'class':tf})
+        dwg_groups[tf] = dwg.g(class_=tf)
     dwg.add(dwg.style(
         'line{stroke-width:1;stroke:#000000;}\n'
-        '.hover_group{opacity:0;} \n'
+        '.hover_group{opacity:0.5;} \n'
         '.hover_group:hover \n'
         '{\n\topacity:1;\n'
         '\tstroke-width:1!important;'
-        '\n\tstroke:#000001;\n}'
+        '\n\tstroke:#000001;\n}\n'
+        '.hoverstroke{stroke-width:0; stroke:black; opacity:.5} \n'
+        '.hoverstroke:hover{stroke-width:1; opacity:1}\n'
+        '.fixed{stroke:green;}\n'
+        '.segregating{stroke:red;opacity:0.01}\n'
+        '.diverged{stroke:black;opacity:0.1}\n'
+        + ('.matched{{opacity: {} }}\n'.format(args.match_dim))
     ))
 
     prog = 0
