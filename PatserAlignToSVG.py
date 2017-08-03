@@ -94,7 +94,8 @@ def parse_args():
                            'upper-most strand')
     plot_opts.add_argument('--margin', '-m', type=float, default=10)
     plot_opts.add_argument('--bar-width', '-w', type=float, default=1)
-    plot_opts.add_argument('--show-alignment', '-A', default=False, action=store_true)
+    plot_opts.add_argument('--draw-alignment', '-A', default=False, action=store_true)
+    plot_opts.add_argument('--no-draw-binding', dest='draw_binding', default=True, action='store_false')
     plot_opts.add_argument('--match-dim', '-d', type=float, default=0.5)
     plot_opts.add_argument('--rescale-bars', '-R', default=False,
                            action=store_true)
@@ -169,12 +170,12 @@ def get_drawing_size(parsed_arguments, alignments):
     height = 0
 
     width += 2* parsed_arguments.margin
-    width += x_scale * max(len(a[0][1]) for a in alignments)
+    width += args.x_scale * max(len(a[0][1]) for a in alignments)
     width = max(width, 500)
 
     height += .5
     height += len(alignments)
-    height += len(alignments) * .5 * parsed_arguments.show_alignment
+    height += len(alignments) * .5 * parsed_arguments.draw_alignment
     height += (0.5 * ceil(len(parsed_arguments.tf)/3))
     height += len(alignments) * .9 * args.draw_bed
     height += len(alignments) * .9 * args.draw_gtf
@@ -397,7 +398,7 @@ def draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start):
 
     lines.append(dwg.line(
         (x_start, y_start),
-        (x_start + x_scale * len(pos1), y_start)))
+        (x_start + args.x_scale * len(pos1), y_start)))
 
     indels = diff(pos2) - diff(pos1)
     id_start = 0
@@ -572,7 +573,7 @@ if __name__ == "__main__":
     tf_changes = {}
     for ((n1, pos1), (n2, pos2)) in sorted(alignments,
                                            key=lambda x: (x[0][0], x[1][0])):
-        if args.show_alignment:
+        if args.draw_alignment:
             y_start = draw_alignments(args, dwg, n1, n2, pos1, pos2, y_start)
 
         if args.draw_bed:
