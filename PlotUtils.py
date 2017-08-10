@@ -650,12 +650,12 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
     if draw_row_labels and not draw_average_only:
         for i in range(rows):
             if color_row_labels:
-                style = "font-size: {size}; fill: {color};".format(
+                style = "font-family:Sans-Serif; font-size: {size}; fill: {color};".format(
                     size=box_height,
                     color='red' if row_labels[i] in color_row_labels else 'black',
                 )
             else:
-                style = "font-size: {}".format(box_height)
+                style = "font-family:Sans-Serif; font-size: {}".format(box_height)
             if isinstance(row_labels[i], tuple):
                 labeltext = dwg.g()
                 for lnum, ltext in enumerate(row_labels[i]):
