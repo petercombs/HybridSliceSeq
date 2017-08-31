@@ -347,6 +347,16 @@ $(ANALYSIS_DIR)/on_%/abundance.tsv: $(ANALYSIS_DIR)/on_$$(firstword $$(call spli
 		$(MELGTFR5) \
 		$<
 
+%/melsim_gene_ase_by_read2.tsv : %/assigned_dmelR_wasp_dedup.sorted.bam %/assigned_dmelR_wasp_dedup.sorted.bam.bai $(VARIANTS) $(ANALYSIS_DIR)/recalc_ase
+	./qsubber $(QSUBBER_ARGS) -t 1 \
+	python ~/ASEr/bin/GetGeneASEbyReads.py \
+		--outfile $@ \
+		--id-name gene_name \
+		--ase-function pref_expr \
+		$(VARIANTS) \
+		$(MELGTFR5) \
+		$<
+
 %/melsim_gene_ase_by_read_with_wasp.tsv : %/assigned_dmelR_wasp_dedup.remap.kept_sorted.bam %/assigned_dmelR_wasp_dedup.remap.kept.sorted.bam.bai $(VARIANTS) $(ANALYSIS_DIR)/recalc_ase
 	./qsubber $(QSUBBER_ARGS) -t 1 \
 	python ~/ASEr/bin/GetGeneASEbyReads.py \
