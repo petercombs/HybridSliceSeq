@@ -1,0 +1,16 @@
+analysis*
+Reference/*
+sequence/*
+prereqs/*
+*.swp
+*.out
+*.pyc
+*[Ll]og*
+tmp*
+*.pkl
+__pycache__
+config.make
+godot
+iPythonNotebooks/.ipynb_checkpoints
+geo
+.snakemake

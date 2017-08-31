@@ -1,0 +1,7 @@
+runMode	alignReads
+readFilesCommand	zcat
+runThreadN	8
+genomeLoad	NoSharedMemory
+readMatesLengthsIn	Equal
+outReadsUnmapped	Fastx
+outSAMstrandField	intronMotif

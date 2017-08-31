@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# vim: set noexpandtab tabstop=4
+# vim: set fileencoding=utf-8 :
 
 # Created on: 2015.03.16 
 # Author: Carlo Artieri
@@ -7,6 +7,9 @@
 ##############################
 # HISTORY AND THINGS TO FIX  #
 ##############################
+#
+#IMPORTANT!  - Check the changes in instructions in 2015-07-20.  Not updated in the pipeline instructions on github. 
+#
 #2015.03.16 - Initial script
 # - Check if reads input are in SAM or BAM format and act accordingly.
 #
@@ -23,6 +26,19 @@
 #   fixed so that QSUB script will always call the correct name.
 # - Found another bug with the suffix code - must have introduced it 
 #	during earlier revision. Fixed the args.suffix location.
+#
+#2015.07.20
+#Change 1: Change in instructions. READ READ READ READ READ
+#    - For both CountSNPASE and GetGeneAse - only supply masked SNPs that are heterozygous sites for that sample AND that can contribute to gene level counts. i.e. Don't include homozygous sites (even if they are masked) and don't include sites that do not overlap any of your genes in the GetGeneAse step.
+#
+#Change 2: Change in the code:
+#   - If a read overlaps multiple sites, only choose among the sites that you supplied.  Do not consider any masked site that was not supplied by the user.  
+#
+#Change 3: (minor bug)
+#   - Added conditional so that paired end reads are not considered twice if both ends overlap the same site. 
+#
+#Change 4: Single-end only.
+#   - Added the bitwise flag for the single-end reads. 
 
 ###########
 # MODULES #
@@ -39,8 +55,6 @@ import os
 import textwrap		#Add text block wrapping properties
 from time import sleep	#Allow system pausing
 #import common		#My custom common python scripts
-from pysam import Samfile
-from os.path import basename
 
 ##########################
 # COMMAND-LINE ARGUMENTS #
@@ -159,21 +173,9 @@ def CIGAR_to_Genomic_Positions(cigar_types,cigar_vals,pos):
 		elif cigar_types[i] == 'D':
 			curr_pos = int(curr_pos) + int(cigar_vals[i])
 		elif cigar_types[i] == 'M':
-			genomic_positions = genomic_positions + list(range(int(curr_pos),int(curr_pos)+int(cigar_vals[i])))
+			genomic_positions = genomic_positions + range(int(curr_pos),int(curr_pos)+int(cigar_vals[i]))
 			curr_pos = int(curr_pos) + int(cigar_vals[i])
 	return genomic_positions
-
-# Return the number of reads in a samfile (using built-in counts if possible,
-# and falling back to looping through if necessary
-def count_reads(samfilename):
-	sf = Samfile(samfilename)
-	try:
-		return sf.mapped
-	except ValueError:
-		num_reads = 0
-		for num_reads, _ in enumerate(sf):
-			pass
-		return num_reads
 
 ##########
 # SCRIPT #
@@ -182,15 +184,19 @@ def count_reads(samfilename):
 #Initialize variables
 prefix = args.prefix + '_'
 wasbam = False
-mode = 'r'
-sam_file = args.reads
 
 #Check if the read file is sam or bam
 file_check = args.reads.split('.')
 file_check[-1] = file_check[-1].lower()
 if file_check[-1] == 'bam' or args.bam is True:
 	wasbam = True
-	mode = 'rb'
+	sam_file = args.reads + '.sam'
+	print 'Converting BAM to SAM ... ',
+	os.system('samtools view ' + args.reads + ' > ' + sam_file)
+	print 'Done'
+
+elif file_check[-1] == 'sam' or args.bam is False:
+	sam_file = args.reads
 
 
 ##################
@@ -201,46 +207,44 @@ if file_check[-1] == 'bam' or args.bam is True:
 if args.mode == 'multi':
 	
 	#Determine how many reads will be in each split sam file.
-	num_lines = count_reads(sam_file)
-	num_reads = int(num_lines/args.jobs)+1
+	num_lines = os.popen('wc -l ' + sam_file + ' | awk \'{print $1}\'').read()
+	num_reads = int(int(num_lines)/args.jobs)+1
 	
 	#Subset the SAM file into X number of jobs
 	cnt = 0
 	currjob = 1
 	suffix = '.split_sam_' + str(currjob).zfill(4)
 
-	in_sam =  Samfile(sam_file, mode)
-	sam_split = Samfile(prefix + basename(sam_file) + suffix,
-                'wb' if wasbam else 'w',
-                template=in_sam,
-                )
+	sam_split = open(prefix + sam_file + suffix, 'w')
 	
+	in_sam =  open(sam_file, 'r')
 	for line in in_sam:
 		cnt += 1
 		if cnt < num_reads:
 			sam_split.write(line)
 		elif cnt == num_reads:
+			line_t = line.split('\t')
+			
 			#Check if next line is mate-pair. If so, don't split across files.
 			line2 = next(in_sam)
+			line2_t = line2.split('\t')
 
-			currjob += 1
-			suffix = '.split_sam_' + str(currjob).zfill(4)
-			new_sam = Samfile(prefix + basename(sam_file) + suffix,
-				'wb' if wasbam else 'w',
-				template=in_sam,
-				)
-
-			if line.qname == line2.qname:
+			if line_t[0] == line2_t[0]:
 				sam_split.write(line)
 				sam_split.write(line2)
 				sam_split.close()
+				currjob += 1
+				suffix = '.split_sam_' + str(currjob).zfill(4)
+				sam_split = open(prefix + sam_file + suffix, 'w')
 				cnt = 0
 			else:
 				sam_split.write(line)
 				sam_split.close()
-				new_sam.write(line2)
+				currjob += 1
+				suffix = '.split_sam_' + str(currjob).zfill(4)
+				sam_split = open(prefix + sam_file + suffix, 'w')
+				sam_split.write(line2)
 				cnt = 0
-			sam_split = new_sam
 
 	in_sam.close()
 	sam_split.close()
@@ -254,26 +258,22 @@ if args.mode == 'multi':
 
 	for i in range(1, args.jobs+1):
 		suffix = str(i).zfill(4)
-		reads_file = prefix + basename(sam_file) + '.split_sam_' + suffix
+		reads_file = prefix + sam_file + '.split_sam_' + suffix
 
 		#qsub script modify as necessary
 		qsub_script = """\
 		#PBS -m n
 		#PBS -V
 		#PBS -d ./
-		#PBS -N {prefix}{suffix}
+		#PBS -N """ + prefix + suffix + """
 		#PBS -l nodes=1:ppn=1
-		#PBS -l walltime={args.walltime}
-		#PBS -l mem={args.memory}
-		#PBS -e {prefix}{suffix}_err.txt
-		#PBS -o {prefix}{suffix}_out.txt
-		python2 {parser.prog} --mode single --snps {args.snps} --reads {reads_file} --suffix {suffix} --prefix {args.prefix}
+		#PBS -l walltime=""" + args.walltime + """
+		#PBS -l mem=""" + args.memory + """
+		#PBS -e """ + prefix + suffix + """_err.txt
+		#PBS -o """ + prefix + suffix + """_out.txt
+		python2 """ + parser.prog + """ --mode single --snps """ + args.snps + """ --reads """ + reads_file + """ --suffix """ +  suffix + """ --prefix """ + args.prefix + """
 		exit 0
-		""".format(prefix=prefix,
-				suffix=suffix,
-				args=args,
-				parser=parser,
-				reads_file=reads_file)
+		"""
 		qsub = open('qsub.txt', 'w')
 		qsub.write(textwrap.dedent(qsub_script))
 		qsub.close()
@@ -301,7 +301,7 @@ if args.mode == 'multi':
 	#Once the jobs are done, concatenate all of the counts into one file.
 	#Initialize dictionaries
 
-	os.system('rm {prefix}*_done'.format(prefix=prefix))	#Remove the 'done' files in case we want to run again.
+	os.system('rm *_done')	#Remove the 'done' files in case we want to run again.
 
 	tot_pos_counts = {}
 	tot_neg_counts = {}
@@ -370,7 +370,9 @@ if args.mode == 'multi':
 
 	#Clean up intermediate files.
 	if args.noclean is False:
-		os.system('rm {prefix}*err.txt {prefix}*out.txt {prefix}*COUNTS_* {prefix}*split_sam_* qsub.txt'.format(prefix=prefix))
+		os.system('rm *err.txt *out.txt *COUNTS_* *split_sam_* qsub.txt')
+		if wasbam == True:
+			os.system('rm ' + sam_file)
 
 ###############
 # SINGLE MODE #
@@ -395,27 +397,28 @@ elif args.mode == 'single':
 	potsnp_dict = {}	#This is the dictionary of potential SNPs for each read.
 
 	#Now parse the SAM file to extract only reads overlapping SNPs.
-	num_reads = count_reads(sam_file)
-	in_sam =  Samfile(sam_file)
-	references = in_sam.references
+	in_sam =  open(sam_file, 'r')
 	for line in in_sam:
+		if re.match('^@', line):	#Write header lines if applicable
+			continue
 
 		#Skip lines that overlap indels OR don't match Ns
-		cigarstring = line.cigarstring
+		line = line.rstrip('\n')
+		line_t = line.split('\t')
 
-		if 'D' in cigarstring or 'I' in cigarstring:
+		if 'D' in line_t[5] or 'I' in line_t[5]:
 			continue
 
 		#Split the tags to find the MD tag:
-		tags = line.tags
-		for tagname, tagval in tags:
-			if tagname == 'MD' and 'N' in tagval:
+		tags = line_t[11].split(' ')
+		for i in tags:
+			if re.match('^MD:', i) and 'N' in i:
 
 				#Remember that, for now, we're not allowing reads that overlap insertions/deletions.
 				
-				chr = references[line.rname]
-				pos = line.pos
-				read = line.seq
+				chr = line_t[2]
+				pos = int(line_t[3])-1
+				read = line_t[9]
 				
 				read_seq = ''
 
@@ -426,14 +429,14 @@ elif args.mode == 'single':
 				#SECOND MATES on the NEGATIVE STRAND are POSITIVE.
 
 				if args.single == True:
-					flag = line.flag
-					if flag & mask_single:
+					flag = int(line_t[1])
+					if flag & 0b10000:  #RYO UPDATED HERE
 						orientation = '-'
 					else:
 						orientation = '+'
 
 				else:
-					flag = line.flag
+					flag = int(line_t[1])
 					if flag & 0b1000000:	#First mate					
 						if flag & 0b10000:	#If reverse, then negative strand
 							orientation = '-'
@@ -447,7 +450,7 @@ elif args.mode == 'single':
 							orientation = '-'	
 
 				#Parse the CIGAR string
-				cigar_types,cigar_vals = split_CIGAR(cigarstring)
+				cigar_types,cigar_vals = split_CIGAR(line_t[5])
 
 				if cigar_types[0] == 'S':
 					MD_start = int(cigar_vals[0])
@@ -455,10 +458,11 @@ elif args.mode == 'single':
 					MD_start = 0
 
 				#Get the genomic positions corresponding to each base-pair of the read
-				read_genomic_positions = CIGAR_to_Genomic_Positions(cigar_types,cigar_vals,line.pos+1)
+				read_genomic_positions = CIGAR_to_Genomic_Positions(cigar_types,cigar_vals,line_t[3])
 
 				#Get the tag data
-				MD_split = re.findall('\d+|\D+', tagval)
+				MD_vals = i.split(':')
+				MD_split = re.findall('\d+|\D+', MD_vals[2])
 				
 				genome_start = 0
 				
@@ -480,12 +484,18 @@ elif args.mode == 'single':
 						genome_start += int(i)
 
 				for i in snp_pos:
-					snp = '{chr}|{i}\t{snp_pos}\t{orientation}'.format(chr=chr, i=i, snp_pos=snp_pos[i], orientation=orientation)
-					if line.qname in potsnp_dict:
-						potsnp_dict[line.qname].append(snp)
+
+                                        #RYO: START EDIT - Implemented Filter
+                                        posVal = str(line_t[2]) + '|' + str(i)
+                                        if posVal not in snps: continue
+                                        #RYO: END EDIT - Implmented Filter 
+
+					snp = str(line_t[2]) + '|' + str(i) + '\t' + str(snp_pos[i]) + '\t' + orientation
+					if str(line_t[0]) in potsnp_dict:
+                                                if snp not in potsnp_dict[str(line_t[0])]: potsnp_dict[str(line_t[0])].append(snp)  #RYO EDIT HERE - added conditional so that pairs of reads are not considered twice if they both overlap the same snp. 
 					else:
-						potsnp_dict[line.qname] = []
-						potsnp_dict[line.qname].append(snp)
+						potsnp_dict[str(line_t[0])] = []
+						potsnp_dict[str(line_t[0])].append(snp)
 			
 	in_sam.close()
 
@@ -554,7 +564,8 @@ elif args.mode == 'single':
 	out_counts.write('CHR\tPOSITION\tPOS_A|C|G|T\tNEG_A|C|G|T\tSUM_POS_READS\tSUM_NEG_READS\tSUM_READS\n')
 
 	#Sort SNP positions and write them
-	keys = sorted(pos_counts.keys())
+	keys = pos_counts.keys()
+	keys.sort()
 
 	for key in keys:
 		pos = key.split('|')

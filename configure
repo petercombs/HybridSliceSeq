@@ -1,0 +1,313 @@
+#!/usr/bin/env python
+
+from __future__ import print_function
+import pandas as pd
+from os import path
+from glob import glob
+from collections import defaultdict
+
+tophat_str = ('$(ANALYSIS_DIR)/{label}/accepted_hits.bam: '
+              ' {rfs} '
+              ' Reference/{genome}/transcriptome '
+              ' | $(ANALYSIS_DIR)/{label}\n'
+              '\t@echo {label} \n'
+              '\t tophat '
+              '--read-mismatches 6 --read-edit-dist 6 '
+              '--report-secondary-alignments '
+              '--output-dir $(ANALYSIS_DIR)/{label}/ '
+              '--transcriptome-index Reference/{genome}/transcriptome '
+              '--transcriptome-only '
+              # No need to sort automatically, for compatibility with
+              # the STAR-based pipeline
+              '--no-sort-bam '
+              '--b2-sensitive '
+              '--num-threads 12 '
+              'Reference/{genome} '
+              '{rf1} {rf2}\n')
+star_str = ('$(ANALYSIS_DIR)/{label}/accepted_hits.bam: '
+            ' {rfs} '
+            ' Reference/{genome}/Genome '
+            ' | $(ANALYSIS_DIR)/{label}\n'
+            '\t@echo {label} \n'
+            '\t ./qsubber $(QSUBBER_ARGS) --resource "mem=2gb" -t 4 --load-module STAR \\'
+            '\tSTAR --parametersFiles $(STARCONFIG) '
+            '--genomeDir Reference/{genome} '
+            '--outFileNamePrefix $(ANALYSIS_DIR)/{label}/ '
+            '--outSAMattributes MD NH '
+            '--clip5pNbases 6 '
+            '--readFilesIn {rf1} {rf2}\n'
+            '\tsamtools view -bS -o $(ANALYSIS_DIR)/{label}/accepted_hits.bam'
+            ' $(ANALYSIS_DIR)/{label}/Aligned.out.sam\n'
+            '\trm $(ANALYSIS_DIR)/{label}/Aligned.out.sam\n')
+
+kallisto_str = ('$(ANALYSIS_DIR)/{label}/abundance.txt: '
+                ' {rfs} '
+                ' Reference/{genome}_kallisto '
+                ' | $(ANALYSIS_DIR)/{label} \n'
+                '\t mkfifo $(@D)/reads.fq \n'
+                '\t zcat {reads1} > $(@D)/reads.fq & \n'
+                '\t kallisto quant '
+                ' -i Reference/{genome}_kallisto '
+                ' -o $(@D) '
+                ' -l 400 '
+                ' --plaintext'
+                ' $(@D)/reads.fq \n'
+                '\t rm $(@D)/reads.fq\n'
+               '\n')
+
+mappers = {'star': star_str, 'tophat' : tophat_str, 'kallisto': kallisto_str}
+mapper_version_cmd = {
+    'star': 'echo "RNA STAR"',
+    'tophat': 'tophat --version',
+    'kallisto': 'kallisto version',
+}
+
+glob_specs = [
+    '{seqdir}/sequence/{label}*_{{read}}*.fastq*',
+    '{seqdir}{genotype}*/Sample_MBE??_{id}?_index{index}/*_{{read}}_*.fastq*',
+    '{seqdir}{genotype}*/Sample_MBE_??_{id}?_index{index}/*_{{read}}_*.fastq*',
+    '{seqdir}{genotype}*/Sample_MBE??{id}?_index{index}/*_{{read}}_*.fastq*',
+    '{seqdir}{genotype}*/Sample_MBE??{id}_index{index}/*_{{read}}_*.fastq*',
+    '{seqdir}{genotype}*/Sample_MBE??{id}_*_index{index}/*_{{read}}_*.fastq*',
+    '{seqdir}{genotype}*/*{label}{index}/*_{{read}}_*.fastq*',
+    '{seqdir}{genotype}*/Sample_{index}/{index}_{index_seq}_L{id:03}_{{read}}_*.fastq*',
+    '{seqdir}{genotype}*/*/*{index_seq}*_{{read}}_*.fastq*',
+    '{seqdir}{genotype}*/*/*{label}*/*_{{read}}_*.fastq*',
+    '{seqdir}{genotype}*/*index{index}/*_{{read}}*.fastq*',
+
+    '{seqdir}/Sample_MBE???{id}?_index{index}/*_{{read}}_*.fastq*',
+    '{seqdir}/*{label}{index}/*_{{read}}_*.fastq*',
+    '{seqdir}/*/*{index_seq}*_{{read}}_*.fastq*',
+    '{seqdir}/*/*{label}*/*_{{read}}_*.fastq*',
+    '{seqdir}/*index{index}/*_{{read}}*.fastq*',
+    '{seqdir}/Sample_{index}/{index}_{index_seq}_L{id:03}_{{read}}_*.fastq*',
+    '{seqdir}/Sample_{index}/*L{id:03}_{{read}}*.fastq*',
+    '{seqdir}/MBEPC{id}_index{index}_{{read}}.fastq*',
+]
+
+index_converter = {
+    'S501':'TAGATCGC',
+    'S502':'CTCTCTAT',
+    'S503':'TATCCTCT',
+    'S504':'AGAGTAGA',
+    'S505':'GTAAGGAG',
+    'S506':'ACTGCATA',
+    'S507':'AAGGAGTA',
+    'S508':'CTAAGCCT',
+    #'N701':'TCGCCTTA',
+    #'N702':'CTAGTACG',
+    #'N703':'TTCTGCCT',
+    #'N704':'GCTCAGGA',
+    #'N705':'AGGAGTCC',
+    #'N706':'CATGCCTA',
+    #'N707':'GTAGAGAG',
+    #'N708':'CCTCTCTG',
+    #'N709':'AGCGTAGC',
+    #'N710':'CAGCCTCG',
+    #'N711':'TGCCTCTT',
+    #'N712':'TCCTCTAC',
+    'N701':'TAAGGCGA',
+    'N702':'CGTACTAG',
+    'N703':'AGGCAGAA',
+    'N704':'TCCTGAGC',
+    'N705':'GGACTCCT',
+    'N706':'TAGGCATG',
+    'N707':'CTCTCTAC',
+    'N708':'CAGAGAGG',
+    'N709':'GCTACGCT',
+    'N710':'CGAGGCTG',
+    'N711':'AAGAGGCA',
+    'N712':'GTAGAGGA',
+}
+
+def parse_arguments():
+    from argparse import ArgumentParser
+    p = ArgumentParser(description='Configuration script for SliceSeq data processing')
+    p.add_argument('parameters', type=open, nargs='?',
+                   default=open('Parameters/RunConfig.cfg'),
+                   help='Configuration table for the sequences')
+    p.add_argument('--seqdir', type=str, default='sequence*',
+                   help='Sequence directory (or glob pattern) to look in for'
+                   ' reads')
+    p.add_argument('--mapper', type=str, default='star',
+                   help='Mapper to use. Options: [star], tophat')
+    p.add_argument('--num-servers', type=int, default=4,
+                   help='Number of boxes to run cufflinks on. Crude attempt at'
+                   ' load balancing')
+    args =  p.parse_args()
+    if args.mapper.lower() in mappers:
+        args.mapper_str = mappers[args.mapper.lower()]
+    else:
+        import sys
+        sys.stderr.write('Unrecognized mapper: "{}". \n'
+                         'Valid options are: {}\n'
+                         .format(args.mapper,
+                                 ', '.join(mappers)))
+        sys.exit(1)
+    return args
+
+
+def convert_indices(index_spec):
+    for index in index_converter:
+        index_spec = index_spec.replace(index, index_converter[index])
+    index_spec = index_spec.replace('_', '-')
+    return index_spec
+
+args = parse_arguments()
+config_file = pd.read_table(args.parameters,
+                            comment='#').dropna(how='all')
+
+out = open('config.make', 'w')
+targets_list = [path.join('$(ANALYSIS_DIR)',
+                             label,
+                             ('abundance.txt'
+                              if 'kallisto' in args.mapper.lower() else
+                             'genes.fpkm_tracking'))
+                   for label in config_file['Label']]
+
+targets = ' '.join(targets_list)
+
+targets_all = ' '.join(path.join('$(ANALYSIS_DIR)',
+                             label, 'all',
+                             'genes.fpkm_tracking')
+                   for label in config_file['Label'])
+
+
+out.write('MAPPER_VERSION = {}\n'.format(mapper_version_cmd[args.mapper]))
+if 'kallisto' in args.mapper.lower():
+    out.write('QUANT_FNAME = abundance.txt \n')
+    out.write('QUANT_KEY = target_id \n')
+    out.write('QUANT_COL = tpm \n')
+else:
+    out.write('QUANT_FNAME = genes.fpkm_tracking \n')
+    out.write('QUANT_KEY = gene_short_name \n')
+    out.write('QUANT_COL = FPKM\n')
+
+
+reads = defaultdict(lambda : ([], []))
+carriers = defaultdict(list)
+carrier_species = {}
+sample_species = {}
+genotypes = {}
+for i, row in config_file.iterrows():
+    label = row['Label']
+    index = str(row['Index'])
+    mbepc = int(row['MBEPC'])
+    the_carrier_species = '---'
+    the_genotype = ''
+    if 'SampleGenotype' in row:
+        the_genotype = row['SampleGenotype']
+    if 'CarrierSpecies' in row:
+        carrier = row['CarrierID']
+        the_carrier_species = row['CarrierSpecies']
+    rf1 = []
+    rf2 = []
+    for glob_spec in glob_specs:
+        glob_spec = (glob_spec
+                     .format(seqdir=args.seqdir,
+                             label=label,
+                             index=index,
+                             genotype=the_genotype,
+                             index_seq=convert_indices(index),
+                             id=mbepc,
+                            ))
+        rf1.extend(glob(glob_spec.format(read='R1')))
+        rf2.extend(glob(glob_spec.format(read='R2')))
+        assert len(rf1) < 20
+
+    if len(rf1) == 0:
+        print("Warning: no sequence for ", label, index)
+        continue
+    if rf2 == []:
+        print("Warning: No R2 sequence for ", label, index)
+
+    reads[label][0].extend(sorted(rf1))
+    reads[label][1].extend(sorted(rf2))
+    genotypes[label] = the_genotype
+    if the_carrier_species != '---':
+        carriers[label].append(carrier)
+        carrier_species[label] = the_carrier_species
+    if 'SampleSpecies' in row:
+        sample_species[label] = row['SampleSpecies']
+
+targets_list = [path.join('$(ANALYSIS_DIR)',
+                             label,
+                             ('abundance.txt'
+                              if 'kallisto' in args.mapper.lower() else
+                             'genes.fpkm_tracking'))
+                   for label in reads]
+
+targets = ' '.join(targets_list)
+out.write("FPKMS = {}  \n".format(targets))
+for i in range(args.num_servers):
+    out.write('FPKMS{} : {}\n\n'
+              .format(i+1,
+                      ' '.join(targets_list[i::args.num_servers])))
+
+for label in reads:
+    reads1, reads2 = reads[label]
+    if not reads1:
+        continue
+    out.write('$(ANALYSIS_DIR)/{label}: | $(ANALYSIS_DIR)\n'
+              '\t mkdir $(ANALYSIS_DIR)/{label}\n'.format(label=label))
+    out.write('\n')
+    out.write( args.mapper_str
+             .format(rf1=','.join(reads1),
+                     rf2=','.join(reads2),
+                     reads1=' '.join(reads1),
+                     reads2=' '.join(reads2),
+                     rfs=' '.join(reads1 + reads2),
+                     label=label,
+                     genome=(sample_species.get(label, 'Dmel')
+                             + carrier_species.get(label, ''))
+                    ))
+    if not reads2:
+        out.write('\ttouch $(ANALYSIS_DIR)/{label}/is_single\n'.format(label=label))
+    else:
+        out.write('\trm -f $(ANALYSIS_DIR)/{label}/is_single\n'.format(label=label))
+
+    out.write('\n')
+    out.write('$(ANALYSIS_DIR)/{label}/{yeast}.bam:  '
+              '$(ANALYSIS_DIR)/{label}/assigned_scer.bam\n'
+              '\t@echo {yeast} \n'
+              # Sort
+              '\tsamtools sort $(ANALYSIS_DIR)/{label}/assigned_scer.bam '
+              ' $(ANALYSIS_DIR)/{label}/assigned_scer_sorted \n'
+              # Make new header
+              "\tsamtools view -H $(ANALYSIS_DIR)/{label}/assigned_scer.bam"
+              " | grep -Pv 'SN:(?!scer)' "
+              " | python ReheaderYeast.py "
+              " > $(ANALYSIS_DIR)/{label}/cer_only.header.sam\n"
+              # Apply new header e.g.
+              # samtools view analysis/ZE15/assigned_scer_sorted.bam \
+              #  | cat analysis/ZE15/cer_only.header.sam - \
+              #  | samtools view -bS -o analysis/ZE15/Y22.bam -
+              "\tsamtools view $(ANALYSIS_DIR)/{label}/assigned_scer_sorted.bam"
+              " | python ReheaderYeast.py "
+              " | cat  $(ANALYSIS_DIR)/{label}/cer_only.header.sam -"
+              " | samtools view -bS -o $@ - \n"
+              # Remove temporary
+              "\t rm $(ANALYSIS_DIR)/{label}/assigned_scer_sorted.bam\n"
+              .format(label=label, yeast='+'.join(carriers[label])))
+    out.write('\n')
+
+
+yeasts = ' '.join(path.join('$(ANALYSIS_DIR)',
+                            label,
+                            '+'.join(carriers)+'.bam')
+                  for label, carriers in carriers.items())
+
+out.write("yeasts : " + yeasts +
+          "\n\ttar -cvf $(ANALYSIS_DIR)/yeast.tar "
+          + yeasts +
+          "\n\t@echo 'Done making yeast'\n")
+
+out.write("$(ANALYSIS_DIR)/on_mel/true_hets.tsv: "
+        + ' '.join(path.join('$(ANALYSIS_DIR)', label, 'melsim_SNP_COUNTS.txt')
+            for label in carriers)
+        + '\n\tpython GetTrueHets.py '
+        + ' '.join(path.join('$(ANALYSIS_DIR)', label, 'melsim_SNP_COUNTS.txt')
+            for label in carriers)
+        + '\n\tmv true_hets.tsv $@\n'
+        + '\n'
+       )

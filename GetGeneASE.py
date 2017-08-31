@@ -1,6 +1,7 @@
 #!/usr/bin/python
+# vim: set noexpandtab tabstop=4
 
-# Created on: 2015.03.19 
+# Created on: 2015.03.19
 # Author: Carlo Artieri
 
 ##############################
@@ -26,7 +27,7 @@
 ###########
 import sys			#Access to simple command-line arguments
 sys.path.append('/Users/carloartieri/bin/python') #Set python path for common functions
-import argparse		#Access to long command-line parsing	
+import argparse		#Access to long command-line parsing
 import datetime		#Access to calendar/clock functions
 import re			#Access to REGEX splitting
 import math			#Access to math functions
@@ -34,6 +35,7 @@ import subprocess	#Access to external command-line
 import os			#Access to external command-line
 import textwrap		#Add text block wrapping properties
 from time import sleep	#Allow system pausing
+from collections import defaultdict
 #import common		#My custom common python scripts
 
 ##########################
@@ -42,21 +44,21 @@ from time import sleep	#Allow system pausing
 
 epilog = """\
 NOTE:	SNPs that overlap multiple features on the same strand (or counting from unstranded
-	libraries) will be counted in EVERY feature that they overlap. It is important to 
-	filter the annotation to count features of interest!  
+	libraries) will be counted in EVERY feature that they overlap. It is important to
+	filter the annotation to count features of interest!
 
 Detailed description of inputs/outputs follows:
 
--p/--phasedsnps 
+-p/--phasedsnps
 	A tab-delimited BED file with positions of masked SNPs of interest as follows:
 
 	[CHR]	[0 POSITION]	[1 POSITION]	[REF|ALT]
 
-	The fourth column MUST contain the phased SNPs alleles. 
+	The fourth column MUST contain the phased SNPs alleles.
 
 -g/--gff
 	The script accepts both GTF and GFF annotation files. This should be combined with
-	the -i/--identifier option specifying the identifier in the info column (column 9) 
+	the -i/--identifier option specifying the identifier in the info column (column 9)
 	that will be used for grouping counts. For example, in a GTF 'gene_id' will group
 	counts by gene with 'transcript_id' with group counts by transcript. In addition,
 	the -t/--type option sets the feature type (column 3) from which to pull features
@@ -75,19 +77,19 @@ Detailed description of inputs/outputs follows:
 -s/--stranded
 	If the data come from a stranded library prep, then this option will only count reads
 	mapped to the corresponding strand.
-	
+
 OUTPUT:
 
-The output of the script is a tab-delimited text file set by -o/--outfile, which contains 
+The output of the script is a tab-delimited text file set by -o/--outfile, which contains
 the following columns:
 
-FEATURE 		Name of the counted feature	
+FEATURE 		Name of the counted feature
 CHROMOSOME 		Chromosome where feature is found
 ORIENTATION 		Orientation of feature (+/-)
 START-STOP 		Ultimate 5' and 3' 1-based start and stop positions
 REFERENCE_COUNTS 	Total reference allele counts across SNPS (or first allele in the REF|ALT phasing)
 ALT_COUNTS 		Total alternate allele counts across SNPs (or second allele in the REF|ALT phasing)
-TOTAL_SNPS 		The total number of SNPs overlapped by the feature 
+TOTAL_SNPS 		The total number of SNPs overlapped by the feature
 REF_BIASED 		Number of REF biased SNPs passing the -m/--min threshold
 ALT_BIASED 		Number of ALT biased SNPs passing the -m/--min threshold
 REF-ALT_RATIO 		The proportion of SNPs agreeing in direction (0.5 - 1)
@@ -95,7 +97,7 @@ SNPS 			A list of all SNPs overlapped by the feature separated by ';' and of the
 
 	[1-based position],[REF_ALLELE]|[ALT_ALLELE],[REF_COUNTS]|[ALT_COUNTS];
 
-If the -w/--writephasedsnps option has been set, it will produce a tab-delimited table with the 
+If the -w/--writephasedsnps option has been set, it will produce a tab-delimited table with the
 following columns:
 
 CHROMOSOME 		Chromosome where SNP is found
@@ -107,7 +109,7 @@ ALTERNATE_ALLELE 	Alternate base
 REF_COUNTS 		Reference base counts
 ALT_COUNTS 		Alternate base counts
 
-	
+
 """
 class CustomFormatter(argparse.ArgumentDefaultsHelpFormatter, argparse.RawDescriptionHelpFormatter):
     pass
@@ -123,9 +125,22 @@ opt.add_argument('-w','--writephasedsnps', action="store_true", dest="write", he
 opt.add_argument('-i','--identifier', action="store", dest="id", help='ID attribute in information column', default='gene_id', metavar='')
 opt.add_argument('-t','--type', action="store", dest="type", help='Annotation feature type', default='exon', metavar='')
 opt.add_argument('-m','--min', action="store", dest="min", type=int, help='Min reads to calculate proportion ref/alt biased', default=10)
+opt.add_argument('-M', '--allele-min', type=int, default=5, help='Minimum reads per allele to count the SNP (helps with false hets')
 opt.add_argument('-s','--stranded', action="store_true", dest="stranded", help='Data are stranded? [Default: False]')
+opt.add_argument('-H', '--true-hets', default=None, help="Tab-separated file"
+                 'containing validated true hets')
 opt.add_argument('-h', '--help', action="help", help="Show this help message and exit")
+opt.add_argument('-P', '--preference-index', action="store_true", default=False, help="Use preference index for the REF-ALT_RATIO column (range -1 -- 1)")
 args = parser.parse_args()
+
+if args.true_hets:
+    with open(args.true_hets) as hetfile:
+        args.true_hets = set()
+        for line in hetfile:
+            chrom, pos = line.strip().split()
+            args.true_hets.add((chrom, pos))
+
+print("Minimum per allele: ", args.allele_min)
 
 #############
 # FUNCTIONS #
@@ -151,12 +166,12 @@ for line in count_file:
 	neg_counts = line_t[3].split('|')
 	bases = ['A','C','G','T']
 
-	pos_dict = {}
-	neg_dict = {}
+	pos_dict = defaultdict(int)
+	neg_dict = defaultdict(int)
 
 	for i in range(len(pos_counts)):
-		pos_dict[bases[i]] = pos_counts[i]
-		neg_dict[bases[i]] = neg_counts[i]
+		pos_dict[bases[i]] = int(pos_counts[i])
+		neg_dict[bases[i]] = int(neg_counts[i])
 
 
 	snp_counts_dict[pos] = [pos_dict, neg_dict]
@@ -184,7 +199,7 @@ total_alt = {}
 total_snps = {}
 ref_biased = {}
 alt_biased = {}
-snp_array = {}
+snp_array = defaultdict(list)
 phased_snp_array = []	#15.03.24 - For phased SNP output file.
 
 features = {}	#We have to store a list of all of the features somewhere
@@ -218,14 +233,14 @@ for line in gff_file:
 					name = i2[1]
 
 	else:
-		print 'ID attribute "' + args.id + '" doesn\'t exist or GFF/GTF file not properly formatted.' 
+		print 'ID attribute "' + args.id + '" doesn\'t exist or GFF/GTF file not properly formatted.'
 		print 'GFF info column format is: attribute=value;'
 		print 'GTF info column format is: attribute "value";\n'
-		sys.exit(1)  
+		sys.exit(1)
 
 	features[name] = 1
 	chromosome[name] = line_t[0]
-	
+
 	ori[name] = line_t[6]
 	orientation = line_t[6]
 
@@ -263,6 +278,10 @@ for line in gff_file:
 			#If stranded add only appropriate strand counts
 			if args.stranded is True:
 				if orientation == '+':
+					if min(int(ref_pos_counts), int(alt_pos_counts)) < args.allele_min:
+						continue
+					if (args.true_hets and tuple(pos.split('|')) not in args.true_hets):
+						continue
 					if name in total_ref:
 						total_ref[name] += int(ref_pos_counts)
 					else:
@@ -284,7 +303,7 @@ for line in gff_file:
 					if ref_pos_counts + alt_pos_counts >= args.min:
 						if ref_pos_counts > alt_pos_counts:
 							ref_biased[name] += 1
-							
+
 						elif ref_pos_counts < alt_pos_counts:
 							alt_biased[name] += 1
 
@@ -298,6 +317,13 @@ for line in gff_file:
 						phased_snp_array.append(str(chromosome[name]) + '\t' + str(i) + '\t' + name + '\t' + ori[name] + '\t' + str(refalt[0]) + '\t' + str(refalt[1]) + '\t' + str(ref_pos_counts) + '\t' + str(alt_pos_counts))
 
 				elif orientation == '-':
+					if min(int(ref_neg_counts), int(alt_neg_counts)) < args.allele_min:
+						if name not in snp_array:
+							snp_array[name] = []
+						snp_array[name].append('**{},{},{}|{}**'.format(i, snp_phase_dict[pos], tot_ref, tot_alt))
+						continue
+					if (args.true_hets and tuple(pos.split('|')) not in args.true_hets):
+						continue
 					if name in total_ref:
 						total_ref[name] += int(ref_neg_counts)
 					else:
@@ -320,7 +346,6 @@ for line in gff_file:
 					if ref_neg_counts + alt_neg_counts >= args.min:
 						if ref_neg_counts > alt_neg_counts:
 							ref_biased[name] += 1
-
 						elif ref_neg_counts < alt_neg_counts:
 							alt_biased[name] += 1
 
@@ -335,6 +360,19 @@ for line in gff_file:
 
 
 			else:
+				if (args.true_hets and tuple(pos.split('|')) not in args.true_hets):
+					snp_array[name].append('##{},{},{}|{}##'.format(i,
+													 snp_phase_dict[pos],
+													 ref_pos_counts+ref_neg_counts,
+													 alt_pos_counts+alt_neg_counts))
+					continue
+				if min((int(ref_pos_counts)+int(ref_neg_counts)),
+                                        (int(alt_pos_counts) + int(alt_neg_counts))) < args.allele_min:
+					snp_array[name].append('**{},{},{}|{}**'.format(i,
+													 snp_phase_dict[pos],
+													 ref_pos_counts+ref_neg_counts,
+													 alt_pos_counts+alt_neg_counts))
+					continue
 				if name in total_ref:
 					total_ref[name] += int(ref_pos_counts)
 					total_ref[name] += int(ref_neg_counts)
@@ -348,7 +386,7 @@ for line in gff_file:
 					total_alt[name] += int(alt_neg_counts)
 				else:
 					total_alt[name] = 0
-					total_alt[name] += int(alt_pos_counts)				
+					total_alt[name] += int(alt_pos_counts)
 					total_alt[name] += int(alt_neg_counts)
 
 				#Determine if ref or alt biased
@@ -383,14 +421,14 @@ for line in gff_file:
 						if name in ref_biased:
 							pass
 						else:
-							ref_biased[name] = 0				
+							ref_biased[name] = 0
 
 				#Add it to the total SNP array
 				if name in snp_array:
 					snp_array[name].append(str(i) + ',' + str(snp_phase_dict[pos]) + ',' + str(int(tot_ref)) + '|' + str(int(tot_alt)))
 				else:
 					snp_array[name] = []
-					snp_array[name].append(str(i) + ',' + str(snp_phase_dict[pos]) + ',' + str(int(tot_ref)) + '|' + str(int(tot_alt)))			
+					snp_array[name].append(str(i) + ',' + str(snp_phase_dict[pos]) + ',' + str(int(tot_ref)) + '|' + str(int(tot_alt)))
 
 gff_file.close()
 
@@ -410,22 +448,31 @@ for key in keys:
 
 	if key in total_ref:
 		pos = key.split('|')
-		if ref_biased[key] >= alt_biased[key]:
-			if alt_biased[key] == 0:
-				rat = 1
+		if args.preference_index:
+			if total_ref[key] == 0 and total_alt[key] == 0:
+				rat = 0
 			else:
-				rat = ref_biased[key]/float(alt_biased[key]+ref_biased[key])
+				rat = (total_alt[key] - total_ref[key])/float(total_ref[key] + total_alt[key])
 		else:
-			if ref_biased[key] == 0:
-				rat = 1
+			if ref_biased[key] >= alt_biased[key]:
+				if alt_biased[key] == 0:
+					rat = 1
+				else:
+					rat = ref_biased[key]/float(alt_biased[key]+ref_biased[key])
 			else:
-				rat = alt_biased[key]/float(ref_biased[key]+alt_biased[key])
+				if ref_biased[key] == 0:
+					rat = 1
+				else:
+					rat = alt_biased[key]/float(ref_biased[key]+alt_biased[key])
 
 		snp_array_out = ';'.join(snp_array[key])
 
 		outfile.write(str(key) + '\t' + str(chromosome[key]) + '\t' + str(ori[key]) + '\t' + str(posit) + '\t' +  str(total_ref[key]) + '\t' + str(total_alt[key]) + '\t' + str(total_snps[key]) + '\t' + str(ref_biased[key]) + '\t' + str(alt_biased[key]) + '\t' + str(rat) + '\t' + str(snp_array_out) + '\n')
 	else:	#No counts for this feature
-		outfile.write(str(key) + '\t' + str(chromosome[key]) + '\t' + str(ori[key]) + '\t' + str(posit) + '\tNA\tNA\tNA\tNA\tNA\tNA\tNA\n')
+		if key in snp_array:
+			outfile.write(str(key) + '\t' + str(chromosome[key]) + '\t' + str(ori[key]) + '\t' + str(posit) + '\tNA\tNA\tNA\tNA\tNA\tNA\t'+';'.join(snp_array[key])+'\n')
+		else:
+			outfile.write(str(key) + '\t' + str(chromosome[key]) + '\t' + str(ori[key]) + '\t' + str(posit) + '\tNA\tNA\tNA\tNA\tNA\tNA\tNA\n')
 
 outfile.close()
 
@@ -436,6 +483,6 @@ if args.write is True:
 	outfile.write('CHROMOSOME\tPOSITION\tFEATURE\tORIENTATION\tREFERENCE_ALLELE\tALTERNATE_ALLELE\tREF_COUNTS\tALT_COUNTS\n')
 
 	for i in phased_snp_array:
-		outfile.write(i + '\n')		
+		outfile.write(i + '\n')
 
 	outfile.close()
