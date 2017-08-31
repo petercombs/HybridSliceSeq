@@ -153,8 +153,8 @@ def parse_args():
             args.coordinates_bed,
             header=None, names=['chr', 'start', 'stop', 'feature', 'score',
                                 'strand', 'thickStart', 'thickEnd'],
-            index_col='feature',
         )
+        args.coordinates_bed.index = args.coordinates_bed.feature
     else:
         args.has_coordinates = False
 
@@ -800,7 +800,7 @@ def draw_binding_track(args, dwg, y_start, meme1, meme2, pos1, pos2):
         for pos in patser1.index:
             matched = has_match(pos, patser1, patser2, pos1, pos2)
             if not matched:
-                tf_changes_i['-'+tf_name] += 1
+                tf_changes_i[tf_name + '-'] += 1
             s = float(patser1.ix[pos, 'score'])*y_scale
             r = dwg.rect(
                 (x_start + argwhere(pos1 == pos)[0,0]*x_scale, y_start-s),
@@ -817,7 +817,7 @@ def draw_binding_track(args, dwg, y_start, meme1, meme2, pos1, pos2):
         for pos in patser2.index:
             matched = has_match(pos, patser2, patser1, pos2, pos1)
             if not matched:
-                tf_changes_i['+'+tf_name] += 1
+                tf_changes_i[tf_name + '+'] += 1
             pos = int(pos)
             s = float(patser2.ix[pos, 'score'])*y_scale
             try:
@@ -837,6 +837,7 @@ def draw_binding_track(args, dwg, y_start, meme1, meme2, pos1, pos2):
         #prog += 1
     tf_changes[n1, n2] = tf_changes_i
 
+    dwg.add(g)
     y_start += delta_y
     return y_start
 
@@ -1036,5 +1037,9 @@ if __name__ == "__main__":
         proc.wait()
 
 
-    pprint(tf_changes)
+    for key in tf_changes:
+        print('-'*30)
+        print(key)
+        pprint(sorted(tf_changes[key].items()))
+    #pprint(tf_changes)
 
