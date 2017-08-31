@@ -175,7 +175,7 @@ def get_virtual_ase_slices(model, changes, atlas, n_slices, fitter=None,
         sim_in_slice = p2[in_slice].clip(0, 1).sum()
         denom_i = mel_in_slice + sim_in_slice
         if denom_i > denom_cutoff:
-            virtualslices[0, i] = (sim_in_slice - mel_in_slice) / denom_i
+            virtualslices[0, i] = (sim_in_slice - mel_in_slice) / np.sqrt(denom_i)
         else:
             virtualslices[0, i] = np.nan
         denoms[i] = denom_i
@@ -635,9 +635,15 @@ if __name__ == "__main__":
                     'w')
          )
     ase = (
-        pd.read_table('analysis_godot/ase_summary_by_read.tsv', **ut.pd_kwargs)
+        pd.read_table('analysis_godot/ase_summary_by_read2.tsv', **ut.pd_kwargs)
         .ix[target_gene]
         .select(ut.startswith(('melXsim', 'simXmel')))
+    )
+    rnaseq_expr = (
+        pd.read_table('analysis_godot/summary.tsv', **ut.pd_kwargs)
+        .drop('---', axis=1, errors='ignore')
+        .select(**ut.sel_startswith(('melXsim', 'simXmel')))
+        .rename(columns=lambda x: x.replace('FPKM', 'ase_value'))
     )
     pu.svg_heatmap(ase,
                    'analysis/results/model_tweak/{}_ase.svg'.format(target_gene),
@@ -718,6 +724,7 @@ if __name__ == "__main__":
             ax2.semilogx(deltas, r2s.clip(-0.1, 1)*100, basex=2, label=tf,
                          **kwarg)
             try:
+                the_tf = sub('[\^\$ \+]', '', tf)
                 best_corr = deltas[np.nanargmax(corrs)]
                 best_r2 = deltas[np.nanargmax(r2s)]
                 if tf == 'bcd':
@@ -733,10 +740,10 @@ if __name__ == "__main__":
                                         small_atlas.ix[small_atlas.in_central],
                                         denom_cutoff = 0, xlims=xlims, ylims=ylims)
                 print('{}/analysis/results/model_tweak/paramsearch/{}_corr_{}'
-                        .format(dir, target_gene, sub('[\^\$ \+]', '', tf))
+                        .format(dir, target_gene, the_tf)
                 )
                 fig.savefig('{}/analysis/results/model_tweak/paramsearch/{}_corr_{}'
-                        .format(dir, target_gene, sub('[\^\$ \+]', '', tf)))
+                        .format(dir, target_gene, the_tf))
                 #mpl.close(fig)
                 for a in tfchange:
                     tfchange[a] = best_r2
@@ -744,10 +751,37 @@ if __name__ == "__main__":
                                         small_atlas.ix[small_atlas.in_central],
                                         denom_cutoff = 0, xlims=xlims, ylims=ylims)
                 mpl.savefig('{}/analysis/results/model_tweak/paramsearch/{}_varexp_{}'
-                        .format(dir, target_gene, sub('[\^\$ \+]', '', tf)))
+                        .format(dir, target_gene, the_tf))
                 #mpl.close(fig)
+                fig2 = mpl.figure()
+                if the_tf in rnaseq_expr.index:
+                    mpl.scatter(rnaseq_expr.ix[the_tf, ase.index], ase)
+                    plotted = True
+                elif the_tf[-1] in ('2', 'P') and the_tf[:-1] in rnaseq_expr.index:
+                    mpl.scatter(rnaseq_expr.ix[the_tf[:-1], ase.index], ase)
+                    plotted = True
+                else:
+                    plotted = False
+                if plotted:
+                    print("Saving", '{}/analysis/results/model_tweak/paramsearch/{}_tfase_{}'
+                                .format(dir, target_gene, the_tf))
 
-            except ValueError:
+                    mpl.title('spearman {}, pearson {}'
+                              .format(
+                                  rnaseq_expr.ix[the_tf].corr(ase, method='spearman'),
+                                  rnaseq_expr.ix[the_tf].corr(ase, method='pearson'),
+                              )
+                             )
+                    mpl.xlabel('FPKM of {}'.format(the_tf))
+                    mpl.ylabel('ASE')
+                    mpl.savefig('{}/analysis/results/model_tweak/paramsearch/{}_tfase_{}'
+                                .format(dir, target_gene, the_tf))
+                    mpl.close(fig2)
+                else:
+                    print("Couldn't find ", the_tf)
+
+            except AssertionError as err:
+                print(err)
                 pass
         ax2.legend(loc='lower left')
         ax1.vlines(1, -1, 1)

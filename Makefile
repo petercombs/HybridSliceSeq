@@ -163,6 +163,21 @@ $(ANALYSIS_DIR)/ase_summary_by_read.tsv: $(ANALYSIS_DIR)/retabulate $$(subst gen
 			--float-format "%0.6f" \
 			$(ANALYSIS_DIR)
 
+$(ANALYSIS_DIR)/ase_summary_by_read2.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase_by_read2.tsv,$$(FPKMS)) $(ANALYSIS_DIR)/map_stats.tsv
+	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
+	python MakeSummaryTable.py \
+			--params Parameters/RunConfig.cfg \
+			--filename melsim_gene_ase_by_read2.tsv \
+			--column "ase_value" \
+			--strip-low-reads 3000000 \
+			--strip-on-unique \
+			--strip-as-nan \
+			--map-stats $(ANALYSIS_DIR)/map_stats.tsv \
+			--key "gene" \
+			--out-basename ase_summary_by_read2 \
+			--float-format "%0.6f" \
+			$(ANALYSIS_DIR)
+
 $(ANALYSIS_DIR)/ase_summary_by_read_with_wasp.tsv: $(ANALYSIS_DIR)/retabulate $$(subst genes.fpkm_tracking,melsim_gene_ase_by_read_with_wasp.tsv,$$(FPKMS)) $(ANALYSIS_DIR)/map_stats.tsv
 	./qsubber $(QSUBBER_ARGS)_$(*F) -t 6 \
 	python MakeSummaryTable.py \
