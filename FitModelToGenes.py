@@ -45,6 +45,7 @@ times = {
     'comm2': 'T4',
     'slp1': 'T2',
     'CG8147': 'T4',
+    'sala': 'T4',
 }
 
 all_changes = {
@@ -94,6 +95,11 @@ all_changes = {
         'Kr': 2.0,
         'kni': 1.0, 'tll': 1.0,
     },
+    'sala': {
+        'Doc2': 1.5, 'Kr': 0.5, 'hkb': 1.0, 'cad': 1.0, 'kni': 1.0,
+        'D': 2.0,
+
+    }
 }
 
 
