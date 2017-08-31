@@ -83,6 +83,7 @@ def parse_args():
     parser.add_argument('--tf-names', '-T', default=[], nargs='*')
     parser.add_argument('--comp1', '-1', default='anterior')
     parser.add_argument('--comp2', '-2', default='posterior')
+    parser.add_argument('--outfile', '-o', default=None)
     data_opts.add_argument('--sequence', '-s', default=False, action=store_true,
                            help='Patser output the sequence of the match as well')
     data_opts.add_argument('--fasta', '-F', default=None)
@@ -128,6 +129,8 @@ def parse_args():
 
 
     args =  parser.parse_args()
+    if args.outfile is None:
+        args.outfile = args.alignments.name + '.svg'
     if args.print_argv:
         from sys import argv
         print(" ".join(argv))
@@ -971,7 +974,7 @@ if __name__ == "__main__":
 
     width, height = get_drawing_size(args, alignments)
     dwg = svg.Drawing(
-        args.alignments.name+'.svg',
+        args.outfile,
         size=(width, height),
     )
     dwg_groups = {}
