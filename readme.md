@@ -1,3 +1,58 @@
+######################################################
+# Spatially varying cis-regulatory divergence in     #
+# Drosophila embryos elucidates cis-regulatory logic #
+######################################################
+_Peter A. Combs and Hunter B. Fraser_
+
+_Department of Biology, Stanford University_
+
+This repository contains the analysis code for Combs and Fraser 2017 ([bioRxiv
+preprint](http://localhost/); currently submitted for review). Raw and processed data files
+available from the [Gene Expression
+Omnibus](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE102233).
+
+Very briefly, the data analyses in these scripts do two things:
+
+1. Process RNA-seq data from cryosliced D. melanogaster x simulans hybrid
+   embryos. We are looking for genes with spatially varying allele-specific
+expression (svASE) is different in one part of the embryo compared to the
+other.
+
+2. Perform modeling of the cis-regulatory input functions of genes using a
+   modeling approach inspired in large part by Ilsley, et al (2013). Using
+genome alignments and motif searches, we can then make inferences about which
+cis-regulatory changes actually produced the spatially varying ASE that we
+observed in part 1.
+
+Almost all of the code is written in either Python 3 or a Makefile. There are
+ingrained assumptions that the code will be run on a cluster that has qsub, but
+the make script can be Known dependencies include:
+
+* STAR (RNA-seq alignment; options exist in the configure script to use tophat)
+* Cufflinks (RNA-seq quantification)
+* Bedtools
+* Samtools
+* Various python modules
+	- pysam
+	- progressbar
+	- numpy/scipy/pandas/matplotlib
+	- svgwrite
+	- pyemd
+	- BioPython
+	- statsmodels
+
+
+####
+# RNA-seq and finding svASE
+###
+
+Assuming you have the data files in the right places, you should be able to go from raw reads to summary data tables by doing: 
+
+    ./configure
+    make
+
+
+
 ###############################
 # NOTES ON FRASER LAB SCRIPTS #
 ###############################
