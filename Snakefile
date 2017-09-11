@@ -34,6 +34,27 @@ module = '''module () {
         eval `$LMOD_CMD bash "$@"`
         }'''
 
+def getreads(readnum):
+    if readnum == 0:
+        formatstr = 'sequence/{}.fastq.gz'
+    else:
+        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
+    def retfun(wildcards):
+        return [formatstr.format(srr)
+                for srr in config['samples'][path.basename(wildcards.sample)]]
+    return retfun
+
+def getreadscomma(readnum):
+    if readnum == 0:
+        formatstr = 'sequence/{}.fastq.gz'
+    else:
+        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
+    def retfun(wildcards):
+        return ",".join([formatstr.format(srr)
+                        for srr in config['samples'][path.basename(wildcards.sample)]])
+    return retfun
+
+
 rule all:
     input:
         path.join(analysis_dir, "summary.tsv"),
@@ -281,6 +302,10 @@ def samples_to_files(fname):
         return [path.join(analysis_dir, sample, fname) for sample in samples]
     return retfun
 
+rule all_files_per_sample:
+    output: "tmp/all_{fname}"
+    input: lambda wildcards: samples_to_files(wildcards.fname)()
+
 rule sample_expr:
     input:
         bam="{sample}/assigned_dmelR.bam",
@@ -308,17 +333,18 @@ rule sample_expr:
 
 rule sample_gene_ase:
     input:
-        bam="{sample}/assigned_dmelR_dedup.sorted.bam",
-        bai="{sample}/assigned_dmelR_dedup.sorted.bam.bai",
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
         variants=variants,
         gtf=mel_gtf,
         sentinel=path.join(analysis_dir, 'recalc_ase')
     threads: 1
     output:
         "{sample}/melsim_gene_ase_by_read.tsv"
-    output:
+    log:
         "{sample}/melsim_gene_ase_by_read.log"
-    shell: """ python ~/ASEr/bin/GetGeneASEbyReads.py \
+    shell: """ export PYTHONPATH=$PYTHONPATH:/home/pcombs/ASEr/;
+    python ~/ASEr/bin/GetGeneASEbyReads.py \
         --outfile {output} \
         --id-name gene_name \
         --ase-function pref_index \
@@ -343,10 +369,14 @@ rule get_all_map_stats:
         """
 
 rule get_sample_mapstats:
-    input: "{sample}.bam"
-    output: "{sample}.mapstats"
-    log: "{sample}.log"
-    shell: "python GetSingleMapStats.py {input}"
+    input: 
+        unpack(getreads(1)),
+        unpack(getreads(2)),
+        bam="{sample}/{fname}.bam",
+        bai="{sample}/{fname}.bam.bai",
+    output: "{sample}/{fname}.mapstats"
+    log: "{sample}/mapstats.log"
+    shell: "python GetSingleMapStats.py {input.bam}"
 
 rule expr_summary:
     input:
@@ -359,7 +389,6 @@ rule expr_summary:
         path.join(analysis_dir, 'mst.log')
     shell: """
     python MakeSummaryTable.py \
-       --params Parameters/RunConfig.cfg \
 	   --strip-low-reads 1000000 \
 	   --strip-on-unique \
 	   --strip-as-nan \
@@ -384,7 +413,6 @@ rule ase_summary:
         path.join(analysis_dir, 'ase_mst.log')
     shell: """
     python MakeSummaryTable.py \
-       --params Parameters/RunConfig.cfg \
 	   --strip-low-reads 1000000 \
 	   --strip-on-unique \
 	   --strip-as-nan \
@@ -394,6 +422,7 @@ rule ase_summary:
 	   --filename genes.fpkm_tracking \
 	   --key gene_short_name \
 	   --column FPKM \
+       --out-basename ase_summary_by_read \
 		{analysis_dir} \
 		| tee {log}
         """
@@ -438,26 +467,6 @@ rule get_sra:
     fastq-dump --gzip --split-3 --outdir sequence {wildcards.srr}
     """
 
-def getreads(readnum):
-    if readnum == 0:
-        formatstr = 'sequence/{}.fastq.gz'
-    else:
-        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
-    def retfun(wildcards):
-        return [formatstr.format(srr)
-                for srr in config['samples'][path.basename(wildcards.sample)]]
-    return retfun
-
-def getreadscomma(readnum):
-    if readnum == 0:
-        formatstr = 'sequence/{}.fastq.gz'
-    else:
-        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
-    def retfun(wildcards):
-        return ",".join([formatstr.format(srr)
-                        for srr in config['samples'][path.basename(wildcards.sample)]])
-    return retfun
-
 rule star_map:
     input:
         unpack(getreads(1)),
@@ -468,7 +477,7 @@ rule star_map:
         r1s=getreadscomma(1),
         r2s=getreadscomma(2),
     output: "{sample}/assigned_dmelR.bam"
-    threads: 4
+    threads: 6
     log: "{sample}/assigned_dmelR.log"
     shell: """{module}; module load STAR
     STAR --parametersFiles Parameters/STAR_params.in \
@@ -478,7 +487,9 @@ rule star_map:
     --outSAMtype BAM SortedByCoordinate \
     --clip5pNbases 6 \
     --readFilesIn {params.r1s} {params.r2s}
-    mv {wildcards.sample}/Aligned.sortedByCoord.out.bam {output}
+    if [ -s  {wildcards.sample}/Aligned.sortedByCoord.out.bam ]; then
+        mv {wildcards.sample}/Aligned.sortedByCoord.out.bam {output};
+    fi
     """
 
 
