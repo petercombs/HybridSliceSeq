@@ -241,6 +241,7 @@ rule getfasta:
         ref="Reference/d{species}_prepend.fasta"
     output:
         "{prefix}/{species}.fasta"
+    wildcard_constraints: species="^...$"
     shell: """{module}; module load bedtools
         bedtools getfasta -s -name -fi {input.ref} -fo {output} -bed {input.bed}
         """
