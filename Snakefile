@@ -6,6 +6,7 @@ sim_release = "r2.01_FB2016_01"
 mel_version, mel_date = mel_release.split('_', 1)
 sim_version, sim_date = sim_release.split('_', 1)
 
+num_mel_windows = 17
 dates = {'mel': mel_date, 'sim': sim_date}
 versions = {'mel': mel_version, 'sim': sim_version}
 
@@ -653,6 +654,59 @@ rule call_variants:
 		-GQB 10 -GQB 20 -GQB 30 -GQB 50 \
 		-stand_emit_conf 10 \
 		-stand_call_conf 30 \
+		-o {output}
+    """
+rule split_genome_to_regions:
+    input: "Reference/d{reference}.chr.sizes"
+    output: expand("Reference/d{reference}.split/10m_{subset}.bed", reference="{reference}", subset=range(num_mel_windows))
+    log: dynamic("Reference/d{reference}.split/split.log")
+    shell: "python SplitGenome.py \
+        --size 10e6 \
+        {input} \
+        Reference/d{wildcards.reference}.split/10m"
+
+rule call_all_region_variants:
+    input:
+        ref_fasta="Reference/d{reference}_prepend.fasta",
+        variants = expand(path.join(analysis_dir, "on_{{reference}}",
+                    "{{species}}_gdna_variants", "{subset}_raw_variants_uncalibrated.p.g.vcf"),
+                    subset=range(num_mel_windows)),
+    output: path.join(analysis_dir, "on_{reference}", "{species}_gdna_raw_variants_combined.p.g.vcf")
+    log: path.join(analysis_dir, "on_{reference}", "{species}_gdna_raw_variants_combined.log")
+    run:
+        variant_files = " -V ".join(input.variants)
+        shell("""java -cp /usr/share/java/gatk/GenomeAnalysisTK.jar \
+                org.broadinstitute.gatk.tools.CatVariants \
+                -R {input.ref_fasta} --outputFile {output} -assumeSorted -V """ + variant_files)
+
+rule call_variants_region:
+    input:
+        ref_fasta="Reference/d{reference}_prepend.fasta",
+        ref_fai="Reference/d{reference}_prepend.fasta.fai",
+        ref_dict="Reference/d{reference}_prepend.dict",
+        region="Reference/d{reference}.split/10m_{subset}.bed",
+        bam=path.join(analysis_dir, "on_{reference}", "{species}_gdna_bowtie2_dedup.bam"),
+        bai=path.join(analysis_dir, "on_{reference}", "{species}_gdna_bowtie2_dedup.bam.bai"),
+    output:
+        path.join(analysis_dir, "on_{reference}", "{species}_gdna_variants/{subset}_raw_variants_uncalibrated.p.g.vcf")
+    params:
+        outdir=path.join(analysis_dir, "on_{reference}", "{species}_gdna/")
+    log:
+        path.join(analysis_dir, "on_{reference}", "{species}_gdna/{subset}_raw_variants_uncalibrated.log")
+    threads: 6
+    shell: """
+    mkdir -p {params.outdir}
+	gatk -T HaplotypeCaller \
+		-R {input.ref_fasta} \
+		-I {input.bam} \
+		-nct 8 \
+		--genotyping_mode DISCOVERY \
+		--output_mode EMIT_ALL_SITES \
+		--emitRefConfidence GVCF \
+		-GQB 10 -GQB 20 -GQB 30 -GQB 50 \
+		-stand_emit_conf 10 \
+		-stand_call_conf 30 \
+        --intervals {input.region} \
 		-o {output}
     """
 
