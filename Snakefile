@@ -363,14 +363,14 @@ rule get_all_map_stats:
     shell:"""
 	python GetMapStats.py \
 		--params Parameters/RunConfig.cfg \
-		-u \
+		--count-unique \
 		--count-all \
-		-T \
+		--translate-labels \
 		{analysis_dir}
         """
 
 rule get_sample_mapstats:
-    input: 
+    input:
         unpack(getreads(1)),
         unpack(getreads(2)),
         bam="{sample}/{fname}.bam",
@@ -724,7 +724,7 @@ rule map_gdna:
         r1s=getreadscomma(1),
         r2s=getreadscomma(2),
     threads: 4
-    shell: """{module}; module load samtools/1.3
+    shell: """{module}; module load samtools/1.3 bowtie2
     bowtie2 \
 		--very-sensitive-local \
 		-p 8 \
@@ -745,7 +745,7 @@ rule bowtie2_build:
     input: "{base}.fasta"
     output: "{base}.1.bt2"
     log:    "{base}.bt2.log"
-    shell: "bowtie2-build --offrate 3 {input} {wildcards.base}"
+    shell: "{module}; module load bowtie2; bowtie2-build --offrate 3 {input} {wildcards.base}"
 
 rule sentinel_cufflinks:
     output: touch(path.join(analysis_dir, "recufflinks"))
