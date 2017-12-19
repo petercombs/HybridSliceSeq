@@ -24,8 +24,20 @@ gene_strand = '-'
 if __name__ == "__main__":
     chroms = {
         rec.id: rec.seq.tomutable()
-        for rec in SeqIO.parse('analysis_godot/on_melr5/melsim_masked.fasta',
+        for rec in SeqIO.parse('Reference/dmelr5_prepend.fasta',
                                'fasta', Seq.Alphabet.generic_dna)
+    }
+
+    mel_copy = {
+        rec: Seq.MutableSeq(str(chroms[rec]), Seq.Alphabet.generic_dna)
+        for rec in chroms
+
+    }
+
+    sim_copy = {
+        rec: Seq.MutableSeq(str(chroms[rec]), Seq.Alphabet.generic_dna)
+        for rec in chroms
+
     }
 
     # Replace ambiguous bases
@@ -39,8 +51,11 @@ if __name__ == "__main__":
             if chrom == gene_chrom and low <= pos <= high:
                 variant = variant.split('|')
                 mel, sim = variant
-                assert chroms[chrom][pos] == 'N'
+                #assert chroms[chrom][pos] == 'N'
                 chroms[chrom][pos] = ambigs[tuple(sorted(variant))]
+                mel_copy[chrom][pos] = mel
+                sim_copy[chrom][pos] = sim
+                assert mel_copy[chrom][pos] != sim_copy[chrom][pos]
                 if gene_strand == '-':
                     variant = (rc(variant[0]),
                                 rc(variant[1]))
@@ -50,13 +65,21 @@ if __name__ == "__main__":
 
     # Build the hunchback transcript
     gene_str = []
+    mel_str = []
+    sim_str = []
     gene_bps = []
     for chrom, start, stop in gene_coords:
         gene_str.append(str(chroms[chrom][start:stop]))
+        mel_str.append(str(mel_copy[chrom][start:stop]))
+        sim_str.append(str(sim_copy[chrom][start:stop]))
         gene_bps.extend(range(start, stop))
     gene_str = ''.join(gene_str)
+    mel_str = ''.join(mel_str)
+    sim_str = ''.join(sim_str)
     if gene_strand == '-':
         gene_str = rc(gene_str)
+        mel_str = rc(mel_str)
+        sim_str = rc(sim_str)
         gene_bps = list(reversed(gene_bps))
     print(''.join(gene_str))
 
