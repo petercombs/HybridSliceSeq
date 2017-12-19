@@ -1,7 +1,16 @@
 from os import path
 
+mel_release = "r5.57_FB2014_03"
+sim_release = "r2.01_FB2016_01"
+
+mel_version, mel_date = mel_release.split('_', 1)
+sim_version, sim_date = sim_release.split('_', 1)
+
+dates = {'mel': mel_date, 'sim': sim_date}
+versions = {'mel': mel_version, 'sim': sim_version}
+
 analysis_dir = 'analysis_godot'
-hybrid_dir = 'analysis_godot/on_melr5'
+hybrid_dir = 'analysis_godot/on_mel'
 mel_gtf = 'Reference/mel_good.gtf'
 mel_bad_gtf = 'Reference/mel_bad.gtf'
 mel_fasta = 'Reference/dmel_prepend.fasta'
@@ -10,16 +19,16 @@ variants = path.join(hybrid_dir, 'melsim_variant.bed')
 
 configfile: "Parameters/config.json"
 
-mxs_r1 = ['RA{:02d}'.format(i) for i in range(4, 30)]
-mxs_r2 = ['RD{:02d}'.format(i) for i in range(7, 33)] 
-mxs_r3 = ['RE{:02d}'.format(i) for i in range(5, 32)] 
-sxm_r1 = ['MA{:02d}'.format(i) for i in range(37, 62)] 
-sxm_r2 = ['MB{:02d}'.format(i) for i in range(3, 30)] 
-mxm_r1 = ['MC{:02d}'.format(i) for i in range(7, 34)] 
-sxs_r1 = ['SB{:02d}'.format(i) for i in range(7, 34)] 
+mxs_r1 = ['melXsim_cyc14C_rep1_sl{:02d}'.format(i) for i in range(4, 30)]
+mxs_r2 = ['melXsim_cyc14C_rep2_sl{:02d}'.format(i) for i in range(7, 33)]
+mxs_r3 = ['melXsim_cyc14C_rep3_sl{:02d}'.format(i) for i in range(5, 32)]
+sxm_r1 = ['simXmel_cyc14C_rep1_sl{:02d}'.format(i) for i in range(37, 62)]
+sxm_r2 = ['simXmel_cyc14C_rep2_sl{:02d}'.format(i) for i in range(3, 30)]
+mxm_r1 = ['melXmel_cyc14C_sl{:02d}'.format(i) for i in range(7, 34)]
+sxs_r1 = ['simXsim_cyc14C_sl{:02d}'.format(i) for i in range(7, 34)]
 
-samples = mxs_r1 + mxs_r2 + mxs_r3 + sxm_r1 + sxm_r2 + mxm_r1 + sxs_r1
-
+#samples = mxs_r1 + mxs_r2 + mxs_r3 + sxm_r1 + sxm_r2 + mxm_r1 + sxs_r1
+samples = [sample for sample in config['samples'] if 'gdna' not in sample]
 
 module = '''module () {
         eval `$LMOD_CMD bash "$@"`
@@ -72,6 +81,7 @@ rule alignment_figure:
             fimoB="analysis/targets/{gene}/{B}/fimo.txt",
             code="PatserAlignToSVG.py",
     output: "analysis/targets/{gene}/{A}_{B}.needleall.svg"
+    log:    "analysis/targets/{gene}/{A}_{B}.needleall.log"
     wildcard_constraints:
         A="[a-z][a-z][a-z]+",
         B="[a-z][a-z][a-z]+",
@@ -99,6 +109,7 @@ rule alignment_figure_nondefaulttfs:
             fimoB="analysis/targets/{gene}/{B}/fimo.txt",
             code="PatserAlignToSVG.py",
     output: "analysis/targets/{gene}/{A}_{B}.{tfs}.needleall.svg"
+    log:    "analysis/targets/{gene}/{A}_{B}.{tfs}.needleall.log"
     wildcard_constraints:
         A="[a-z][a-z][a-z]+",
         B="[a-z][a-z][a-z]+",
@@ -130,6 +141,8 @@ rule alignment:
         B="[a-z][a-z][a-z]+",
     output:
         "analysis/targets/{gene}/{A}_{B}.needleall"
+    log:
+        "analysis/targets/{gene}/{A}_{B}.needleall.log"
     shell: """{module}; module load  EMBOSS
     needleall -aseq {input.A} -bseq {input.B} \
             -aformat3 srspair -gapopen 10.0 -gapextend 0.5 \
@@ -144,6 +157,8 @@ rule combined_fasta:
         B="[a-z][a-z][a-z]+",
     output:
         "analysis/targets/{gene}/{A}_{B}.fasta"
+    log:
+        "analysis/targets/{gene}/{A}_{B}.fasta.log"
     shell:
         "cat {input.A} {input.B} > {output}"
 
@@ -228,7 +243,7 @@ rule mel_chr_sizes:
 rule melfasta:
     input:
         bed="{prefix}/mel.bed",
-        ref="Reference/dmelr5_prepend.fasta"
+        ref="Reference/dmel_prepend.fasta"
     output:
         "{prefix}/mel.fasta"
     shell: """{module}; module load bedtools
@@ -259,7 +274,6 @@ rule exons:
         """
 
 ruleorder: mel_bed > non_mel_bed
-ruleorder: melfasta > getfasta
 
 def samples_to_files(fname):
     # Returns a function that is callable by an input rule
@@ -268,7 +282,7 @@ def samples_to_files(fname):
     return retfun
 
 rule sample_expr:
-    input: 
+    input:
         bam="{sample}/assigned_dmelR.bam",
         bai="{sample}/assigned_dmelR.bam.bai",
         gtf=mel_gtf,
@@ -278,6 +292,8 @@ rule sample_expr:
     threads: 4
     output:
         "{sample}/genes.fpkm_tracking"
+    log:
+        "{sample}/genes.log"
     shell: """{module}; module load cufflinks
 	cufflinks \
 		--num-threads 8 \
@@ -288,10 +304,10 @@ rule sample_expr:
 		--mask-file {input.mask_gtf} \
 		{input.bam}
         """
-        
+
 
 rule sample_gene_ase:
-    input: 
+    input:
         bam="{sample}/assigned_dmelR_dedup.sorted.bam",
         bai="{sample}/assigned_dmelR_dedup.sorted.bam.bai",
         variants=variants,
@@ -300,6 +316,8 @@ rule sample_gene_ase:
     threads: 1
     output:
         "{sample}/melsim_gene_ase_by_read.tsv"
+    output:
+        "{sample}/melsim_gene_ase_by_read.log"
     shell: """ python ~/ASEr/bin/GetGeneASEbyReads.py \
         --outfile {output} \
         --id-name gene_name \
@@ -308,7 +326,27 @@ rule sample_gene_ase:
         {input.gtf} \
         {input.bam}
     """
-        
+
+rule get_all_map_stats:
+    input: *samples_to_files('assigned_dmelR.mapstats')(),
+    output:
+        path.join(analysis_dir, 'map_stats.tsv'),
+    log:
+        path.join(analysis_dir, 'map_stats.log'),
+    shell:"""
+	python GetMapStats.py \
+		--params Parameters/RunConfig.cfg \
+		-u \
+		--count-all \
+		-T \
+		{analysis_dir}
+        """
+
+rule get_sample_mapstats:
+    input: "{sample}.bam"
+    output: "{sample}.mapstats"
+    log: "{sample}.log"
+    shell: "python GetSingleMapStats.py {input}"
 
 rule expr_summary:
     input:
@@ -317,7 +355,7 @@ rule expr_summary:
         sentinel=path.join(analysis_dir, 'retabulate'),
     output:
         path.join(analysis_dir, 'summary.tsv')
-    log: 
+    log:
         path.join(analysis_dir, 'mst.log')
     shell: """
     python MakeSummaryTable.py \
@@ -334,7 +372,7 @@ rule expr_summary:
 		{analysis_dir} \
 		| tee {log}
         """
-        
+
 rule ase_summary:
     input:
         *samples_to_files('melsim_gene_ase_by_read.tsv')(),
@@ -342,7 +380,7 @@ rule ase_summary:
         sentinel=path.join(analysis_dir, 'retabulate'),
     output:
         path.join(analysis_dir, 'ase_summary_by_read.tsv')
-    log: 
+    log:
         path.join(analysis_dir, 'ase_mst.log')
     shell: """
     python MakeSummaryTable.py \
@@ -359,13 +397,12 @@ rule ase_summary:
 		{analysis_dir} \
 		| tee {log}
         """
-        
+
 
 rule sort_bam:
-    input: 
-        "{sample}.bam"
-    output:
-        "{sample}.sorted.bam"
+    input: "{sample}.bam"
+    output: "{sample}.sorted.bam"
+    log: "{sample}.sorted.log"
     threads: 4
     shell: """{module}; module load samtools
     samtools sort -o {output} --threads {threads} {input}
@@ -374,63 +411,283 @@ rule sort_bam:
 rule index_bam:
     input: "{sample}.bam"
     output: "{sample}.bam.bai"
+    log: "{sample}.bam.bai_log"
     shell: "samtools index {input}"
 
 rule dedup:
     input: "{sample}.bam"
-    output: temp("{sample}_dedup.bam")
+    output: ("{sample}_dedup.bam")
     log: "{sample}_dedup.log"
     shell: """{module}; module load picard/2.8.1
-    picard MarkDuplicates
+    picard MarkDuplicates \
+        SORTING_COLLECTION_SIZE_RATIO=.05 \
 		MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 \
 		READ_NAME_REGEX=null \
+		REMOVE_DUPLICATES=true \
+		DUPLICATE_SCORING_STRATEGY=RANDOM \
 		INPUT={input} OUTPUT={output} METRICS_FILE={log}
         """
 rule get_sra:
     output:
-        "sequence/{srr}_1.fastq.gz",
-        "sequence/{srr}_2.fastq.gz"
+        temp("sequence/{srr}_1.fastq.gz"),
+        temp("sequence/{srr}_2.fastq.gz")
+    log: "sequence/{srr}.log"
     resources: max_downloads=1
     shell: """{module}; module load sra-tools
 
-    fastq-dump --gzip --split-3 --outdir sequence {srr}
+    fastq-dump --gzip --split-3 --outdir sequence {wildcards.srr}
     """
 
 def getreads(readnum):
+    if readnum == 0:
+        formatstr = 'sequence/{}.fastq.gz'
+    else:
+        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
     def retfun(wildcards):
-        return config['samples'][path.basename(wildcards.sample)]
+        return [formatstr.format(srr)
+                for srr in config['samples'][path.basename(wildcards.sample)]]
+    return retfun
+
+def getreadscomma(readnum):
+    if readnum == 0:
+        formatstr = 'sequence/{}.fastq.gz'
+    else:
+        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
+    def retfun(wildcards):
+        return ",".join([formatstr.format(srr)
+                        for srr in config['samples'][path.basename(wildcards.sample)]])
     return retfun
 
 rule star_map:
-    input: 
-        r1s=getreads(1),
-        r2s=getreads(2),
+    input:
+        unpack(getreads(1)),
+        unpack(getreads(2)),
         genome=path.join(hybrid_dir, 'masked', 'Genome'),
         genomedir=path.join(hybrid_dir, 'masked')
+    params:
+        r1s=getreadscomma(1),
+        r2s=getreadscomma(2),
     output: "{sample}/assigned_dmelR.bam"
+    threads: 4
+    log: "{sample}/assigned_dmelR.log"
     shell: """{module}; module load STAR
     STAR --parametersFiles Parameters/STAR_params.in \
-    --genomeDir {input.genome} \
+    --genomeDir {input.genomedir} \
     --outFileNamePrefix {wildcards.sample}/ \
     --outSAMattributes MD NH \
     --outSAMtype BAM SortedByCoordinate \
     --clip5pNbases 6 \
-    --readFilesIn {input.r1s} {input.r2s}
-    ln -s {wildcards.sample}/Aligned.sortedByCoord.out.bam {output}
+    --readFilesIn {params.r1s} {params.r2s}
+    mv {wildcards.sample}/Aligned.sortedByCoord.out.bam {output}
     """
 
 
 rule masked_star_ref:
-    input: 
+    input:
         fasta=path.join(hybrid_dir, "melsim_masked.fasta"),
         gtf=mel_gtf,
     output:
         outdir=path.join(hybrid_dir, "masked"),
         outfile=path.join(hybrid_dir, "masked/Genome")
+    log: path.join(hybrid_dir, "masked.log")
+    priority: 50
     shell:""" {module}; module load STAR
     rm -rf {output.outdir}
+    mkdir -p {output.outdir}
 	STAR --runMode genomeGenerate --genomeDir {output.outdir} \
 		--outTmpDir {output.outdir}/_tmp/ \
 		--genomeFastaFiles {input.fasta} \
 		--sjdbGTFfile {input.gtf}
     """
+
+rule ref_genome:
+    output: "prereqs/d{species}.fasta"
+    log: "prereqs/d{species}.log"
+    params:
+        date=lambda wildcards: dates[wildcards.species],
+        version=lambda wildcards: versions[wildcards.species]
+
+    shell: """{module}; module load wget
+    mkdir -p prereqs
+	wget -O {output}.gz ftp://ftp.flybase.org/releases/{params.date}/d{wildcards.species}_{params.version}/fasta/d{wildcards.species}-all-chromosome-{params.version}.fasta.gz
+	gunzip --force {output}.gz
+    """
+
+rule ref_gff:
+    output: "prereqs/d{species}.gff"
+    log: "prereqs/d{species}.log"
+    params:
+        date=lambda wildcards: dates[wildcards.species],
+        version=lambda wildcards: versions[wildcards.species]
+
+    shell: """{module}; module load wget
+    mkdir -p prereqs
+	wget -O {output}.gz ftp://ftp.flybase.org/releases/{params.date}/d{wildcards.species}_{params.version}/gff/d{wildcards.species}-all-{params.version}.gff.gz
+	gunzip --force {output}.gz
+    """
+
+rule prepend_fasta:
+    output: "Reference/d{species}_prepend.fasta"
+    log: "Reference/d{species}_prepend.log"
+    input:
+        "prereqs/d{species}.fasta"
+    shell: "perl -pe 's/>/>d{wildcards.species}_/' {input} > {output}"
+
+rule all_gtf:
+    input: "prereqs/d{species}.gff"
+    output: "Reference/{species}_all.gtf"
+    log: "Reference/{species}_all.log"
+    shell: """{module}; module load cufflinks
+    gffread {input} -C -E -T -o- \
+        | awk '{{print "d{wildcards.species}_"$0}}' \
+        > {output}
+    """
+
+rule good_gtf:
+    input: "Reference/{species}_all.gtf"
+    output: "Reference/{species}_good.gtf"
+    log: "Reference/{species}_good.log"
+    shell: """
+	cat {input} \
+		| grep -vP '(snoRNA|CR[0-9]{{4}}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
+		| grep 'gene_id' \
+		> {output}
+        """
+
+rule bad_gtf:
+    input: "Reference/{species}_all.gtf"
+    output: "Reference/{species}_bad.gtf"
+    log: "Reference/{species}_bad.log"
+    shell: """
+    echo {threads}
+	cat {input} \
+		| grep -vP '(snoRNA|CR[0-9]{{4}}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
+		> {output}
+        """
+
+rule process_variants:
+    input:
+        var_tab=path.join(analysis_dir, "on_{parent}", "{parent}{other}_variants.tsv"),
+        ref_fasta="Reference/d{parent}_prepend.fasta",
+    output:
+        fasta=path.join(analysis_dir, "on_{parent}", "{parent}{other}_masked.fasta"),
+        bed=path.join(analysis_dir, "on_{parent}", "{parent}{other}_variant.bed"),
+    log: path.join(analysis_dir, "on_{parent}", "{parent}{other}_masking.log")
+    shell: """
+	python MaskReferenceFromGATKTable.py \
+		--target-species {wildcards.parent} \
+		--emit-bed {output.bed} \
+		--outfasta {output.fasta} \
+		{input.ref_fasta} \
+		{input.var_tab}
+    """
+
+
+rule get_combined_variants:
+    input:
+        ref_fasta="Reference/d{parent}_prepend.fasta",
+        parent_gvcf=path.join(analysis_dir, "on_{parent}", "{parent}_gdna_raw_variants_uncalibrated.p.g.vcf"),
+        other_gvcf=path.join(analysis_dir, "on_{parent}", "{other}_gdna_raw_variants_uncalibrated.p.g.vcf")
+    output: path.join(analysis_dir, "on_{parent}", "{parent}{other}_variants.tsv")
+    log:    path.join(analysis_dir, "on_{parent}", "{parent}{other}_variants.log")
+    params:
+        dir=path.join(analysis_dir, "on_{parent}")
+    shell: """
+	gatk -T GenotypeGVCFs \
+		-R {input.ref_fasta} \
+		-V {input.parent_gvcf} \
+		-V {input.other_gvcf} \
+		-o {params.dir}/{wildcards.parent}{wildcards.other}_variants_on{wildcards.parent}.gvcf
+	gatk -T VariantsToTable \
+		-R {input.ref_fasta} \
+		-V {params.dir}/{wildcards.parent}{wildcards.other}_variants_on{wildcards.parent}.gvcf \
+		-F CHROM -F POS -F REF -F ALT -F QUAL \
+		-F HET -F HOM-REF -F HOM-VAR -F NCALLED \
+		-GF GT \
+		-o {output}
+
+
+    """
+
+rule fadict:
+    input: "{file}.fasta"
+    output: "{file}.dict"
+    shell: "picard CreateSequenceDictionary R={input} O={output}"
+
+rule index_fasta:
+    input: "{file}.fasta"
+    output: "{file}.fasta.fai"
+    shell: "samtools faidx {input}"
+
+rule call_variants:
+    input:
+        ref_fasta="Reference/d{reference}_prepend.fasta",
+        ref_fai="Reference/d{reference}_prepend.fasta.fai",
+        ref_dict="Reference/d{reference}_prepend.dict",
+        bam=path.join(analysis_dir, "on_{reference}", "{species}_gdna_bowtie2_dedup.bam"),
+        bai=path.join(analysis_dir, "on_{reference}", "{species}_gdna_bowtie2_dedup.bam.bai"),
+    output:
+        path.join(analysis_dir, "on_{reference}", "{species}_gdna_raw_variants_uncalibrated.p.g.vcf")
+    log:
+        path.join(analysis_dir, "on_{reference}", "{species}_gdna_raw_variants_uncalibrated.log")
+    threads: 4
+    shell: """
+	gatk -T HaplotypeCaller \
+		-R {input.ref_fasta} \
+		-I {input.bam} \
+		-nct 8 \
+		--genotyping_mode DISCOVERY \
+		--output_mode EMIT_ALL_SITES \
+		--emitRefConfidence GVCF \
+		-GQB 10 -GQB 20 -GQB 30 -GQB 50 \
+		-stand_emit_conf 10 \
+		-stand_call_conf 30 \
+		-o {output}
+    """
+
+rule map_gdna:
+    input:
+        unpack(getreads(1)),
+        unpack(getreads(2)),
+        bt2_index="Reference/d{reference}_prepend.1.bt2"
+    output:
+        path.join(analysis_dir, "on_{reference}", "{sample}_bowtie2.bam")
+    log:
+        path.join(analysis_dir, "on_{reference}", "{sample}_bowtie2.log")
+    params:
+        index="Reference/d{reference}_prepend",
+        r1s=getreadscomma(1),
+        r2s=getreadscomma(2),
+    threads: 4
+    shell: """{module}; module load samtools/1.3
+    bowtie2 \
+		--very-sensitive-local \
+		-p 8 \
+		--rg-id {wildcards.sample} \
+		--rg "SM:{wildcards.sample}" \
+		--rg "PL:illumina" \
+		--rg "LB:lib1"\
+		--rg "PU:unit1" \
+		--no-unal \
+		-x {params.index} \
+		-1 {params.r1s} \
+		-2 {params.r2s} \
+		| samtools view -b \
+		| samtools sort -o {output}
+        """
+
+rule bowtie2_build:
+    input: "{base}.fasta"
+    output: "{base}.1.bt2"
+    log:    "{base}.bt2.log"
+    shell: "bowtie2-build --offrate 3 {input} {wildcards.base}"
+
+rule sentinel_cufflinks:
+    output: touch(path.join(analysis_dir, "recufflinks"))
+
+rule sentinel_retabulate:
+    output: touch(path.join(analysis_dir, "retabulate"))
+
+rule sentinel_recalc_ase:
+    output: touch(path.join(analysis_dir, "recalc_ase"))
+ruleorder: ref_genome > melfasta > getfasta
