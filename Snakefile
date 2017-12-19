@@ -304,7 +304,7 @@ def samples_to_files(fname):
     return retfun
 
 rule all_files_per_sample:
-    output: "tmp/all_{fname}"
+    output: touch("tmp/all_{fname}")
     input: lambda wildcards: samples_to_files(wildcards.fname)()
 
 rule sample_expr:
@@ -723,6 +723,7 @@ rule map_gdna:
         index="Reference/d{reference}_prepend",
         r1s=getreadscomma(1),
         r2s=getreadscomma(2),
+        outdir= lambda wildcards, output: path.dirname(output[0])
     threads: 4
     shell: """{module}; module load samtools/1.3 bowtie2
     bowtie2 \
@@ -738,7 +739,7 @@ rule map_gdna:
 		-1 {params.r1s} \
 		-2 {params.r2s} \
 		| samtools view -b \
-		| samtools sort -o {output}
+		| samtools sort -o {output} -T {params.outdir}/{wildcards.sample}_bowtie2_sorting
         """
 
 rule bowtie2_build:
