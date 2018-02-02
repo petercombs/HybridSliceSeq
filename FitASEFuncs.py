@@ -172,7 +172,7 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    expr = pd.read_table(args.expression_file, **pd_kwargs).drop('---', axis=1)
+    expr = pd.read_table(args.expression_file, **pd_kwargs).drop('---', axis=1, errors='ignore')
     ase = (pd
            .read_table(args.ase_file,
                        **pd_kwargs
