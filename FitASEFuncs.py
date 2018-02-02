@@ -27,7 +27,7 @@ def deriv_peak(x, A, w, x0, y0):
 
 def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
              print_error=False):
-    ys = data.ix[index]
+    ys = data.loc[index]
     if median_in and not median_in[0] < ys.median() < median_in[1]:
         print("Median {} outside of range [{}, {}]"
               .format(ys.median(), *median_in)
@@ -61,9 +61,9 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
         p0[1] = 0.4
         if (ys.max() - ys.median()) < (ys.median() - ys.min()):
             p0[0] = ys.median() - ys.min()
-            p0[2] = xs[ys.argmin()]
+            p0[2] = xs[ys.idxmin()]
         else:
-            p0[2] = xs[ys.argmax()]
+            p0[2] = xs[ys.idxmax()]
     else:
         pass
     try:
@@ -131,9 +131,9 @@ def fit_all_ase(ase, func, xs, colnames=None, pool=None, progress=False,
 def calculate_variance_explained(ase, xs, func, params):
     r2 = pd.Series(index=params.index, data=np.inf)
     for ix in params.index:
-        r2.ix[ix] = 1-(
-            ((ase.ix[ix] - func(xs, *params.ix[ix]))**2).sum()
-            / ((ase.ix[ix] - ase.ix[ix].mean())**2).sum()
+        r2.loc[ix] = 1-(
+            ((ase.loc[ix] - func(xs, *params.loc[ix]))**2).sum()
+            / ((ase.loc[ix] - ase.loc[ix].mean())**2).sum()
         )
 
     return r2
@@ -192,11 +192,11 @@ if __name__ == "__main__":
     if args.male_samples and 'keep' not in args.male_samples:
         on_x = chrom_of[ase.index] == 'X'
         is_male = [col.startswith(args.male_samples) for col in ase.columns]
-        ase.ix[on_x, is_male] = np.nan
-    ase = ase.ix[ase.T.count() >= args.min_samples]
+        ase.loc[on_x, is_male] = np.nan
+    ase = ase.loc[ase.T.count() >= args.min_samples]
     if args.min_var:
-        ase = ase.ix[ase.T.var() >= args.min_var]
-    ase_perm = ase_perm.ix[ase.index]
+        ase = ase.loc[ase.T.var() >= args.min_var]
+    ase_perm = ase_perm.loc[ase.index]
 
 
     xs = get_xs(ase)
@@ -226,17 +226,17 @@ if __name__ == "__main__":
 
             pbar = ProgressBar()
             for gene in pbar(ase.index):
-                cols = isfinite(ase.ix[gene])
+                cols = isfinite(ase.loc[gene])
                 if sum(cols) == 0:
                     continue
-                linreg = linregress(xs[cols], ase.ix[gene, cols])
+                linreg = linregress(xs[cols], ase.loc[gene, cols])
                 if linreg.pvalue < .05:
-                    res_lin.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
+                    res_lin.loc[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
 
-                #cols = isfinite(ase_perm.ix[gene])
-                #linreg = linregress(xs[cols], ase_perm.ix[gene, cols])
+                #cols = isfinite(ase_perm.loc[gene])
+                #linreg = linregress(xs[cols], ase_perm.loc[gene, cols])
                 #if linreg.pvalue < .05:
-                    #res_lin_perm.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
+                    #res_lin_perm.loc[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
     recalc_ase = False
 
 
@@ -256,11 +256,11 @@ if __name__ == "__main__":
     good_amps_peak = res_peak.Amp[r2_peak>co].sort_values(inplace=False)
     #good_amps_logist.to_csv('analysis/results/logist.tsv', sep='\t')
     #good_amps_peak.to_csv('analysis/results/peak.tsv', sep='\t')
-    res_logist.ix[r2_logist > co].to_csv(
+    res_logist.loc[r2_logist > co].to_csv(
         'analysis/results/{prefix}logist{suffix}.tsv'
         .format(prefix=args.prefix, suffix=args.suffix),
         sep='\t')
-    res_peak.ix[r2_peak > co].to_csv(
+    res_peak.loc[r2_peak > co].to_csv(
         'analysis/results/{prefix}peak{suffix}.tsv'
         .format(prefix=args.prefix, suffix=args.suffix),
         sep='\t')
@@ -279,16 +279,16 @@ if __name__ == "__main__":
     )
 
     r2_peak_genes = {
-        gene:r2_peak.ix[gene] for gene in r2_peak.index
-        if ((r2_peak.ix[gene] > co)
-            and not (r2_peak.ix[[gene]] < r2_logist.ix[[gene]]).all())
+        gene:r2_peak.loc[gene] for gene in r2_peak.index
+        if ((r2_peak.loc[gene] > co)
+            and not (r2_peak.loc[[gene]] < r2_logist.loc[[gene]]).all())
     }
     r2_peak_genes = res_peak.Amp[r2_peak_genes].sort_values().index
 
     r2_logist_genes = {
-        gene:r2_logist.ix[gene] for gene in r2_logist.index
-        if ((r2_logist.ix[gene] > co)
-            and not (r2_logist.ix[[gene]] < r2_peak.ix[[gene]]).all())
+        gene:r2_logist.loc[gene] for gene in r2_logist.index
+        if ((r2_logist.loc[gene] > co)
+            and not (r2_logist.loc[[gene]] < r2_peak.loc[[gene]]).all())
     }
     r2_logist_genes = res_logist.Amp[r2_logist_genes].sort_values().index
 
@@ -311,7 +311,7 @@ if __name__ == "__main__":
     best_r2.to_csv('analysis/results/{prefix}svase{suffix}_best', sep='\t')
 
 
-    pu.svg_heatmap(ase.ix[r2_logist_genes],
+    pu.svg_heatmap(ase.loc[r2_logist_genes],
                    'analysis/results/{prefix}logist{suffix}_ase.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
@@ -320,7 +320,7 @@ if __name__ == "__main__":
                    cmap=cm.RdBu,
                    **kwargs)
 
-    pu.svg_heatmap(ase.ix[r2_peak_genes],
+    pu.svg_heatmap(ase.loc[r2_peak_genes],
                    'analysis/results/{prefix}peak{suffix}_ase.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
@@ -329,40 +329,40 @@ if __name__ == "__main__":
                    cmap=cm.RdBu,
                    **kwargs)
 
-    pu.svg_heatmap(ase.ix[r2_logist_genes].select(**ut.sel_contains('rep1')),
+    pu.svg_heatmap(ase.loc[r2_logist_genes].select(**ut.sel_contains('rep1')),
                    'analysis/results/{prefix}logist{suffix}_ase_r1.svg'
         .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
                    **kwargs)
 
-    pu.svg_heatmap(ase.ix[r2_peak_genes].select(**ut.sel_contains('rep1')),
+    pu.svg_heatmap(ase.loc[r2_peak_genes].select(**ut.sel_contains('rep1')),
                    'analysis/results/{prefix}peak{suffix}_ase_r1.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
                    **kwargs)
-    pu.svg_heatmap(expr.ix[r2_logist_genes].select(**sel_startswith(('melXsim',
+    pu.svg_heatmap(expr.loc[r2_logist_genes].select(**sel_startswith(('melXsim',
                                                                     'simXmel'))),
                    'analysis/results/{prefix}logist{suffix}_expr_hyb.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
 
-    pu.svg_heatmap(expr.ix[r2_peak_genes].select(**sel_startswith(('melXsim',
+    pu.svg_heatmap(expr.loc[r2_peak_genes].select(**sel_startswith(('melXsim',
                                                                   'simXmel'))),
                    'analysis/results/{prefix}peak{suffix}_expr_hyb.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
 
-    pu.svg_heatmap(expr.ix[r2_logist_genes],
+    pu.svg_heatmap(expr.loc[r2_logist_genes],
                    'analysis/results/{prefix}logist{suffix}_expr.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
 
-    pu.svg_heatmap(expr.ix[r2_peak_genes],
+    pu.svg_heatmap(expr.loc[r2_peak_genes],
                    'analysis/results/{prefix}peak{suffix}_expr.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
@@ -371,7 +371,7 @@ if __name__ == "__main__":
     mpl.figure(figsize=(2, len(r2_logist_genes)))
     for i, gene in enumerate(r2_logist_genes):
         mpl.subplot(len(r2_logist_genes), 1, i+1)
-        mpl.plot(sorted(xs), logistic(sorted(xs), *res_logist.ix[gene]),
+        mpl.plot(sorted(xs), logistic(sorted(xs), *res_logist.loc[gene]),
              'g-', linewidth=3)
         mpl.yticks([])
         mpl.xticks([])
@@ -384,7 +384,7 @@ if __name__ == "__main__":
     mpl.figure(figsize=(2, len(r2_peak_genes)))
     for i, gene in enumerate(r2_peak_genes):
         mpl.subplot(len(r2_peak_genes), 1, i+1)
-        mpl.plot(sorted(xs), peak(sorted(xs), *res_peak.ix[gene]),
+        mpl.plot(sorted(xs), peak(sorted(xs), *res_peak.loc[gene]),
              'g-', linewidth=3)
         mpl.yticks([])
         mpl.xticks([])
@@ -441,17 +441,17 @@ if __name__ == "__main__":
                                                    for ix in keggs[pathway]]]
                     pathway_svases = best_r2[pathway_gene_names].sort_values(ascending=False)
                     pathway_name = pathway.split('~')[1].replace('_/', '')
-                    pu.svg_heatmap(ase.ix[pathway_svases.index],
+                    pu.svg_heatmap(ase.loc[pathway_svases.index],
                                    'analysis/results/{}_ase.svg'.format(pathway_name),
-                                   row_labels=fbgns.ix[pathway_svases.index],
+                                   row_labels=fbgns.loc[pathway_svases.index],
                                    norm_rows_by='center0pre',
                                    cmap=cm.RdBu,
                                    **kwargs
                                   )
 
-                    pu.svg_heatmap(expr.ix[pathway_svases.index],
+                    pu.svg_heatmap(expr.loc[pathway_svases.index],
                                    'analysis/results/{}_expr.svg'.format(pathway_name),
-                                   row_labels=fbgns.ix[pathway_svases.index],
+                                   row_labels=fbgns.loc[pathway_svases.index],
                                    norm_rows_by='max',
                                    cmap=pu.ISH,
                                    **kwargs
