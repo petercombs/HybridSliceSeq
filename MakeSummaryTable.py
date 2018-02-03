@@ -100,6 +100,7 @@ from GetMapStats import get_stagenum
 def get_expr_values(fname):
     try:
         table = pandas.read_table(fname, na_values=['-', 'NA', 'N/A'], converters={args.key: str},
+                                  comment='#', skip_blank_lines=True,
                               keep_default_na=False,
                               header=None if not args.header else 0)
     except Exception as err:
