@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 import pandas as pd
 from FitASEFuncs import (logistic, peak, fit_all_ase,
@@ -6,13 +7,25 @@ from FitASEFuncs import (logistic, peak, fit_all_ase,
 from multiprocessing import Pool
 from progressbar import ProgressBar as pbar
 from Utils import (sel_startswith, get_xs, pd_kwargs, get_chroms)
+from argparse import ArgumentParser
 
+from warnings import filterwarnings
 
+def parse_args():
+    parser = ArgumentParser()
+    parser.add_argument('--expression', default='analysis_godot/summary.tsv')
+    parser.add_argument('--prefix', default='')
+    parser.add_argument('--suffix', default='')
+    parser.add_argument('data_to_fit', default='analysis_godot/ase_summary_by_read.tsv')
+    return parser.parse_args()
 
 if __name__ == "__main__":
-    expr = pd.read_table('analysis_godot/summary_fb.tsv', **pd_kwargs).dropna(how='all', axis=1)
+    filterwarnings("ignore", ".*Covariance of the parameters.*",)
+    filterwarnings("ignore", ".*overflow encountered in exp.*",)
+    #expr = pd.read_table('analysis_godot/summary_fb.tsv', **pd_kwargs).dropna(how='all', axis=1)
+    args = parse_args()
     ase = (pd
-           .read_table('analysis_godot/ase_summary_by_read.tsv',
+           .read_table(args.data_to_fit,
                        **pd_kwargs
                        )
            .dropna(how='all', axis=1)
@@ -25,6 +38,8 @@ if __name__ == "__main__":
     on_x = [chrom_of[gene] == 'X' if gene in chrom_of else False for gene in ase.index]
     is_male = [col.startswith(males) for col in ase.columns]
     ase.ix[on_x, is_male] = np.nan
+    ase = ase.loc[ase.T.count() > len(ase.columns) / 2.0]
+
 
 
     xs = get_xs(ase)
@@ -49,5 +64,7 @@ if __name__ == "__main__":
                 ase, new_xs, logistic, res_logist
             ))
 
-    np.array(peak_r2s).tofile('analysis/results/fd_peak.numpy')
-    np.array(logist_r2s).tofile('analysis/results/fd_logist.numpy')
+    np.array(peak_r2s).tofile('analysis/results/{prefix}fd_peak{suffix}.numpy'
+                              .format(prefix=args.prefix, suffix=args.suffix))
+    np.array(logist_r2s).tofile('analysis/results/{prefix}fd_logist{sufix}.numpy'
+                                .format(prefix=args.prefix, suffix=args.suffix))
