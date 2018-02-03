@@ -356,6 +356,31 @@ rule sample_gene_ase:
         {input.bam}
     """
 
+rule exons_gtf:
+    input:
+        "Reference/{species}_good.gtf"
+    output:
+        "Reference/{species}_good_exons.gtf"
+    shell:"""
+    python2 /home/pcombs/R/DEXSeq/python_scripts/dexseq_prepare_annotation.py \
+        --aggregate=yes {input} {output}
+    """
+
+
+rule sample_psi:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
+        gtf="Reference/mel_good_exons.gtf",
+        sentinel=path.join(analysis_dir, 'recalc_psi')
+    output:
+        "{sample}/psi.tsv"
+    shell:""" {module}; module load fraserconda
+    python CalculatePSI.py \
+        --outfile {output} \
+        {input.bam} {input.gtf}
+        """
+
 rule get_all_map_stats:
     input: *samples_to_files('assigned_dmelR.mapstats')(),
     output:
@@ -465,6 +490,32 @@ rule ase_summary:
 	   --key gene \
 	   --column ase_value \
        --out-basename ase_summary_by_read \
+		{analysis_dir} \
+		| tee {log}
+        """
+
+rule psi_summary:
+    input:
+        *samples_to_files('psi.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'psi_summary.tsv')
+    log:
+        path.join(analysis_dir, 'psi_mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename psi.tsv \
+	   --key exon_id \
+	   --column psi \
+       --out-basename psi_summary \
 		{analysis_dir} \
 		| tee {log}
         """
@@ -797,4 +848,10 @@ rule sentinel_retabulate:
 
 rule sentinel_recalc_ase:
     output: touch(path.join(analysis_dir, "recalc_ase"))
+
+rule sentinel_recalc_psi:
+    output: touch(path.join(analysis_dir, "recalc_psi"))
+
 ruleorder: ref_genome > melfasta > getfasta
+
+
