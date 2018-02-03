@@ -10,11 +10,13 @@ import pandas as pd
 import itertools as it
 import numpy as np
 import inspect
-from progressbar import ProgressBar
+from progressbar import (ProgressBar, Percentage, Timer, Bar, FileTransferSpeed,
+                        SimpleProgress, AdaptiveETA)
 import PlotUtils as pu
-from matplotlib import cm
 import Utils as ut
-import matplotlib.pyplot as mpl
+if __name__ == "__main__":
+    from matplotlib import cm
+    import matplotlib.pyplot as mpl
 
 def logistic(x, A, k, x0, y0):
     return A/(1+exp(k*(x-x0))) - y0
@@ -69,13 +71,20 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
     try:
         if print_error:
             print(p0)
-        return curve_fit(func,
+        res = curve_fit(func,
                          xs[keep],
                          ys[keep],
                          p0,
-                         bounds=[[-2, w_min, x0_min, -1],
-                                 [2, w_max, x0_max, 1]],
+                         #bounds=[[-2, w_min, x0_min, -1],
+                                 #[2, w_max, x0_max, 1]],
                         )[0]
+        for low, high, val in zip([-2, w_min, x0_min, -1],
+                                  [2, w_max, x0_max, 1],
+                                  res):
+            if not low <= val <= high:
+                return array([nan, nan, nan, nan])
+            return res
+
     except (ValueError, RuntimeError) as err:
         if print_error:
             print(err)
@@ -87,13 +96,22 @@ def fit_all_ase(ase, func, xs, colnames=None, pool=None, progress=False,
         colnames = inspect.getargspec(func).args
         colnames.remove('x')
     if pool is not None:
+        if isinstance(pool, int):
+            pool = Pool(processes=pool)
         if progress:
             results = [pool.apply_async(fit_func, (func, i, ase, xs),
                                         {'median_in': median_in},)
                        for i in ase.index]
             res = []
-            pbar = ProgressBar(maxval=len(results))
-            for r in pbar(results):
+            pbar = ProgressBar(maxval=len(results), widgets=[ "|",
+                                                             Percentage(), "|",
+                                                             SimpleProgress(),
+                                                             Bar(),
+                                                             FileTransferSpeed(), "|",
+                                                             Timer(), "|",
+                                                             AdaptiveETA(),
+                                                            ])
+            for i, r in zip(ase.index, pbar(results)):
                 res.append(r.get())
         else:
             res = list(pool.starmap(
