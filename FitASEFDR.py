@@ -16,7 +16,7 @@ from time import sleep, time
 from warnings import filterwarnings
 
 cluster_joblimit = 100
-cluster_args = dict(time= '0:30:00', mem='5G', partition='owners,hns,normal',
+cluster_args = dict(time= '0:30:00', mem='60G', partition='owners,hns,normal',
                     cpus=10, cores=10)
 
 def fit_and_eval(ase, func, xs, colnames, pool=False):
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     ase.ix[on_x, is_male] = np.nan
     ase = ase.loc[ase.T.count() > len(ase.columns) / 2.0]
 
-    hours = len(ase) / 1e4 * 1.3 + 1
+    hours = len(ase) / 1e4 * 1.5 + 2
     cluster_args['time'] = '{}:{}:00'.format(int(hours), int((hours % 1)*60))
     print("Estimate {} per iteration".format(cluster_args['time']))
     sys.stdout.flush()

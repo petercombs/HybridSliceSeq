@@ -72,8 +72,8 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
         if print_error:
             print(p0)
         res = curve_fit(func,
-                         xs[keep],
-                         ys[keep],
+                         array(xs[keep]),
+                         array(ys[keep]),
                          p0,
                          #bounds=[[-2, w_min, x0_min, -1],
                                  #[2, w_max, x0_max, 1]],
