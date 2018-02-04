@@ -337,6 +337,7 @@ rule sample_gene_ase:
         bam="{sample}/assigned_dmelR_dedup.bam",
         bai="{sample}/assigned_dmelR_dedup.bam.bai",
         variants=variants,
+        hets=path.join(analysis_dir, "on_mel", "melsim_true_hets.tsv"),
         gtf=mel_gtf,
         sentinel=path.join(analysis_dir, 'recalc_ase')
     threads: 1
@@ -349,10 +350,36 @@ rule sample_gene_ase:
         --outfile {output} \
         --id-name gene_name \
         --ase-function pref_index \
+        --min-reads-per-allele 0 \
         {input.variants} \
         {input.gtf} \
         {input.bam}
     """
+
+rule exons_gtf:
+    input:
+        "Reference/{species}_good.gtf"
+    output:
+        "Reference/{species}_good_exons.gtf"
+    shell:"""
+    python2 /home/pcombs/R/DEXSeq/python_scripts/dexseq_prepare_annotation.py \
+        --aggregate=yes {input} {output}
+    """
+
+
+rule sample_psi:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
+        gtf="Reference/mel_good_exons.gtf",
+        sentinel=path.join(analysis_dir, 'recalc_psi')
+    output:
+        "{sample}/psi.tsv"
+    shell:""" {module}; module load fraserconda
+    python CalculatePSI.py \
+        --outfile {output} \
+        {input.bam} {input.gtf}
+        """
 
 rule get_all_map_stats:
     input: *samples_to_files('assigned_dmelR.mapstats')(),
@@ -361,6 +388,7 @@ rule get_all_map_stats:
     log:
         path.join(analysis_dir, 'map_stats.log'),
     shell:"""
+    {module}; module load fraserconda;
 	python GetMapStats.py \
 		--params Parameters/RunConfig.cfg \
 		--count-unique \
@@ -377,7 +405,43 @@ rule get_sample_mapstats:
         bai="{sample}/{fname}.bam.bai",
     output: "{sample}/{fname}.mapstats"
     log: "{sample}/mapstats.log"
-    shell: "python GetSingleMapStats.py {input.bam}"
+    shell: "{module}; module load fraserconda; python GetSingleMapStats.py {input.bam}"
+
+rule snp_counts:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        variants=path.join(analysis_dir,  "on_{parent}", "{parent}{other}_variant.bed"),
+    output:
+        "{sample}/{parent}{other}_SNP_COUNTS.txt"
+    wildcard_constraints:
+        parent='[a-z][a-z][a-z]',
+        other='[a-z][a-z][a-z]',
+    shell:"""
+        {module}; module load samtools
+        mkdir -p {wildcards.sample}/melsim_countsnpase_tmp
+        python2 CountSNPASE.py \
+            --mode single \
+            --reads {input.bam} \
+            --snps {input.variants} \
+            --prefix {wildcards.sample}/melsim_countsnpase_tmp/
+        mv {wildcards.sample}/melsim_countsnpase_tmp/_SNP_COUNTS.txt {output}
+        rm -rf {wildcards.sample}/melsim_countsnpase_tmp
+
+    """
+
+rule true_hets:
+    input:
+        *samples_to_files('{parent}{other}_SNP_COUNTS.txt')(),
+    output:
+        path.join(analysis_dir, "on_{parent}", "{parent}{other}_true_hets.tsv")
+    shell: """
+    {module}; module load fraserconda
+    python GetTrueHets.py \
+        --min-counts 10 \
+        --outfile {output} \
+        {input}
+    cp {output} `dirname {output}`/true_hets.tsv
+    """
 
 rule expr_summary:
     input:
@@ -389,6 +453,7 @@ rule expr_summary:
     log:
         path.join(analysis_dir, 'mst.log')
     shell: """
+    {module}; module load fraserconda;
     python MakeSummaryTable.py \
 	   --strip-low-reads 1000000 \
 	   --strip-on-unique \
@@ -413,6 +478,7 @@ rule ase_summary:
     log:
         path.join(analysis_dir, 'ase_mst.log')
     shell: """
+    {module}; module load fraserconda;
     python MakeSummaryTable.py \
 	   --strip-low-reads 1000000 \
 	   --strip-on-unique \
@@ -420,10 +486,36 @@ rule ase_summary:
 	   --mapped-bamfile assigned_dmelR.bam \
 	   --strip-low-map-rate 52 \
 	   --map-stats {input.map_stats} \
-	   --filename genes.fpkm_tracking \
-	   --key gene_short_name \
-	   --column FPKM \
+	   --filename melsim_gene_ase_by_read.tsv \
+	   --key gene \
+	   --column ase_value \
        --out-basename ase_summary_by_read \
+		{analysis_dir} \
+		| tee {log}
+        """
+
+rule psi_summary:
+    input:
+        *samples_to_files('psi.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'psi_summary.tsv')
+    log:
+        path.join(analysis_dir, 'psi_mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename psi.tsv \
+	   --key exon_id \
+	   --column psi \
+       --out-basename psi_summary \
 		{analysis_dir} \
 		| tee {log}
         """
@@ -442,7 +534,7 @@ rule index_bam:
     input: "{sample}.bam"
     output: "{sample}.bam.bai"
     log: "{sample}.bam.bai_log"
-    shell: "samtools index {input}"
+    shell: "{module}; module load samtools; samtools index {input}"
 
 rule dedup:
     input: "{sample}.bam"
@@ -756,4 +848,10 @@ rule sentinel_retabulate:
 
 rule sentinel_recalc_ase:
     output: touch(path.join(analysis_dir, "recalc_ase"))
+
+rule sentinel_recalc_psi:
+    output: touch(path.join(analysis_dir, "recalc_psi"))
+
 ruleorder: ref_genome > melfasta > getfasta
+
+
