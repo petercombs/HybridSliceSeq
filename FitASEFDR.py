@@ -14,9 +14,11 @@ from argparse import ArgumentParser
 from time import sleep, time
 
 from warnings import filterwarnings
+from pickle import dump
 
 cluster_joblimit = 100
 cluster_args = dict(time= '0:30:00', mem='60G', partition='owners,hns,normal',
+                    scriptpath='logs', outpath='logs',
                     cpus=10, cores=10)
 
 def fit_and_eval(ase, func, xs, colnames, pool=False):
@@ -96,6 +98,18 @@ if __name__ == "__main__":
             r2s.extend(active_jobs.get().get())
             if not waiting_jobs.empty():
                 activate_job(waiting_jobs, active_jobs)
+        dump({'logist': logist_r2s, 'peak': peak_r2s},
+             open('analysis/results/{prefix}fdr_{suffix}.pkl'
+                  .format(prefix=args.prefix, suffix=args.suffix),
+                  'wb'))
+        np.save('analysis/results/{prefix}fdr_{name}{suffix}.numpy'
+                             .format(prefix=args.prefix, name=func.__name__,
+                                     suffix=args.suffix),
+                np.array(r2s))
+
+        np.array(r2s).tofile('analysis/results/{prefix}fdr_{name}{suffix}.numpy'
+                             .format(prefix=args.prefix, name=func.__name__,
+                                     suffix=args.suffix))
 
     np.array(peak_r2s).tofile('analysis/results/{prefix}fd_peak{suffix}.numpy'
                               .format(prefix=args.prefix, suffix=args.suffix))
