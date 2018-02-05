@@ -17,9 +17,9 @@ from warnings import filterwarnings
 from pickle import dump
 
 cluster_joblimit = 100
-cluster_args = dict(time= '0:30:00', mem='60G', partition='owners,hns,normal',
+cluster_args = dict(time= '0:30:00', #mem='60G', #partition='owners,hns,normal',
                     scriptpath='logs', outpath='logs',
-                    cpus=10, cores=10)
+                    cpus=4, cores=4)
 
 def fit_and_eval(ase, func, xs, colnames, pool=False):
     res = fit_all_ase(ase, func, xs, colnames, pool, progress=True).dropna()

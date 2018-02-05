@@ -381,6 +381,52 @@ rule sample_psi:
         {input.bam} {input.gtf}
         """
 
+rule sample_juncs:
+    input:
+        bam="{analysis_dir}/{sample}/assigned_dmelR_dedup.bam",
+        bai="{analysis_dir}/{sample}/assigned_dmelR_dedup.bam.bai",
+    output:
+        "{analysis_dir}/velvetant/{sample}.junc"
+    shell:"""
+    ~/leafcutter/scripts/bam2junc.sh {input.bam} {output}
+    """
+
+rule all_sample_juncs:
+    input: lambda wildcards: [path.join(analysis_dir, 'velvetant', sample +'.junc') for sample in samples]
+    output: 'analysis/velvetant/juncfiles.txt'
+    run:
+        with open(output[0], 'w') as out:
+            print(*input, sep='\n', file=out)
+
+
+rule leafcutter_cluster:
+    input:
+        juncs='analysis/velvetant/juncfiles.txt',
+        firstbam=samples_to_files('assigned_dmelR_dedup.bam')()[0],
+    output:
+        'analysis/velvetant/clusters_perind.counts.gz'
+    shell: """
+    {module}; module load fraserconda
+    python ~/leafcutter-official/clustering/leafcutter_cluster.py \
+        -j {input.juncs}  \
+        -o clusters \
+        --example-bam {input.firstbam} \
+        --rundir analysis/velvetant/
+    """
+
+rule sample_velvetant:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
+        juncs="analysis/velvetant/clusters_perind.counts.gz",
+        snps="analysis_godot/on_mel/melsim_variant.bed",
+    output:
+        "{sample}/velvetant.tsv"
+    shell: """
+    {module}; module load fraserconda
+    python VelvetAnt.py -x --snps-bed {input.snps} --splicing-clusters {input.juncs} -o {output} {input.bam}
+    """
+
 rule get_all_map_stats:
     input: *samples_to_files('assigned_dmelR.mapstats')(),
     output:
@@ -516,6 +562,32 @@ rule psi_summary:
 	   --key exon_id \
 	   --column psi \
        --out-basename psi_summary \
+		{analysis_dir} \
+		| tee {log}
+        """
+
+rule velvetant_summary:
+    input:
+        *samples_to_files('velvetant.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'velvetant_summary.tsv')
+    log:
+        path.join(analysis_dir, 'velvetant_mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename velvetant.tsv \
+	   --key 0 \
+	   --column pref_index \
+       --out-basename velvetant_summary \
 		{analysis_dir} \
 		| tee {log}
         """

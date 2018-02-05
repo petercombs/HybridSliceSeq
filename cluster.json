@@ -1,7 +1,8 @@
 {
         "__default__" :
         {
-                "queue" : "batch"
+                "queue" : "batch",
+                "name": "JOBNAME.{rule}.{wildcards}"
         },
         "dedup" :
         {

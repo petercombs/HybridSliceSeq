@@ -14,6 +14,7 @@ from progressbar import (ProgressBar, Percentage, Timer, Bar, FileTransferSpeed,
                         SimpleProgress, AdaptiveETA)
 import PlotUtils as pu
 import Utils as ut
+import warnings
 if __name__ == "__main__":
     from matplotlib import cm
     import matplotlib.pyplot as mpl
@@ -29,6 +30,8 @@ def deriv_peak(x, A, w, x0, y0):
 
 def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
              print_error=False):
+    warnings.filterwarnings('ignore', '.*overflow encountered.*')
+    warnings.filterwarnings('ignore', '.*Covariance of the parameters.*')
     ys = data.loc[index]
     if median_in and not median_in[0] < ys.median() < median_in[1]:
         print("Median {} outside of range [{}, {}]"
@@ -299,14 +302,15 @@ if __name__ == "__main__":
     r2_peak_genes = {
         gene:r2_peak.loc[gene] for gene in r2_peak.index
         if ((r2_peak.loc[gene] > co)
-            and not (r2_peak.loc[[gene]] < r2_logist.loc[[gene]]).all())
+            and (gene not in r2_logist.index
+                 or not (r2_peak.loc[[gene]] < r2_logist.loc[[gene]]).all()))
     }
     r2_peak_genes = res_peak.Amp[r2_peak_genes].sort_values().index
 
     r2_logist_genes = {
         gene:r2_logist.loc[gene] for gene in r2_logist.index
         if ((r2_logist.loc[gene] > co)
-            and not (r2_logist.loc[[gene]] < r2_peak.loc[[gene]]).all())
+            and not (r2_logist.ix[[gene]] < r2_peak.ix[[gene]]).all())
     }
     r2_logist_genes = res_logist.Amp[r2_logist_genes].sort_values().index
 
@@ -329,7 +333,7 @@ if __name__ == "__main__":
     best_r2.to_csv('analysis/results/{prefix}svase{suffix}_best', sep='\t')
 
 
-    pu.svg_heatmap(ase.loc[r2_logist_genes],
+    pu.svg_heatmap(ase.ix[r2_logist_genes],
                    'analysis/results/{prefix}logist{suffix}_ase.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
@@ -338,7 +342,7 @@ if __name__ == "__main__":
                    cmap=cm.RdBu,
                    **kwargs)
 
-    pu.svg_heatmap(ase.loc[r2_peak_genes],
+    pu.svg_heatmap(ase.ix[r2_peak_genes],
                    'analysis/results/{prefix}peak{suffix}_ase.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
@@ -347,40 +351,40 @@ if __name__ == "__main__":
                    cmap=cm.RdBu,
                    **kwargs)
 
-    pu.svg_heatmap(ase.loc[r2_logist_genes].select(**ut.sel_contains('rep1')),
+    pu.svg_heatmap(ase.ix[r2_logist_genes].select(**ut.sel_contains('rep1')),
                    'analysis/results/{prefix}logist{suffix}_ase_r1.svg'
         .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
                    **kwargs)
 
-    pu.svg_heatmap(ase.loc[r2_peak_genes].select(**ut.sel_contains('rep1')),
+    pu.svg_heatmap(ase.ix[r2_peak_genes].select(**ut.sel_contains('rep1')),
                    'analysis/results/{prefix}peak{suffix}_ase_r1.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='center0pre',
                    cmap=cm.RdBu,
                    **kwargs)
-    pu.svg_heatmap(expr.loc[r2_logist_genes].select(**sel_startswith(('melXsim',
+    pu.svg_heatmap(expr.ix[r2_logist_genes].select(**sel_startswith(('melXsim',
                                                                     'simXmel'))),
                    'analysis/results/{prefix}logist{suffix}_expr_hyb.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
 
-    pu.svg_heatmap(expr.loc[r2_peak_genes].select(**sel_startswith(('melXsim',
+    pu.svg_heatmap(expr.ix[r2_peak_genes].select(**sel_startswith(('melXsim',
                                                                   'simXmel'))),
                    'analysis/results/{prefix}peak{suffix}_expr_hyb.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
 
-    pu.svg_heatmap(expr.loc[r2_logist_genes],
+    pu.svg_heatmap(expr.ix[r2_logist_genes],
                    'analysis/results/{prefix}logist{suffix}_expr.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
                    **kwargs)
 
-    pu.svg_heatmap(expr.loc[r2_peak_genes],
+    pu.svg_heatmap(expr.ix[r2_peak_genes],
                    'analysis/results/{prefix}peak{suffix}_expr.svg'
                    .format(prefix=args.prefix, suffix=args.suffix),
                    norm_rows_by='maxall',
@@ -459,17 +463,17 @@ if __name__ == "__main__":
                                                    for ix in keggs[pathway]]]
                     pathway_svases = best_r2[pathway_gene_names].sort_values(ascending=False)
                     pathway_name = pathway.split('~')[1].replace('_/', '')
-                    pu.svg_heatmap(ase.loc[pathway_svases.index],
+                    pu.svg_heatmap(ase.ix[pathway_svases.index],
                                    'analysis/results/{}_ase.svg'.format(pathway_name),
-                                   row_labels=fbgns.loc[pathway_svases.index],
+                                   row_labels=fbgns.ix[pathway_svases.index],
                                    norm_rows_by='center0pre',
                                    cmap=cm.RdBu,
                                    **kwargs
                                   )
 
-                    pu.svg_heatmap(expr.loc[pathway_svases.index],
+                    pu.svg_heatmap(expr.ix[pathway_svases.index],
                                    'analysis/results/{}_expr.svg'.format(pathway_name),
-                                   row_labels=fbgns.loc[pathway_svases.index],
+                                   row_labels=fbgns.ix[pathway_svases.index],
                                    norm_rows_by='max',
                                    cmap=pu.ISH,
                                    **kwargs
