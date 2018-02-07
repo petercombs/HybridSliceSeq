@@ -4,7 +4,7 @@ from scipy.optimize import curve_fit
 from scipy.stats import linregress, ttest_1samp
 from multiprocessing import Pool
 from collections import Counter
-from Utils import (sel_startswith, get_xs, pd_kwargs, fbgns, get_synonyms,
+from Utils import (sel_startswith, get_xs, pd_kwargs, get_synonyms,
                    startswith, get_chroms)
 import pandas as pd
 import itertools as it
@@ -189,6 +189,8 @@ def parse_args():
 
 
 if __name__ == "__main__":
+    from Utils import fbgns
+
     args = parse_args()
     expr = pd.read_table(args.expression_file, **pd_kwargs).drop('---', axis=1, errors='ignore')
     ase = (pd
