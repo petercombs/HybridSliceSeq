@@ -238,3 +238,12 @@ def get_chroms(syns=None):
                 chrom_of[key] = chrom_of[syns[key]]
     return pd.Series(chrom_of)
 
+def parse_annotation(gtf_annote_field):
+    recs = gtf_annote_field.strip().strip(';').split(';')
+    retval = {}
+    for rec in recs:
+        key, val = rec.strip().split(' ', 1)
+        retval[key] = val.strip('"\'; ')
+    return retval
+
+

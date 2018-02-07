@@ -14,3 +14,4 @@ godot
 iPythonNotebooks/.ipynb_checkpoints
 geo
 .snakemake
+fit_and_eval*

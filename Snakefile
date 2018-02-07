@@ -6,6 +6,7 @@ sim_release = "r2.01_FB2016_01"
 mel_version, mel_date = mel_release.split('_', 1)
 sim_version, sim_date = sim_release.split('_', 1)
 
+num_mel_windows = 17
 dates = {'mel': mel_date, 'sim': sim_date}
 versions = {'mel': mel_version, 'sim': sim_version}
 
@@ -33,6 +34,27 @@ samples = [sample for sample in config['samples'] if 'gdna' not in sample]
 module = '''module () {
         eval `$LMOD_CMD bash "$@"`
         }'''
+
+def getreads(readnum):
+    if readnum == 0:
+        formatstr = 'sequence/{}.fastq.gz'
+    else:
+        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
+    def retfun(wildcards):
+        return [formatstr.format(srr)
+                for srr in config['samples'][path.basename(wildcards.sample)]]
+    return retfun
+
+def getreadscomma(readnum):
+    if readnum == 0:
+        formatstr = 'sequence/{}.fastq.gz'
+    else:
+        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
+    def retfun(wildcards):
+        return ",".join([formatstr.format(srr)
+                        for srr in config['samples'][path.basename(wildcards.sample)]])
+    return retfun
+
 
 rule all:
     input:
@@ -281,6 +303,10 @@ def samples_to_files(fname):
         return [path.join(analysis_dir, sample, fname) for sample in samples]
     return retfun
 
+rule all_files_per_sample:
+    output: touch("tmp/all_{fname}")
+    input: lambda wildcards: samples_to_files(wildcards.fname)()
+
 rule sample_expr:
     input:
         bam="{sample}/assigned_dmelR.bam",
@@ -308,24 +334,52 @@ rule sample_expr:
 
 rule sample_gene_ase:
     input:
-        bam="{sample}/assigned_dmelR_dedup.sorted.bam",
-        bai="{sample}/assigned_dmelR_dedup.sorted.bam.bai",
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
         variants=variants,
+        hets=path.join(analysis_dir, "on_mel", "melsim_true_hets.tsv"),
         gtf=mel_gtf,
         sentinel=path.join(analysis_dir, 'recalc_ase')
     threads: 1
     output:
         "{sample}/melsim_gene_ase_by_read.tsv"
-    output:
+    log:
         "{sample}/melsim_gene_ase_by_read.log"
-    shell: """ python ~/ASEr/bin/GetGeneASEbyReads.py \
+    shell: """ export PYTHONPATH=$PYTHONPATH:/home/pcombs/ASEr/;
+    python ~/ASEr/bin/GetGeneASEbyReads.py \
         --outfile {output} \
         --id-name gene_name \
         --ase-function pref_index \
+        --min-reads-per-allele 0 \
         {input.variants} \
         {input.gtf} \
         {input.bam}
     """
+
+rule exons_gtf:
+    input:
+        "Reference/{species}_good.gtf"
+    output:
+        "Reference/{species}_good_exons.gtf"
+    shell:"""
+    python2 /home/pcombs/R/DEXSeq/python_scripts/dexseq_prepare_annotation.py \
+        --aggregate=yes {input} {output}
+    """
+
+
+rule sample_psi:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
+        gtf="Reference/mel_good_exons.gtf",
+        sentinel=path.join(analysis_dir, 'recalc_psi')
+    output:
+        "{sample}/psi.tsv"
+    shell:""" {module}; module load fraserconda
+    python CalculatePSI.py \
+        --outfile {output} \
+        {input.bam} {input.gtf}
+        """
 
 rule get_all_map_stats:
     input: *samples_to_files('assigned_dmelR.mapstats')(),
@@ -334,19 +388,60 @@ rule get_all_map_stats:
     log:
         path.join(analysis_dir, 'map_stats.log'),
     shell:"""
+    {module}; module load fraserconda;
 	python GetMapStats.py \
 		--params Parameters/RunConfig.cfg \
-		-u \
+		--count-unique \
 		--count-all \
-		-T \
+		--translate-labels \
 		{analysis_dir}
         """
 
 rule get_sample_mapstats:
-    input: "{sample}.bam"
-    output: "{sample}.mapstats"
-    log: "{sample}.log"
-    shell: "python GetSingleMapStats.py {input}"
+    input:
+        unpack(getreads(1)),
+        unpack(getreads(2)),
+        bam="{sample}/{fname}.bam",
+        bai="{sample}/{fname}.bam.bai",
+    output: "{sample}/{fname}.mapstats"
+    log: "{sample}/mapstats.log"
+    shell: "{module}; module load fraserconda; python GetSingleMapStats.py {input.bam}"
+
+rule snp_counts:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        variants=path.join(analysis_dir,  "on_{parent}", "{parent}{other}_variant.bed"),
+    output:
+        "{sample}/{parent}{other}_SNP_COUNTS.txt"
+    wildcard_constraints:
+        parent='[a-z][a-z][a-z]',
+        other='[a-z][a-z][a-z]',
+    shell:"""
+        {module}; module load samtools
+        mkdir -p {wildcards.sample}/melsim_countsnpase_tmp
+        python2 CountSNPASE.py \
+            --mode single \
+            --reads {input.bam} \
+            --snps {input.variants} \
+            --prefix {wildcards.sample}/melsim_countsnpase_tmp/
+        mv {wildcards.sample}/melsim_countsnpase_tmp/_SNP_COUNTS.txt {output}
+        rm -rf {wildcards.sample}/melsim_countsnpase_tmp
+
+    """
+
+rule true_hets:
+    input:
+        *samples_to_files('{parent}{other}_SNP_COUNTS.txt')(),
+    output:
+        path.join(analysis_dir, "on_{parent}", "{parent}{other}_true_hets.tsv")
+    shell: """
+    {module}; module load fraserconda
+    python GetTrueHets.py \
+        --min-counts 10 \
+        --outfile {output} \
+        {input}
+    cp {output} `dirname {output}`/true_hets.tsv
+    """
 
 rule expr_summary:
     input:
@@ -358,8 +453,8 @@ rule expr_summary:
     log:
         path.join(analysis_dir, 'mst.log')
     shell: """
+    {module}; module load fraserconda;
     python MakeSummaryTable.py \
-       --params Parameters/RunConfig.cfg \
 	   --strip-low-reads 1000000 \
 	   --strip-on-unique \
 	   --strip-as-nan \
@@ -383,17 +478,44 @@ rule ase_summary:
     log:
         path.join(analysis_dir, 'ase_mst.log')
     shell: """
+    {module}; module load fraserconda;
     python MakeSummaryTable.py \
-       --params Parameters/RunConfig.cfg \
 	   --strip-low-reads 1000000 \
 	   --strip-on-unique \
 	   --strip-as-nan \
 	   --mapped-bamfile assigned_dmelR.bam \
 	   --strip-low-map-rate 52 \
 	   --map-stats {input.map_stats} \
-	   --filename genes.fpkm_tracking \
-	   --key gene_short_name \
-	   --column FPKM \
+	   --filename melsim_gene_ase_by_read.tsv \
+	   --key gene \
+	   --column ase_value \
+       --out-basename ase_summary_by_read \
+		{analysis_dir} \
+		| tee {log}
+        """
+
+rule psi_summary:
+    input:
+        *samples_to_files('psi.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'psi_summary.tsv')
+    log:
+        path.join(analysis_dir, 'psi_mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename psi.tsv \
+	   --key exon_id \
+	   --column psi \
+       --out-basename psi_summary \
 		{analysis_dir} \
 		| tee {log}
         """
@@ -412,7 +534,7 @@ rule index_bam:
     input: "{sample}.bam"
     output: "{sample}.bam.bai"
     log: "{sample}.bam.bai_log"
-    shell: "samtools index {input}"
+    shell: "{module}; module load samtools; samtools index {input}"
 
 rule dedup:
     input: "{sample}.bam"
@@ -438,26 +560,6 @@ rule get_sra:
     fastq-dump --gzip --split-3 --outdir sequence {wildcards.srr}
     """
 
-def getreads(readnum):
-    if readnum == 0:
-        formatstr = 'sequence/{}.fastq.gz'
-    else:
-        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
-    def retfun(wildcards):
-        return [formatstr.format(srr)
-                for srr in config['samples'][path.basename(wildcards.sample)]]
-    return retfun
-
-def getreadscomma(readnum):
-    if readnum == 0:
-        formatstr = 'sequence/{}.fastq.gz'
-    else:
-        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
-    def retfun(wildcards):
-        return ",".join([formatstr.format(srr)
-                        for srr in config['samples'][path.basename(wildcards.sample)]])
-    return retfun
-
 rule star_map:
     input:
         unpack(getreads(1)),
@@ -468,7 +570,7 @@ rule star_map:
         r1s=getreadscomma(1),
         r2s=getreadscomma(2),
     output: "{sample}/assigned_dmelR.bam"
-    threads: 4
+    threads: 6
     log: "{sample}/assigned_dmelR.log"
     shell: """{module}; module load STAR
     STAR --parametersFiles Parameters/STAR_params.in \
@@ -478,7 +580,9 @@ rule star_map:
     --outSAMtype BAM SortedByCoordinate \
     --clip5pNbases 6 \
     --readFilesIn {params.r1s} {params.r2s}
-    mv {wildcards.sample}/Aligned.sortedByCoord.out.bam {output}
+    if [ -s  {wildcards.sample}/Aligned.sortedByCoord.out.bam ]; then
+        mv {wildcards.sample}/Aligned.sortedByCoord.out.bam {output};
+    fi
     """
 
 
@@ -644,6 +748,59 @@ rule call_variants:
 		-stand_call_conf 30 \
 		-o {output}
     """
+rule split_genome_to_regions:
+    input: "Reference/d{reference}.chr.sizes"
+    output: expand("Reference/d{reference}.split/10m_{subset}.bed", reference="{reference}", subset=range(num_mel_windows))
+    log: dynamic("Reference/d{reference}.split/split.log")
+    shell: "python SplitGenome.py \
+        --size 10e6 \
+        {input} \
+        Reference/d{wildcards.reference}.split/10m"
+
+rule call_all_region_variants:
+    input:
+        ref_fasta="Reference/d{reference}_prepend.fasta",
+        variants = expand(path.join(analysis_dir, "on_{{reference}}",
+                    "{{species}}_gdna_variants", "{subset}_raw_variants_uncalibrated.p.g.vcf"),
+                    subset=range(num_mel_windows)),
+    output: path.join(analysis_dir, "on_{reference}", "{species}_gdna_raw_variants_combined.p.g.vcf")
+    log: path.join(analysis_dir, "on_{reference}", "{species}_gdna_raw_variants_combined.log")
+    run:
+        variant_files = " -V ".join(input.variants)
+        shell("""java -cp /usr/share/java/gatk/GenomeAnalysisTK.jar \
+                org.broadinstitute.gatk.tools.CatVariants \
+                -R {input.ref_fasta} --outputFile {output} -assumeSorted -V """ + variant_files)
+
+rule call_variants_region:
+    input:
+        ref_fasta="Reference/d{reference}_prepend.fasta",
+        ref_fai="Reference/d{reference}_prepend.fasta.fai",
+        ref_dict="Reference/d{reference}_prepend.dict",
+        region="Reference/d{reference}.split/10m_{subset}.bed",
+        bam=path.join(analysis_dir, "on_{reference}", "{species}_gdna_bowtie2_dedup.bam"),
+        bai=path.join(analysis_dir, "on_{reference}", "{species}_gdna_bowtie2_dedup.bam.bai"),
+    output:
+        path.join(analysis_dir, "on_{reference}", "{species}_gdna_variants/{subset}_raw_variants_uncalibrated.p.g.vcf")
+    params:
+        outdir=path.join(analysis_dir, "on_{reference}", "{species}_gdna/")
+    log:
+        path.join(analysis_dir, "on_{reference}", "{species}_gdna/{subset}_raw_variants_uncalibrated.log")
+    threads: 6
+    shell: """
+    mkdir -p {params.outdir}
+	gatk -T HaplotypeCaller \
+		-R {input.ref_fasta} \
+		-I {input.bam} \
+		-nct 8 \
+		--genotyping_mode DISCOVERY \
+		--output_mode EMIT_ALL_SITES \
+		--emitRefConfidence GVCF \
+		-GQB 10 -GQB 20 -GQB 30 -GQB 50 \
+		-stand_emit_conf 10 \
+		-stand_call_conf 30 \
+        --intervals {input.region} \
+		-o {output}
+    """
 
 rule map_gdna:
     input:
@@ -658,8 +815,9 @@ rule map_gdna:
         index="Reference/d{reference}_prepend",
         r1s=getreadscomma(1),
         r2s=getreadscomma(2),
+        outdir= lambda wildcards, output: path.dirname(output[0])
     threads: 4
-    shell: """{module}; module load samtools/1.3
+    shell: """{module}; module load samtools/1.3 bowtie2
     bowtie2 \
 		--very-sensitive-local \
 		-p 8 \
@@ -673,14 +831,14 @@ rule map_gdna:
 		-1 {params.r1s} \
 		-2 {params.r2s} \
 		| samtools view -b \
-		| samtools sort -o {output}
+		| samtools sort -o {output} -T {params.outdir}/{wildcards.sample}_bowtie2_sorting
         """
 
 rule bowtie2_build:
     input: "{base}.fasta"
     output: "{base}.1.bt2"
     log:    "{base}.bt2.log"
-    shell: "bowtie2-build --offrate 3 {input} {wildcards.base}"
+    shell: "{module}; module load bowtie2; bowtie2-build --offrate 3 {input} {wildcards.base}"
 
 rule sentinel_cufflinks:
     output: touch(path.join(analysis_dir, "recufflinks"))
@@ -690,4 +848,10 @@ rule sentinel_retabulate:
 
 rule sentinel_recalc_ase:
     output: touch(path.join(analysis_dir, "recalc_ase"))
+
+rule sentinel_recalc_psi:
+    output: touch(path.join(analysis_dir, "recalc_psi"))
+
 ruleorder: ref_genome > melfasta > getfasta
+
+

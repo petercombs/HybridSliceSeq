@@ -521,12 +521,20 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                     elif hatch:
                         n = 0
                         norm_data[i, j] = 0
-                        if (j > 0 and isfinite(norm_data[i, j-1])):
-                            norm_data[i, j] += norm_data[i, j-1]
-                            n += 1
-                        if (j + 1 < norm_data.shape[1] and isfinite(norm_data[i, j+1])):
-                            norm_data[i,j] += norm_data[i, j+1]
-                            n += 1
+                        left = j - 1
+                        while left >= 0:
+                            if isfinite(norm_data[i, left]):
+                                norm_data[i, j] += norm_data[i, left]
+                                n += 1
+                                break
+                            left -= 1
+                        right = j + 1
+                        while right  < norm_data.shape[1]:
+                            if isfinite(norm_data[i, right]):
+                                norm_data[i, j] += norm_data[i, right]
+                                n+= 1
+                                break
+                            right += 1
                         if n == 0:
                             norm_data[i, j] = .5 if 'center' in normer else 0
                         else:

@@ -1,0 +1,10 @@
+{
+        "__default__" :
+        {
+                "queue" : "batch"
+        },
+        "dedup" :
+        {
+                "queue" : "fast_io"
+        }
+}
