@@ -20,5 +20,6 @@ export MODULEPATH=/share/PI/hbfraser/modules/modules:${MODULEPATH}
 module load fraserconda
 
 echo "Modules loaded"
+export PYTHONPATH=$PYTHONPATH:/home/users/pcombs/HybridSliceSeq
 
 python FitASEFDR.py --prefix velvetant_ analysis_godot/velvetant_summary.tsv
