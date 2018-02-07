@@ -14,6 +14,7 @@ from progressbar import (ProgressBar, Percentage, Timer, Bar, FileTransferSpeed,
                         SimpleProgress, AdaptiveETA)
 import PlotUtils as pu
 import Utils as ut
+import warnings
 if __name__ == "__main__":
     from matplotlib import cm
     import matplotlib.pyplot as mpl
@@ -29,6 +30,8 @@ def deriv_peak(x, A, w, x0, y0):
 
 def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
              print_error=False):
+    warnings.filterwarnings('ignore', '.*overflow encountered.*')
+    warnings.filterwarnings('ignore', '.*Covariance of the parameters.*')
     ys = data.loc[index]
     if median_in and not median_in[0] < ys.median() < median_in[1]:
         print("Median {} outside of range [{}, {}]"
@@ -75,8 +78,8 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
                          array(xs[keep]),
                          array(ys[keep]),
                          p0,
-                         #bounds=[[-2, w_min, x0_min, -1],
-                                 #[2, w_max, x0_max, 1]],
+                         bounds=[[-2, w_min, x0_min, -1],
+                                 [2, w_max, x0_max, 1]],
                         )[0]
         for low, high, val in zip([-2, w_min, x0_min, -1],
                                   [2, w_max, x0_max, 1],

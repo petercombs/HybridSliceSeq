@@ -21,4 +21,6 @@ module load fraserconda
 
 echo "Modules loaded"
 
+#export PYTHONPATH=$HOME/fyrd:$PYTHONPATH:/home/users/pcombs/HybridSliceSeq
+
 python FitASEFDR.py --prefix psi_ analysis_godot/psi_summary.tsv
