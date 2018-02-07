@@ -28,7 +28,10 @@ Almost all of the code is written in either Python 3 or
 [Snakemake](http://snakemake.readthedocs.io/en/stable/).  Known dependencies
 include:
 
-* STAR (RNA-seq alignment; options exist in the configure script to use tophat)
+* SRA Tools
+* Snakemake
+* Bowtie2 (Reference gDNA alignment)
+* STAR (RNA-seq alignment)
 * Cufflinks (RNA-seq quantification)
 * Bedtools
 * Samtools
@@ -46,10 +49,12 @@ include:
 # RNA-seq and finding svASE
 ###
 
-Assuming you have the data files in the right places, you should be able to go from raw reads to summary data tables by doing: 
+You should be able to go from raw reads to summary data tables by doing: 
 
-    ./configure
-    make
+    Snakemake
+
+Though you probably want to run this on a pretty high-powered machine---or,
+ideally, a compute cluster.
 
 
 
