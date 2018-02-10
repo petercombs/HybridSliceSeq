@@ -66,7 +66,7 @@ rule print_config:
     run:
         print(config)
 
-tfs = "OTF0070.1 hb  kni gt D FBgn0001325_4 tll hkb  FBgn0000251_3 FBgn0003448_3 twi OTF0532.1 OTF0478.1 OTF0181.1 FBgn0013753 hkb_FFS"
+tfs = "OTF0070.1 hb  kni gt D FBgn0001325_4 tll hkb  FBgn0000251_3 FBgn0003448_3 twi OTF0532.1 OTF0478.1 OTF0181.1 FBgn0013753 FBgn0001204"
 tf_names = "bcd  hb  kni gt D Kr            tll hkb cad            sna           twi zen       Doc2      rho/pnt   run/Bgb     hkb_FFS"
 
 tf_dict = {
@@ -88,11 +88,27 @@ tf_dict = {
     'pnt': 'OTF0181.1',
     'run/Bgb': 'FBgn0013753',
     'run': 'FBgn0013753',
-    'hkbFFS': 'hkb_FFS',
+    'hkbFFS': 'hkb_FBgn0001204',
     'cic': 'FBgn0028386',
     'retn': 'FBgn0004795',
 
 }
+
+rule get_all_memes:
+    output: "prereqs/all_meme.meme"
+    shell: """{module}; module load wget
+    wget -O prereqs/motif_databases.tgz \
+         http://meme-suite.org/meme-software/Databases/motifs/motif_databases.12.17.tgz
+    tar -xvf prereqs/motif_databases.tgz -C prereqs
+    cat prereqs/motif_databases/FLY/* > {output}
+    """
+rule condense_memes:
+    input:
+        "prereqs/all_meme.meme",
+    output:
+        "Reference/all_meme_filtered.meme"
+    shell: "python CondenseMemes.py"
+
 
 rule alignment_figure:
     input:
@@ -243,6 +259,16 @@ rule mel_bed:
         >> {output}
     """
 
+rule nonmel_fasta_from_bed:
+    input:
+        bed='analysis/targets/{gene}/{species}.bed',
+        full_fasta='Reference/d{species}_prepend.fasta',
+    output:
+        'analysis/targets/{gene}/{species}.fasta'
+    shell: """ {module}; module load bedtools
+    bedtools getfasta -fi {input.full_fasta} -bed {input.bed} \
+            -fo {output} -s -name
+    """
 rule make_blastdb:
     input: "Reference/{file}.fasta"
     output: "Reference/{file}.fasta.nhr"
@@ -924,6 +950,6 @@ rule sentinel_recalc_ase:
 rule sentinel_recalc_psi:
     output: touch(path.join(analysis_dir, "recalc_psi"))
 
-ruleorder: ref_genome > melfasta > getfasta
+ruleorder: ref_genome > melfasta > getfasta > combined_fasta > nonmel_fasta_from_bed
 
 
