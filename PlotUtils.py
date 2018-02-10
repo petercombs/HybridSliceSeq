@@ -363,13 +363,13 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             font_size = '3em'
             for title_line in figure_title:
                 dwg.add(dwg.text(title_line, (x_start, y_start+75,),
-                                 style="font-size:{};font-family:Sans-Serif".format(font_size)))
+                                 style="font-size:{};font-family:sans-serif".format(font_size)))
                 y_start += 80
                 font_size = '1.5em'
 
         else:
             dwg.add(dwg.text(figure_title, (x_start, y_start+75,),
-                             style="font-size:3em;font-family:Sans-Serif"))
+                             style="font-size:3em;font-family:sans-serif"))
             y_start += 80
     if progress_bar:
         from progressbar import ProgressBar
@@ -628,7 +628,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                               + box_height * (rows) * (1-draw_average_only)
                               + box_height * (draw_average or draw_average_only)
                               + 13),
-                             style="text-anchor: middle;")
+                            style="text-anchor: middle;font-family:sans-serif;")
             text.add(dwg.tspan("", dy=["-1.5em"]))
             for line in name.split('_'):
                 text.add(dwg.tspan(line,
@@ -658,12 +658,12 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
     if draw_row_labels and not draw_average_only:
         for i in range(rows):
             if color_row_labels:
-                style = "font-family:Sans-Serif; font-size: {size}; fill: {color};".format(
+                style = "font-family:sans-serif; font-size: {size}; fill: {color};".format(
                     size=box_height,
                     color='red' if row_labels[i] in color_row_labels else 'black',
                 )
             else:
-                style = "font-family:Sans-Serif; font-size: {}".format(box_height)
+                style = "font-family:sans-serif; font-size: {}".format(box_height)
             if isinstance(row_labels[i], tuple):
                 labeltext = dwg.g()
                 for lnum, ltext in enumerate(row_labels[i]):
