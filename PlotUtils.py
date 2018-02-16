@@ -22,6 +22,7 @@ from numpy import array,  linspace, isfinite, median, exp, Inf
 from itertools import repeat
 import numpy as np
 import subprocess
+from collections import Counter
 
 from os import path
 
@@ -266,6 +267,14 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
     if box_height is None:
         box_height = box_size
 
+    if row_labels is None:
+        if index is not None:
+            row_labels = list(index)
+        elif hasattr(data[0], 'index'):
+            row_labels = list(data[0].index)
+        else:
+            row_labels = ['' for row in range(rows)]
+
     if total_width is not None and max_width is not np.inf:
         boxes_per_row = max_width // (1.1 * total_width)
         if ((boxes_per_row + 1) * 1.1 * total_width - .1 * total_width
@@ -288,12 +297,15 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                                    * box_height)
                                 + 80 * (fig_title_height)
                                 + 80 * draw_name
-                                + (num_plotted_rows - 1) * vspacer))
+                                + (num_plotted_rows - 1) * vspacer),
+                         )
     elif total_width is not None:
         width = len(data) * total_width * 1.1 - .1 * total_width
         height = rows * box_height
+        max_row_label_len = max(len(str(i)) for i in row_labels)
         dwg = svg.Drawing(filename,
-                          size=(width + 2 * x_min + 200 * draw_row_labels,
+                          size=(width + 2 * x_min + 20 * draw_row_labels *
+                                max_row_label_len,
                                 height + 2 * y_min + 80 * draw_name
                                 + (80 * (figure_title is not None)))
                          )
@@ -310,13 +322,6 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
 
     dwg.add(pat)
 
-    if row_labels is None:
-        if index is not None:
-            row_labels = list(index)
-        elif hasattr(data[0], 'index'):
-            row_labels = list(data[0].index)
-        else:
-            row_labels = ['' for row in range(rows)]
 
     if box_height is None:
         box_height = box_size
@@ -649,11 +654,22 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             else:
                 x_start += new_cols * box_size + spacer
 
-        y_diff = new_rows * box_height + vspacer
+        #y_diff = new_rows * box_height + vspacer
         if x_start + total_width >= max_width:
             x_start = x_min
             y_start += new_rows*box_height*(not draw_average_only) + vspacer
             y_start += box_height*(draw_average_only or draw_average)
+
+    if draw_row_labels and isinstance(row_labels[0], tuple):
+        lwidths = Counter()
+        for r in row_labels:
+            for i, l in enumerate(r):
+                lwidths[i] = max(lwidths[i], len(str(l)))
+        cum_len = 0
+        for i in range(len(lwidths)):
+            old_width = lwidths[i]
+            lwidths[i] += cum_len
+            cum_len += old_width
 
     if draw_row_labels and not draw_average_only:
         for i in range(rows):
@@ -668,7 +684,7 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
                 labeltext = dwg.g()
                 for lnum, ltext in enumerate(row_labels[i]):
                     labeltext.add(dwg.text(ltext,
-                                           (x_start + lnum * 50,
+                                           (x_start + lwidths[lnum-1] * 10 + lnum * 50,
                                             y_start + i * box_height + box_height),
                                            style=style,
                                           ))
