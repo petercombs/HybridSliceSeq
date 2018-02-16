@@ -92,10 +92,11 @@ def center_of_mass_onerep(data):
     return sum(data_clean * xs, axis=len(dims)-1)/sum(data_clean, axis=len(dims)-1)
 
 for dir_name in sys.path:
-    fname = path.join(dir_name, 'prereqs/gene_map_table_fb_2016_01.tsv')
+    fname = path.join(dir_name, 'prereqs/gene_map_table_fb_2014_03.tsv')
     if path.exists(fname):
         fbgns = pd.read_table(fname,
                               keep_default_na=False, na_values=['---'],
+                              skipfooter=2, engine='python',
                               index_col=1,skiprows=5).ix[:, 0]
         break
 else:
@@ -245,5 +246,45 @@ def parse_annotation(gtf_annote_field):
         key, val = rec.strip().split(' ', 1)
         retval[key] = val.strip('"\'; ')
     return retval
+
+
+def get_exons_before_CDS(exon_parts, ref_annotation,
+                         progress=False):
+    epn = 'exonic_part_number'
+    if progress:
+        from tqdm import tqdm
+    CDS_starts = {}
+    for line in tqdm(open(ref_annotation)):
+        data = line.strip().split('\t')
+        if data[2] != 'CDS': continue
+        annots = parse_annotation(data[-1])
+        if data[6] == '+':
+            CDS_starts[annots['gene_id']] = min(int(data[3]),
+                                                CDS_starts.get('gene_id', 1e10))
+        elif data[6] == '-':
+            CDS_starts[annots['gene_id']] = max(int(data[4]),
+                                                CDS_starts.get('gene_id', 0))
+            pass
+        else:
+            raise ValueError('Strand field has unknown type "{}"'
+                             .format(data[6]))
+    pre_exons = defaultdict(list)
+    strands = {}
+    for line in tqdm(open(exon_parts)):
+        data = line.strip().split('\t')
+        if data[2] != 'exonic_part': continue
+        annots = parse_annotation(data[-1])
+        for gene in annots['gene_id'].split('+'):
+            strand = data[6]
+            start, stop = int(data[3]), int(data[4])
+            strands[gene] = strand
+            if strand == '+':
+                if start < CDS_starts[gene]:
+                    pre_exons[gene].insert(0, annots[epn])
+            elif strand == '-':
+                if stop > CDS_starts[gene]:
+                    pre_exons[gene].append(annots[epn])
+    return pre_exons
+
 
 
