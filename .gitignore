@@ -15,3 +15,9 @@ iPythonNotebooks/.ipynb_checkpoints
 geo
 .snakemake
 fit_and_eval*
+*cluster.py
+*.sbatch
+*.qsub
+*.err
+*.pickle.in
+*.func.pickle
