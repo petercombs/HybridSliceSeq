@@ -1,11 +1,79 @@
 from tqdm import tqdm
 import pandas as pd
-from numpy import arange, nan
+from numpy import arange, nan, mean
 from collections import defaultdict
 import numpy as np
 import Utils as ut
 import PlotUtils as pu
 import CluToGene as spliceid
+import multiprocessing as mp
+import matplotlib.cm as cm
+
+def estimate_pvals(psi, ase, n_reps, min_periods=None):
+    #try:
+        if min_periods is None:
+            min_periods = len(psi)/5
+        in_both = np.isfinite(psi*ase)
+        if sum(in_both) < min_periods:
+            return nan
+        psi = psi[in_both]
+        ase = ase[in_both]
+        observed = psi.corr(ase, min_periods=min_periods)
+        if not np.isfinite(observed):
+            return nan
+        random = []
+        for i in range(n_reps):
+            np.random.shuffle(psi)
+            random.append(psi.corr(ase, min_periods=min_periods))
+        random = pd.Series(list(sorted(np.abs(random))))
+        return (n_reps-random.searchsorted(abs(observed), 'right')[0])/n_reps
+    #except Exception as e:
+        #print(psi.name)
+        #raise e
+
+def estimate_all_pvals(psi, ase, n_reps, min_periods=None, pool=None,
+                       progress=True):
+    if pool is None:
+        pool = mp.Pool()
+    if progress:
+        pbar = tqdm
+    else:
+        pbar = lambda x: x
+
+    jobs = {}
+    assert np.all(psi.columns == ase.columns)
+    res = pd.Series(index=psi.index, data=np.nan)
+    for ix in pbar(psi.index):
+        jobs[ix] = pool.apply_async(estimate_pvals,
+                                    (psi.ix[ix],
+                                     ase.ix[[ut.fbgns[ix.split('_')[0].split('+')[0]]]].squeeze(),
+                                     n_reps, min_periods))
+    for ix in pbar(psi.index):
+        res[ix] = jobs[ix].get()
+    return res
+
+
+def fyrd_estimate_pvals(psi, ase, n_reps, min_periods=None,
+                        n_genes_per_job=100):
+    import fyrd
+    outs = {}
+    jobs = []
+    for i in range(0, len(psi), n_genes_per_job):
+        jobs.append(fyrd.submit(estimate_all_pvals,
+                                (psi.iloc[i:i+n_genes_per_job],
+                                 ase, n_reps, min_periods)))
+
+    for i in tqdm(list(range(len(jobs)))):
+        job = jobs[i]
+        res = job.get()
+        try:
+            for ix in res.index:
+                outs[ix] = res[ix]
+        except Exception as e:
+            print("Error on iteration", i)
+            print(e)
+
+    return pd.Series(outs)
 
 def dist_from_exon_to_transcript_end(reference_gtf, exons_gtf, progress=False):
     if progress:
@@ -76,13 +144,13 @@ if __name__ == "__main__":
 
     rectified_ase.columns = psi.columns
 
-    rectified_ase_by_exons = pd.DataFrame(index=psi.index, columns=psi.columns,
-                                         data=np.nan)
-    for fb in tqdm(ut.fbgns.index):
-        gn = ut.fbgns[fb]
-        if gn not in rectified_ase.index: continue
-        starts_with = rectified_ase_by_exons.index.map(ut.startswith(fb))
-        rectified_ase_by_exons.loc[starts_with, :] = rectified_ase.ix[gn]
+#    rectified_ase_by_exons = pd.DataFrame(index=psi.index, columns=psi.columns,
+#                                         data=np.nan)
+#    for fb in tqdm(ut.fbgns.index):
+#        gn = ut.fbgns[fb]
+#        if gn not in rectified_ase.index: continue
+#        starts_with = rectified_ase_by_exons.index.map(ut.startswith(fb))
+#        rectified_ase_by_exons.loc[starts_with, :] = rectified_ase.ix[gn]
 
     if 'ac_many' not in locals():
         max_ac = 10
@@ -118,6 +186,11 @@ if __name__ == "__main__":
     plist = zyg_corrs.sort_values().index
 
     geneset = {g for gs in plist for g in gs.split('_')[0].split('+')}
+
+    if 'optional_exon_lens' not in locals():
+        optional_exon_lens = dist_from_exon_to_transcript_end('Reference/mel_good.gtf',
+                                         'Reference/mel_good_exons.gtf', True)
+        optional_exon_lens = pd.Series(optional_exon_lens)
 
     pu.svg_heatmap((
         #ase.ix[[spliceid.get_genes_in_exon(ex).split('_')[0].split('+')[0]
