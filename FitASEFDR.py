@@ -3,11 +3,12 @@ import numpy as np
 import pandas as pd
 import sys
 from os import getcwd
+import os
 from FitASEFuncs import (logistic, peak, fit_all_ase,
                          calculate_variance_explained)
 
 from fyrd import Job
-import fyrd
+#import fyrd
 #from multiprocessing import Pool
 from progressbar import ProgressBar as pbar
 from Utils import (sel_startswith, get_xs, pd_kwargs, get_chroms)
@@ -19,7 +20,8 @@ from warnings import filterwarnings
 from pickle import dump
 
 cluster_joblimit = 100
-cluster_args = dict(time= '0:30:00', #mem='60G', #partition='owners,hns,normal',
+cluster_args = dict(time= '0:30:00', mem='60G',
+                    partition='owners,hns,normal,hbfraser',
                     scriptpath='logs', outpath='logs', runpath=getcwd(),
                     cpus=4, cores=4)
 
@@ -37,10 +39,13 @@ def activate_job(waiting, active):
 
 def parse_args():
     parser = ArgumentParser()
-    parser.add_argument('--expression', default='analysis_godot/summary.tsv')
-    parser.add_argument('--prefix', default='')
-    parser.add_argument('--suffix', default='')
-    parser.add_argument('data_to_fit', default='analysis_godot/ase_summary_by_read.tsv')
+    parser.add_argument('--expression', default='analysis_godot/summary.tsv',
+                        type=str)
+    parser.add_argument('--prefix', default='', type=str)
+    parser.add_argument('--suffix', default='', type=str)
+    parser.add_argument('data_to_fit',
+                        default='analysis_godot/ase_summary_by_read.tsv',
+                        type=str)
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -67,8 +72,8 @@ if __name__ == "__main__":
     hours = len(ase) / 1e4 * 1.5 + 2
     cluster_args['time'] = '{}:{}:00'.format(int(hours), int((hours % 1)*60))
     print("Estimate {} per iteration".format(cluster_args['time']))
-    cluster_args['queue'] = fyrd.Queue(user='self',
-                                       qtype=fyrd.queue.get_cluster_environment())
+    #cluster_args['queue'] = fyrd.Queue(user='self',
+                                       #qtype=fyrd.queue.get_cluster_environment())
     print(cluster_args)
     sys.stdout.flush()
 
