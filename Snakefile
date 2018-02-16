@@ -382,6 +382,56 @@ rule sample_gene_ase:
         {input.bam}
     """
 
+rule sample_cds_ase:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
+        variants=variants,
+        hets=path.join(analysis_dir, "on_mel", "melsim_true_hets.tsv"),
+        gtf=mel_gtf,
+        sentinel=path.join(analysis_dir, 'recalc_ase')
+    threads: 1
+    output:
+        "{sample}/melsim_cds_ase_by_read.tsv"
+    log:
+        "{sample}/melsim_cds_ase_by_read.log"
+    shell: """ export PYTHONPATH=$PYTHONPATH:/home/pcombs/ASEr/;
+    python ~/ASEr/bin/GetGeneASEbyReads.py \
+        --outfile {output} \
+        --id-name gene_name \
+        --ase-function pref_index \
+        --min-reads-per-allele 0 \
+        --feature-type CDS \
+        {input.variants} \
+        {input.gtf} \
+        {input.bam}
+    """
+
+rule sample_exon_ase:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
+        variants=variants,
+        hets=path.join(analysis_dir, "on_mel", "melsim_true_hets.tsv"),
+        gtf='Reference/mel_renamed_exons.gtf',
+        sentinel=path.join(analysis_dir, 'recalc_ase')
+    threads: 1
+    output:
+        "{sample}/melsim_exon_ase_by_read.tsv"
+    log:
+        "{sample}/melsim_exon_ase_by_read.log"
+    shell: """ export PYTHONPATH=$PYTHONPATH:/home/pcombs/ASEr/;
+    python ~/ASEr/bin/GetGeneASEbyReads.py \
+        --outfile {output} \
+        --id-name gene_id \
+        --ase-function pref_index \
+        --min-reads-per-allele 0 \
+        {input.variants} \
+        {input.gtf} \
+        {input.bam}
+    """
+
+
 rule exons_gtf:
     input:
         "Reference/{species}_good.gtf"
@@ -391,6 +441,24 @@ rule exons_gtf:
     python2 /home/pcombs/R/DEXSeq/python_scripts/dexseq_prepare_annotation.py \
         --aggregate=yes {input} {output}
     """
+
+rule exons_renamed:
+    input:
+        "Reference/{species}_good_exons.gtf"
+    output:
+        "Reference/{species}_renamed_exons.gtf"
+    run:
+        import Utils as ut
+        with open(output[0], 'w') as out:
+            for line in open(input[0]):
+                data = line.split('\t')
+                if data[2] != 'exonic_part': continue
+                annots = ut.parse_annotation(data[-1])
+                data[-1] = 'gene_id "{}_{}"'.format(annots['gene_id'], annots['exonic_part_number'])
+                data[2] = 'exon'
+                print(*data, file=out, sep='\t')
+
+
 
 
 rule sample_psi:
@@ -562,6 +630,58 @@ rule ase_summary:
 	   --key gene \
 	   --column ase_value \
        --out-basename ase_summary_by_read \
+		{analysis_dir} \
+		| tee {log}
+        """
+
+rule cds_ase_summary:
+    input:
+        *samples_to_files('melsim_cds_ase_by_read.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'cds_ase_summary_by_read.tsv')
+    log:
+        path.join(analysis_dir, 'cds_mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename melsim_cds_ase_by_read.tsv \
+	   --key gene \
+	   --column ase_value \
+       --out-basename cds_ase_summary_by_read \
+		{analysis_dir} \
+		| tee {log}
+        """
+
+rule exons_ase_summary:
+    input:
+        *samples_to_files('melsim_exon_ase_by_read.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'exon_ase_summary_by_read.tsv')
+    log:
+        path.join(analysis_dir, 'exon_mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename melsim_exon_ase_by_read.tsv \
+	   --key gene \
+	   --column ase_value \
+       --out-basename exon_ase_summary_by_read \
 		{analysis_dir} \
 		| tee {log}
         """
