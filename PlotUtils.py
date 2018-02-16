@@ -434,6 +434,15 @@ def svg_heatmap(data, filename, row_labels=None, box_size=4,
             else:
                 norm_data = frame / (old_data[:, isfinite(old_data[0, :])]
                                      .max(axis=1) + 10).reshape((rows, 1))
+        elif normer == 'fullvar':
+            norm_data = frame.subtract(frame
+                                       .dropna(axis=1, how='all')
+                                       .min(axis=1)-1e-6,
+                                       axis=0)
+            norm_data = array(norm_data.divide(norm_data
+                                               .dropna(axis=1, how='all')
+                                               .max(axis=1),
+                                               axis=0))
         elif normer == 'center0':
             norm_data = array(0.5 +
                          0.5 * frame.divide(frame.dropna(axis=1).abs().max(axis=1),
