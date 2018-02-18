@@ -64,9 +64,9 @@ def fyrd_estimate_pvals(psi, ase, n_reps, min_periods=None,
                                  ase, n_reps, min_periods)))
 
     for i in tqdm(list(range(len(jobs)))):
-        job = jobs[i]
-        res = job.get()
         try:
+            job = jobs[i]
+            res = job.get()
             for ix in res.index:
                 outs[ix] = res[ix]
         except Exception as e:
@@ -167,22 +167,25 @@ if __name__ == "__main__":
         for ix in tqdm(psi_rand.index):
             is_good = np.isfinite(psi_rand.ix[ix])
             dat = np.array(psi_rand.loc[ix, is_good])
-            np.shuffle(dat)
+            np.random.shuffle(dat)
             psi_rand.ix[ix, is_good] = dat
         ac_many_rand = pd.DataFrame(index=psi.index, columns=arange(1,max_ac),
                                     data={i:
                                           [psi_rand.loc[gene].dropna().autocorr(i)
-                                           for gene in tqdm.tqdm(psi.index)] for
+                                           for gene in tqdm(psi.index)] for
                                           i in arange(1,max_ac)})
 
 
     psi_counts = psi.T.count() > psi.shape[1]/3
     plist = ut.true_index(ac_many.loc[psi_counts].T.mean() > .146)
     zyg_corrs = pd.Series(index=plist,
-                          #data=[psi.loc[ex].corr(rectified_ase.loc[spliceid.get_genes_in_exon(ex).split('_')[0].split('+')[0]])
-                                #for ex in plist ])
-                          data=[psi.loc[ex].corr(rectified_ase.ix[[ex]]) for ex
-                                in plist])
+                          data=[psi.loc[ex].corr(
+                              rectified_ase.loc[spliceid.get_genes_in_exon(ex).split('_')[0].split('+')[0]],
+                              min_periods=30
+                          )
+                              for ex in plist ])
+                          #data=[psi.loc[ex].corr(rectified_ase.ix[[ex]]) for ex
+                                #in plist])
     plist = zyg_corrs.sort_values().index
 
     geneset = {g for gs in plist for g in gs.split('_')[0].split('+')}
@@ -193,14 +196,14 @@ if __name__ == "__main__":
         optional_exon_lens = pd.Series(optional_exon_lens)
 
     pu.svg_heatmap((
-        #ase.ix[[spliceid.get_genes_in_exon(ex).split('_')[0].split('+')[0]
-                            #for ex in plist]],
-        ase.ix[plist],
+        ase.ix[[spliceid.get_genes_in_exon(ex).split('_')[0].split('+')[0]
+                            for ex in plist]],
+        #ase.ix[plist],
         psi.ix[plist]),
                    'analysis/results/psi-autocorr-fdr5.svg',
                    cmap=(cm.RdBu, cm.viridis),
                    norm_rows_by=('center0pre', 'fullvar'),
-                   row_labels=[('{:.03f}'.format(ac_many.loc[ex, 1]),
+                   row_labels=[('{:.03f}'.format(ac_many.loc[ex].mean()),
                                 psi.loc[ex].min(),
                                 psi.loc[ex].max(),
                                 ex.split('_')[1],
