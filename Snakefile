@@ -45,6 +45,16 @@ def getreads(readnum):
                 for srr in config['samples'][path.basename(wildcards.sample)]]
     return retfun
 
+def getreads_nowc(readnum):
+    if readnum == 0:
+        formatstr = 'sequence/{}.fastq.gz'
+    else:
+        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
+    def retfun(sample):
+        return [formatstr.format(srr)
+                for srr in config['samples'][path.basename(sample)]]
+    return retfun
+
 def getreadscomma(readnum):
     if readnum == 0:
         formatstr = 'sequence/{}.fastq.gz'
@@ -60,6 +70,10 @@ rule all:
     input:
         path.join(analysis_dir, "summary.tsv"),
         path.join(analysis_dir, "ase_summary_by_read.tsv")
+
+rule all_reads:
+    input:
+        [reads for sample in samples for reads in getreads_nowc(1)(sample)]
 
 
 rule print_config:
@@ -583,6 +597,32 @@ rule true_hets:
     cp {output} `dirname {output}`/true_hets.tsv
     """
 
+rule kallisto_summary:
+    input:
+        *samples_to_files('abundance.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'summary_kallisto.tsv')
+    log:
+        path.join(analysis_dir, 'mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename abundance.tsv \
+	   --key target_id \
+       --out-basename summary_kallisto \
+	   --column tpm \
+		{analysis_dir} \
+		| tee {log}
+        """
+
 rule expr_summary:
     input:
         *samples_to_files('genes.fpkm_tracking')(),
@@ -769,8 +809,8 @@ rule dedup:
         """
 rule get_sra:
     output:
-        temp("sequence/{srr}_1.fastq.gz"),
-        temp("sequence/{srr}_2.fastq.gz")
+        "sequence/{srr}_1.fastq.gz",
+        "sequence/{srr}_2.fastq.gz"
     log: "sequence/{srr}.log"
     resources: max_downloads=1
     shell: """{module}; module load sra-tools
@@ -801,6 +841,32 @@ rule star_map:
     if [ -s  {wildcards.sample}/Aligned.sortedByCoord.out.bam ]; then
         mv {wildcards.sample}/Aligned.sortedByCoord.out.bam {output};
     fi
+    """
+
+def interleave_reads(wildcards):
+    retval =  " ".join(" ".join([a, b])
+            for a, b
+            in zip(
+                getreads_nowc(1)(path.basename(wildcards.sample)),
+                getreads_nowc(2)(path.basename(wildcards.sample))
+                )
+            )
+    return retval
+
+rule kallisto_quant:
+    input:
+        unpack(getreads(1)),
+        unpack(getreads(2)),
+        index='Reference/dmel_5.57_kallisto',
+    priority: 50
+    params:
+        reads=interleave_reads
+    output: "{sample}/abundance.h5", "{sample}/abundance.tsv"
+    shell:"""
+    ~/Downloads/kallisto/kallisto quant \
+        -i {input.index} \
+        -o {wildcards.sample} \
+        {params.reads}
     """
 
 
