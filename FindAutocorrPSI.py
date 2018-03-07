@@ -9,6 +9,24 @@ import CluToGene as spliceid
 import multiprocessing as mp
 import matplotlib.cm as cm
 from os import getcwd
+import re
+
+number = re.compile("[0-9]+")
+
+def parse_fasta_data(fasta_fname):
+    transcripts_by_gene = defaultdict(list)
+    transcript_lens = {}
+    for line in open(fasta_fname):
+        if not line.startswith('>'): continue
+        fbtr, *annot = line.strip().split(' ')
+        fbtr = fbtr.strip('>')
+        annots = dict(a.strip().strip(';').split('=')
+                      for a in annot
+                      if '=' in a)
+        first, *rest, last = number.findall(annots['loc'].split(':')[1])
+        transcript_lens[fbtr] = abs((int(last) - int(first) ))+1
+        transcripts_by_gene[annots['parent']].append(fbtr)
+    return pd.Series(transcript_lens), transcripts_by_gene
 
 def estimate_pvals(psi, ase, n_reps, min_periods=None):
     #try:
@@ -79,6 +97,18 @@ def fyrd_estimate_pvals(psi, ase, n_reps, min_periods=None,
 
     return pd.Series(outs)
 
+def transcripts_from_exon(exons_gtf):
+    retval = {}
+    for line in open(exons_gtf):
+        data = line.strip().split('\t')
+        if data[2] != 'exonic_part': continue
+        annots = ut.parse_annotation(data[-1])
+        exon_id = '{}_{}'.format(annots['gene_id'],
+                                 annots['exonic_part_number'])
+        retval[exon_id] = annots['transcripts'].split('+')
+    return retval
+
+
 def dist_from_exon_to_transcript_end(reference_gtf, exons_gtf, progress=False):
     if progress:
         pbar = tqdm
@@ -131,6 +161,8 @@ def dist_from_exon_to_transcript_end(reference_gtf, exons_gtf, progress=False):
 if __name__ == "__main__":
     if 'chrom_of' not in locals():
         chrom_of = ut.get_chroms()
+
+    txlens, txs_by_gene = parse_fasta_data('prereqs/dmel-all-transcript-r5.57.fasta')
 
     psi = (pd.read_table('analysis_godot/psi_summary.tsv',
                               **ut.pd_kwargs)
@@ -214,10 +246,10 @@ if __name__ == "__main__":
                    row_labels=[('{:.03f}'.format(ac_many.loc[ex].mean()),
                                 psi.loc[ex].min(),
                                 psi.loc[ex].max(),
-                                ex.split('_')[1],
-                                '{:.02f}'.format(min(optional_exon_lens[ex])),
-                                '{:.02f}'.format(max(optional_exon_lens[ex])),
-                                '{:.02f}'.format(mean(optional_exon_lens[ex])),
+                                #ex.split('_')[1],
+                                '{:.1f}kb'.format(min(txlens[txs_by_gene[ex.split('_')[0].split('+')[0]]])/1000),
+                                '{:.1f}kb'.format(max(txlens[txs_by_gene[ex.split('_')[0].split('+')[0]]])/1000),
+                                #'{:.02f}'.format(mean(optional_exon_lens[ex])),
                                 '{:.02f}'.format(zyg_corrs[ex]),
                                 #'{:.02f}'.format(psi.loc[ex].corr(rectified_ase.loc[spliceid.get_genes_in_exon(ex).split('_')[0].split('+')[0]])),
                                 spliceid.get_genes_in_exon(ex))

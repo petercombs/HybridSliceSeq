@@ -20,9 +20,11 @@ if __name__ == "__main__":
     import matplotlib.pyplot as mpl
 
 def logistic(x, A, k, x0, y0):
+    x = array(x)
     return A/(1+exp(k*(x-x0))) - y0
 
 def peak(x, A, w, x0, y0):
+    x = array(x)
     return A * exp(-(x-x0)**2/w**2) - y0
 
 def deriv_peak(x, A, w, x0, y0):
@@ -32,7 +34,7 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
              print_error=False):
     warnings.filterwarnings('ignore', '.*overflow encountered.*')
     warnings.filterwarnings('ignore', '.*Covariance of the parameters.*')
-    ys = data.loc[index]
+    ys = data.ix[index]
     if median_in and not median_in[0] < ys.median() < median_in[1]:
         print("Median {} outside of range [{}, {}]"
               .format(ys.median(), *median_in)
@@ -41,7 +43,7 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
     if randomize:
         xs = np.random.permutation(xs)
     keep = array(isfinite(ys))
-    if sum(keep) < len(xs)/2:
+    if sum(keep) < len(xs)/3:
         if print_error:
             print("Not enough values to fit ASE ({}/{})"
                  .format(sum(keep), len(xs)))
@@ -152,9 +154,9 @@ def fit_all_ase(ase, func, xs, colnames=None, pool=None, progress=False,
 def calculate_variance_explained(ase, xs, func, params):
     r2 = pd.Series(index=params.index, data=np.inf)
     for ix in params.index:
-        r2.loc[ix] = 1-(
-            ((ase.loc[ix] - func(xs, *params.loc[ix]))**2).sum()
-            / ((ase.loc[ix] - ase.loc[ix].mean())**2).sum()
+        r2.ix[ix] = 1-(
+            ((ase.ix[ix] - func(xs, *params.ix[ix]))**2).sum()
+            / ((ase.ix[ix] - ase.ix[ix].mean())**2).sum()
         )
 
     return r2
@@ -185,6 +187,8 @@ def parse_args():
     parser.add_argument('--cutoff-r2', default=0.45, type=float)
     parser.add_argument('--min-samples', default=20, type=int)
     parser.add_argument('--min-var', default=False, type=float)
+    parser.add_argument('--fit-ymin', default=-1, type=float)
+    parser.add_argument('--fit-ymax', default=1, type=float)
     args = parser.parse_args()
     args.male_samples = tuple(args.male_samples)
     return args
@@ -213,11 +217,11 @@ if __name__ == "__main__":
     if args.male_samples and 'keep' not in args.male_samples:
         on_x = chrom_of[ase.index] == 'X'
         is_male = [col.startswith(args.male_samples) for col in ase.columns]
-        ase.loc[on_x, is_male] = np.nan
-    ase = ase.loc[ase.T.count() >= args.min_samples]
+        ase.ix[on_x, is_male] = np.nan
+    ase = ase.ix[ase.T.count() >= args.min_samples]
     if args.min_var:
-        ase = ase.loc[ase.T.var() >= args.min_var]
-    ase_perm = ase_perm.loc[ase.index]
+        ase = ase.ix[ase.T.var() >= args.min_var]
+    ase_perm = ase_perm.ix[ase.index]
 
 
     xs = get_xs(ase)
@@ -247,17 +251,17 @@ if __name__ == "__main__":
 
             pbar = ProgressBar()
             for gene in pbar(ase.index):
-                cols = isfinite(ase.loc[gene])
+                cols = isfinite(ase.ix[gene])
                 if sum(cols) == 0:
                     continue
-                linreg = linregress(xs[cols], ase.loc[gene, cols])
+                linreg = linregress(xs[cols], ase.ix[gene, cols])
                 if linreg.pvalue < .05:
-                    res_lin.loc[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
+                    res_lin.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
 
-                #cols = isfinite(ase_perm.loc[gene])
-                #linreg = linregress(xs[cols], ase_perm.loc[gene, cols])
+                #cols = isfinite(ase_perm.ix[gene])
+                #linreg = linregress(xs[cols], ase_perm.ix[gene, cols])
                 #if linreg.pvalue < .05:
-                    #res_lin_perm.loc[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
+                    #res_lin_perm.ix[gene] = [linreg.slope, linreg.intercept, linreg.pvalue, linreg.rvalue]
     recalc_ase = False
 
 
@@ -277,11 +281,11 @@ if __name__ == "__main__":
     good_amps_peak = res_peak.Amp[r2_peak>co].sort_values(inplace=False)
     #good_amps_logist.to_csv('analysis/results/logist.tsv', sep='\t')
     #good_amps_peak.to_csv('analysis/results/peak.tsv', sep='\t')
-    res_logist.loc[r2_logist > co].to_csv(
+    res_logist.ix[r2_logist > co].to_csv(
         'analysis/results/{prefix}logist{suffix}.tsv'
         .format(prefix=args.prefix, suffix=args.suffix),
         sep='\t')
-    res_peak.loc[r2_peak > co].to_csv(
+    res_peak.ix[r2_peak > co].to_csv(
         'analysis/results/{prefix}peak{suffix}.tsv'
         .format(prefix=args.prefix, suffix=args.suffix),
         sep='\t')
@@ -300,16 +304,16 @@ if __name__ == "__main__":
     )
 
     r2_peak_genes = {
-        gene:r2_peak.loc[gene] for gene in r2_peak.index
-        if ((r2_peak.loc[gene] > co)
+        gene:r2_peak.ix[gene] for gene in r2_peak.index
+        if ((r2_peak.ix[gene] > co)
             and (gene not in r2_logist.index
-                 or not (r2_peak.loc[[gene]] < r2_logist.loc[[gene]]).all()))
+                 or not (r2_peak.ix[[gene]] < r2_logist.ix[[gene]]).all()))
     }
     r2_peak_genes = res_peak.Amp[r2_peak_genes].sort_values().index
 
     r2_logist_genes = {
-        gene:r2_logist.loc[gene] for gene in r2_logist.index
-        if ((r2_logist.loc[gene] > co)
+        gene:r2_logist.ix[gene] for gene in r2_logist.index
+        if ((r2_logist.ix[gene] > co)
             and not (r2_logist.ix[[gene]] < r2_peak.ix[[gene]]).all())
     }
     r2_logist_genes = res_logist.Amp[r2_logist_genes].sort_values().index
@@ -330,7 +334,8 @@ if __name__ == "__main__":
             or (gene not in best_r2)):
             best_r2[gene] = r2_logist[gene]
 
-    best_r2.to_csv('analysis/results/{prefix}svase{suffix}_best', sep='\t')
+    best_r2.to_csv('analysis/results/{prefix}svase{suffix}_best'.format(
+        prefix=args.prefix, suffix=args.suffix), sep='\t')
 
 
     pu.svg_heatmap(ase.ix[r2_logist_genes],
@@ -393,12 +398,12 @@ if __name__ == "__main__":
     mpl.figure(figsize=(2, len(r2_logist_genes)))
     for i, gene in enumerate(r2_logist_genes):
         mpl.subplot(len(r2_logist_genes), 1, i+1)
-        mpl.plot(sorted(xs), logistic(sorted(xs), *res_logist.loc[gene]),
+        mpl.plot(sorted(xs), logistic(array(sorted(xs)), *res_logist.ix[gene]),
              'g-', linewidth=3)
         mpl.yticks([])
         mpl.xticks([])
         mpl.xlim(0, 1)
-        mpl.ylim(-1, 1)
+        mpl.ylim(args.fit_ymin, args.fit_ymax)
     mpl.tight_layout(pad=0, h_pad=0, w_pad=0)
     mpl.savefig('analysis/results/{prefix}logist{suffix}_fits'
                 .format(prefix=args.prefix, suffix=args.suffix),)
@@ -406,12 +411,12 @@ if __name__ == "__main__":
     mpl.figure(figsize=(2, len(r2_peak_genes)))
     for i, gene in enumerate(r2_peak_genes):
         mpl.subplot(len(r2_peak_genes), 1, i+1)
-        mpl.plot(sorted(xs), peak(sorted(xs), *res_peak.loc[gene]),
+        mpl.plot(sorted(xs), peak(array(sorted(xs)), *res_peak.ix[gene]),
              'g-', linewidth=3)
         mpl.yticks([])
         mpl.xticks([])
         mpl.xlim(0, 1)
-        mpl.ylim(-1, 1)
+        mpl.ylim(args.fit_ymin, args.fit_ymax)
     mpl.tight_layout(pad=0, h_pad=0, w_pad=0)
     mpl.savefig('analysis/results/{prefix}peak{suffix}_fits'
                 .format(prefix=args.prefix, suffix=args.suffix),
