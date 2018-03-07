@@ -110,7 +110,7 @@ tf_dict = {
 
 rule get_all_memes:
     output: "prereqs/all_meme.meme"
-    shell: """{module}; module load wget
+    shell: """{module}; #module load wget
     wget -O prereqs/motif_databases.tgz \
          http://meme-suite.org/meme-software/Databases/motifs/motif_databases.12.17.tgz
     tar -xvf prereqs/motif_databases.tgz -C prereqs
@@ -798,10 +798,11 @@ rule dedup:
     input: "{sample}.bam"
     output: ("{sample}_dedup.bam")
     log: "{sample}_dedup.log"
-    shell: """{module}; module load picard/2.8.1
+    shell: """{module}; module load picard
     picard MarkDuplicates \
         SORTING_COLLECTION_SIZE_RATIO=.05 \
 		MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 \
+        MAX_RECORDS_IN_RAM=2500000 \
 		READ_NAME_REGEX=null \
 		REMOVE_DUPLICATES=true \
 		DUPLICATE_SCORING_STRATEGY=RANDOM \
@@ -811,7 +812,7 @@ rule get_sra:
     output:
         "sequence/{srr}_1.fastq.gz",
         "sequence/{srr}_2.fastq.gz"
-    log: "sequence/{srr}.log"
+    #log: "sequence/{srr}.log"
     resources: max_downloads=1
     shell: """{module}; module load sra-tools
 
@@ -853,16 +854,22 @@ def interleave_reads(wildcards):
             )
     return retval
 
+rule makedir:
+    output: "{prefix}.log", "{prefix}/"
+    shell: "touch {wildcards.prefix}.log; mkdir -p {wildcards.prefix}"
+
 rule kallisto_quant:
     input:
         unpack(getreads(1)),
         unpack(getreads(2)),
         index='Reference/dmel_5.57_kallisto',
+        dir=ancient('{sample}/')
     priority: 50
     params:
         reads=interleave_reads
     output: "{sample}/abundance.h5", "{sample}/abundance.tsv"
     shell:"""
+    mkdir -p {wildcards.sample}
     ~/Downloads/kallisto/kallisto quant \
         -i {input.index} \
         -o {wildcards.sample} \
@@ -895,7 +902,7 @@ rule ref_genome:
         date=lambda wildcards: dates[wildcards.species],
         version=lambda wildcards: versions[wildcards.species]
 
-    shell: """{module}; module load wget
+    shell: """{module}; #module load wget
     mkdir -p prereqs
 	wget -O {output}.gz ftp://ftp.flybase.org/releases/{params.date}/d{wildcards.species}_{params.version}/fasta/d{wildcards.species}-all-chromosome-{params.version}.fasta.gz
 	gunzip --force {output}.gz
@@ -908,7 +915,7 @@ rule ref_gff:
         date=lambda wildcards: dates[wildcards.species],
         version=lambda wildcards: versions[wildcards.species]
 
-    shell: """{module}; module load wget
+    shell: """{module}; #module load wget
     mkdir -p prereqs
 	wget -O {output}.gz ftp://ftp.flybase.org/releases/{params.date}/d{wildcards.species}_{params.version}/gff/d{wildcards.species}-all-{params.version}.gff.gz
 	gunzip --force {output}.gz
@@ -981,6 +988,7 @@ rule get_combined_variants:
     params:
         dir=path.join(analysis_dir, "on_{parent}")
     shell: """
+    {module}; module load java
 	gatk -T GenotypeGVCFs \
 		-R {input.ref_fasta} \
 		-V {input.parent_gvcf} \
@@ -1000,7 +1008,7 @@ rule get_combined_variants:
 rule fadict:
     input: "{file}.fasta"
     output: "{file}.dict"
-    shell: "picard CreateSequenceDictionary R={input} O={output}"
+    shell: "{module}; module load picard; picard CreateSequenceDictionary R={input} O={output}"
 
 rule index_fasta:
     input: "{file}.fasta"
@@ -1020,10 +1028,11 @@ rule call_variants:
         path.join(analysis_dir, "on_{reference}", "{species}_gdna_raw_variants_uncalibrated.log")
     threads: 4
     shell: """
+    {module}; module load java
 	gatk -T HaplotypeCaller \
 		-R {input.ref_fasta} \
 		-I {input.bam} \
-		-nct 8 \
+		-nct 16 \
 		--genotyping_mode DISCOVERY \
 		--output_mode EMIT_ALL_SITES \
 		--emitRefConfidence GVCF \
@@ -1090,6 +1099,7 @@ rule map_gdna:
     input:
         unpack(getreads(1)),
         unpack(getreads(2)),
+        ancient(path.join(analysis_dir, "on_{reference}")+'/'),
         bt2_index="Reference/d{reference}_prepend.1.bt2"
     output:
         path.join(analysis_dir, "on_{reference}", "{sample}_bowtie2.bam")
@@ -1100,11 +1110,11 @@ rule map_gdna:
         r1s=getreadscomma(1),
         r2s=getreadscomma(2),
         outdir= lambda wildcards, output: path.dirname(output[0])
-    threads: 4
+    threads: 12
     shell: """{module}; module load samtools/1.3 bowtie2
     bowtie2 \
 		--very-sensitive-local \
-		-p 8 \
+		-p 11 \
 		--rg-id {wildcards.sample} \
 		--rg "SM:{wildcards.sample}" \
 		--rg "PL:illumina" \

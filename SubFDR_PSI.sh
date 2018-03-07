@@ -23,4 +23,4 @@ echo "Modules loaded"
 
 export PYTHONPATH=$HOME/fyrd:$PYTHONPATH:/home/users/pcombs/HybridSliceSeq
 
-python FitASEFDR.py --prefix psi_ analysis/psi_summary.tsv
+python FindAutocorrPSI.py

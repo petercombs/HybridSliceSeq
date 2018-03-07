@@ -8,6 +8,7 @@ import PlotUtils as pu
 import CluToGene as spliceid
 import multiprocessing as mp
 import matplotlib.cm as cm
+from os import getcwd
 
 def estimate_pvals(psi, ase, n_reps, min_periods=None):
     #try:
@@ -39,6 +40,8 @@ def estimate_all_pvals(psi, ase, n_reps, min_periods=None, pool=None,
         pbar = tqdm
     else:
         pbar = lambda x: x
+    if 'estimate_pvals' not in locals():
+        from FindAutocorrPSI import estimate_pvals
 
     jobs = {}
     assert np.all(psi.columns == ase.columns)
@@ -52,6 +55,10 @@ def estimate_all_pvals(psi, ase, n_reps, min_periods=None, pool=None,
         res[ix] = jobs[ix].get()
     return res
 
+cluster_args = dict(time= '2:30:00', mem='40G',
+                    partition='owners,hns,normal,hbfraser',
+                    scriptpath='logs', outpath='logs', runpath=getcwd(),
+                    cpus=4, cores=4)
 
 def fyrd_estimate_pvals(psi, ase, n_reps, min_periods=None,
                         n_genes_per_job=100):
@@ -61,17 +68,14 @@ def fyrd_estimate_pvals(psi, ase, n_reps, min_periods=None,
     for i in range(0, len(psi), n_genes_per_job):
         jobs.append(fyrd.submit(estimate_all_pvals,
                                 (psi.iloc[i:i+n_genes_per_job],
-                                 ase, n_reps, min_periods)))
+                                 ase, n_reps, min_periods),
+                               **cluster_args))
 
     for i in tqdm(list(range(len(jobs)))):
-        try:
-            job = jobs[i]
-            res = job.get()
-            for ix in res.index:
-                outs[ix] = res[ix]
-        except Exception as e:
-            print("Error on iteration", i)
-            print(e)
+        job = jobs[i]
+        res = job.get()
+        for ix in res.index:
+            outs[ix] = res[ix]
 
     return pd.Series(outs)
 
@@ -143,6 +147,10 @@ if __name__ == "__main__":
 
 
     rectified_ase.columns = psi.columns
+
+    pv10k=fyrd_estimate_pvals(psi, rectified_ase, 10000,
+                                              n_genes_per_job=500)
+    pv10k.to_csv('analysis/results/pv10k.csv')
 
 #    rectified_ase_by_exons = pd.DataFrame(index=psi.index, columns=psi.columns,
 #                                         data=np.nan)
