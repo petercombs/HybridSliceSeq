@@ -112,6 +112,7 @@ def get_synonyms():
     secondaries = {}
     for line in open(file):
         line = line.strip().split('\t')
+        if len(line) < 2: continue
         fbgn = line[0]
         gn_to_fbgn[line[1]] = fbgn
         if len(line) == 3 or len(line) == 4:
