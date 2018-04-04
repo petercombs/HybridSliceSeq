@@ -103,7 +103,7 @@ bg_regions = {
 
 if __name__ == "__main__":
     target = 'hb'
-    both_stage = '5:51-75'
+    both_stage = '5:9-25'
     mel_stage = both_stage
     sim_stage = both_stage
     if 'sim_atlas' not in locals():
@@ -235,11 +235,15 @@ if __name__ == "__main__":
     figure()
     denom =  (mel_expr_at_stage.clip(0, 20) + sim_expr_at_matching.clip(0, 20))
     co = 0.2
+    cm.RdBu_r.set_bad((.5,.5,.5))
+
+    pred_ase = ((mel_expr_at_stage - sim_expr_at_matching) / denom)
+    pred_ase.ix[denom < co] = 0
+    hyb_order = pred_ase.abs().sort_values().index
     scatter(
-        mel_atlas_pos.ix[mel_order, 'X', mel_stage],
-        mel_atlas_pos.ix[mel_order, 'Z', mel_stage],
-        c=((mel_expr_at_stage - sim_expr_at_matching)
-        /denom.where(denom > co) ).ix[mel_order],
+        mel_atlas_pos.ix[hyb_order, 'X', mel_stage],
+        mel_atlas_pos.ix[hyb_order, 'Z', mel_stage],
+        c=pred_ase.ix[hyb_order],
         cmap=cm.RdBu_r, vmin=-1, vmax=1, s=40,
         edgecolor=(0, 0, 0, 0)
     )
@@ -249,7 +253,11 @@ if __name__ == "__main__":
     ax.set_xlim(mel_atlas_pos.ix[:, 'X', mel_stage].min()-15,
                 mel_atlas_pos.ix[:, 'X', mel_stage].max()+15)
     pu.minimize_ink(ax)
-    savefig(path.join(cwd, 'analysis/results/{}_atlas_ase'.format(target)),
+    savefig(path.join(cwd, 'analysis/results/{}_atlas_ase_M{}S{}'
+                      .format(target,
+                              mel_atlas_expr.minor_axis.get_loc(both_stage),
+                              sim_atlas_expr.minor_axis.get_loc(both_stage),
+                             )),
             transparent=True)
 
     figure()
@@ -266,7 +274,11 @@ if __name__ == "__main__":
     ax.set_xlim(mel_atlas_pos.ix[:, 'X', mel_stage].min()-15,
                 mel_atlas_pos.ix[:, 'X', mel_stage].max()+15)
     pu.minimize_ink(ax)
-    savefig(path.join(cwd, 'analysis/results/{}_atlas_mel'.format(target)),
+    savefig(path.join(cwd, 'analysis/results/{}_atlas_mel_M{}S{}'
+                      .format(target,
+                              mel_atlas_expr.minor_axis.get_loc(both_stage),
+                              sim_atlas_expr.minor_axis.get_loc(both_stage),
+                             )),
             transparent=True)
 
     figure()
@@ -283,7 +295,11 @@ if __name__ == "__main__":
     ax.set_xlim(mel_atlas_pos.ix[:, 'X', mel_stage].min()-15,
                 mel_atlas_pos.ix[:, 'X', mel_stage].max()+15)
     pu.minimize_ink(ax)
-    savefig(path.join(cwd, 'analysis/results/{}_atlas_sim'.format(target)),
+    savefig(path.join(cwd, 'analysis/results/{}_atlas_sim_M{}S{}'
+                      .format(target,
+                              mel_atlas_expr.minor_axis.get_loc(both_stage),
+                              sim_atlas_expr.minor_axis.get_loc(both_stage),
+                             )),
             transparent=True)
 
     from GetASEStats import slices_per_embryo
@@ -307,6 +323,20 @@ if __name__ == "__main__":
         actual.extend(ase.ix[target].select(startswith(embryo)))
         computed.extend(virtual_slices[n][1][0])
 
+    vslice_25 = virtual_slices[25][1][0].copy()
+    vslice_25[13:19] = np.nan
+    vslice_25 = pd.Series(index=['virtual_sl{}'.format(i+1) for i in range(25)],
+                          data=vslice_25)
+    kw = pu.kwargs_ase_heatmap.copy()
+    kw.pop('draw_row_labels')
+    kw.pop('draw_name')
+    kw['box_height'] = 60
+    kw['total_width'] = 200
+    pu.svg_heatmap(vslice_25,
+                   'analysis/results/hb_atlas_ase_slice_25_pu_M{}S{}.svg'
+                   .format(mel_atlas_expr.minor_axis.get_loc(mel_stage),
+                           sim_atlas_expr.minor_axis.get_loc(sim_stage)),
+                   **kw)
     actual = pd.Series(actual)
     computed = pd.Series(computed)
     print(actual.corr(computed))

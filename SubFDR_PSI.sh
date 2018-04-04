@@ -1,8 +1,8 @@
 #! /usr/bin/bash
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 1
-#SBATCH --time=5-00:00:00
-#SBATCH --mem=100G
+#SBATCH --time=6-00:00:00
+#SBATCH --mem=30G
 #SBATCH -p owners
 #SBATCH --workdir=/home/users/pcombs/HybridSliceSeq
 #SBATCH -o /home/users/pcombs/HybridSliceSeq/logs/FDR_PSI.out
@@ -21,4 +21,6 @@ module load fraserconda
 
 echo "Modules loaded"
 
-python FitASEFDR.py --prefix psi_ analysis_godot/psi_summary.tsv
+export PYTHONPATH=$HOME/fyrd:$PYTHONPATH:/home/users/pcombs/HybridSliceSeq
+
+python FindAutocorrPSI.py

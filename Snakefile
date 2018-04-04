@@ -45,6 +45,16 @@ def getreads(readnum):
                 for srr in config['samples'][path.basename(wildcards.sample)]]
     return retfun
 
+def getreads_nowc(readnum):
+    if readnum == 0:
+        formatstr = 'sequence/{}.fastq.gz'
+    else:
+        formatstr = 'sequence/{{}}_{}.fastq.gz'.format(readnum)
+    def retfun(sample):
+        return [formatstr.format(srr)
+                for srr in config['samples'][path.basename(sample)]]
+    return retfun
+
 def getreadscomma(readnum):
     if readnum == 0:
         formatstr = 'sequence/{}.fastq.gz'
@@ -61,12 +71,16 @@ rule all:
         path.join(analysis_dir, "summary.tsv"),
         path.join(analysis_dir, "ase_summary_by_read.tsv")
 
+rule all_reads:
+    input:
+        [reads for sample in samples for reads in getreads_nowc(1)(sample)]
+
 
 rule print_config:
     run:
         print(config)
 
-tfs = "OTF0070.1 hb  kni gt D FBgn0001325_4 tll hkb  FBgn0000251_3 FBgn0003448_3 twi OTF0532.1 OTF0478.1 OTF0181.1 FBgn0013753 hkb_FFS"
+tfs = "OTF0070.1 hb  kni gt D FBgn0001325_4 tll hkb  FBgn0000251_3 FBgn0003448_3 twi OTF0532.1 OTF0478.1 OTF0181.1 FBgn0013753 FBgn0001204"
 tf_names = "bcd  hb  kni gt D Kr            tll hkb cad            sna           twi zen       Doc2      rho/pnt   run/Bgb     hkb_FFS"
 
 tf_dict = {
@@ -88,11 +102,27 @@ tf_dict = {
     'pnt': 'OTF0181.1',
     'run/Bgb': 'FBgn0013753',
     'run': 'FBgn0013753',
-    'hkbFFS': 'hkb_FFS',
+    'hkbFFS': 'hkb_FBgn0001204',
     'cic': 'FBgn0028386',
     'retn': 'FBgn0004795',
 
 }
+
+rule get_all_memes:
+    output: "prereqs/all_meme.meme"
+    shell: """{module}; #module load wget
+    wget -O prereqs/motif_databases.tgz \
+         http://meme-suite.org/meme-software/Databases/motifs/motif_databases.12.17.tgz
+    tar -xvf prereqs/motif_databases.tgz -C prereqs
+    cat prereqs/motif_databases/FLY/* > {output}
+    """
+rule condense_memes:
+    input:
+        "prereqs/all_meme.meme",
+    output:
+        "Reference/all_meme_filtered.meme"
+    shell: "python CondenseMemes.py"
+
 
 rule alignment_figure:
     input:
@@ -243,6 +273,16 @@ rule mel_bed:
         >> {output}
     """
 
+rule nonmel_fasta_from_bed:
+    input:
+        bed='analysis/targets/{gene}/{species}.bed',
+        full_fasta='Reference/d{species}_prepend.fasta',
+    output:
+        'analysis/targets/{gene}/{species}.fasta'
+    shell: """ {module}; module load bedtools
+    bedtools getfasta -fi {input.full_fasta} -bed {input.bed} \
+            -fo {output} -s -name
+    """
 rule make_blastdb:
     input: "Reference/{file}.fasta"
     output: "Reference/{file}.fasta.nhr"
@@ -356,6 +396,56 @@ rule sample_gene_ase:
         {input.bam}
     """
 
+rule sample_cds_ase:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
+        variants=variants,
+        hets=path.join(analysis_dir, "on_mel", "melsim_true_hets.tsv"),
+        gtf=mel_gtf,
+        sentinel=path.join(analysis_dir, 'recalc_ase')
+    threads: 1
+    output:
+        "{sample}/melsim_cds_ase_by_read.tsv"
+    log:
+        "{sample}/melsim_cds_ase_by_read.log"
+    shell: """ export PYTHONPATH=$PYTHONPATH:/home/pcombs/ASEr/;
+    python ~/ASEr/bin/GetGeneASEbyReads.py \
+        --outfile {output} \
+        --id-name gene_name \
+        --ase-function pref_index \
+        --min-reads-per-allele 0 \
+        --feature-type CDS \
+        {input.variants} \
+        {input.gtf} \
+        {input.bam}
+    """
+
+rule sample_exon_ase:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
+        variants=variants,
+        hets=path.join(analysis_dir, "on_mel", "melsim_true_hets.tsv"),
+        gtf='Reference/mel_renamed_exons.gtf',
+        sentinel=path.join(analysis_dir, 'recalc_ase')
+    threads: 1
+    output:
+        "{sample}/melsim_exon_ase_by_read.tsv"
+    log:
+        "{sample}/melsim_exon_ase_by_read.log"
+    shell: """ export PYTHONPATH=$PYTHONPATH:/home/pcombs/ASEr/;
+    python ~/ASEr/bin/GetGeneASEbyReads.py \
+        --outfile {output} \
+        --id-name gene_id \
+        --ase-function pref_index \
+        --min-reads-per-allele 0 \
+        {input.variants} \
+        {input.gtf} \
+        {input.bam}
+    """
+
+
 rule exons_gtf:
     input:
         "Reference/{species}_good.gtf"
@@ -365,6 +455,24 @@ rule exons_gtf:
     python2 /home/pcombs/R/DEXSeq/python_scripts/dexseq_prepare_annotation.py \
         --aggregate=yes {input} {output}
     """
+
+rule exons_renamed:
+    input:
+        "Reference/{species}_good_exons.gtf"
+    output:
+        "Reference/{species}_renamed_exons.gtf"
+    run:
+        import Utils as ut
+        with open(output[0], 'w') as out:
+            for line in open(input[0]):
+                data = line.split('\t')
+                if data[2] != 'exonic_part': continue
+                annots = ut.parse_annotation(data[-1])
+                data[-1] = 'gene_id "{}_{}"'.format(annots['gene_id'], annots['exonic_part_number'])
+                data[2] = 'exon'
+                print(*data, file=out, sep='\t')
+
+
 
 
 rule sample_psi:
@@ -380,6 +488,52 @@ rule sample_psi:
         --outfile {output} \
         {input.bam} {input.gtf}
         """
+
+rule sample_juncs:
+    input:
+        bam="{analysis_dir}/{sample}/assigned_dmelR_dedup.bam",
+        bai="{analysis_dir}/{sample}/assigned_dmelR_dedup.bam.bai",
+    output:
+        "{analysis_dir}/velvetant/{sample}.junc"
+    shell:"""
+    ~/leafcutter/scripts/bam2junc.sh {input.bam} {output}
+    """
+
+rule all_sample_juncs:
+    input: lambda wildcards: [path.join(analysis_dir, 'velvetant', sample +'.junc') for sample in samples]
+    output: 'analysis/velvetant/juncfiles.txt'
+    run:
+        with open(output[0], 'w') as out:
+            print(*input, sep='\n', file=out)
+
+
+rule leafcutter_cluster:
+    input:
+        juncs='analysis/velvetant/juncfiles.txt',
+        firstbam=samples_to_files('assigned_dmelR_dedup.bam')()[0],
+    output:
+        'analysis/velvetant/clusters_perind.counts.gz'
+    shell: """
+    {module}; module load fraserconda
+    python ~/leafcutter-official/clustering/leafcutter_cluster.py \
+        -j {input.juncs}  \
+        -o clusters \
+        --example-bam {input.firstbam} \
+        --rundir analysis/velvetant/
+    """
+
+rule sample_velvetant:
+    input:
+        bam="{sample}/assigned_dmelR_dedup.bam",
+        bai="{sample}/assigned_dmelR_dedup.bam.bai",
+        juncs="analysis/velvetant/clusters_perind.counts.gz",
+        snps="analysis_godot/on_mel/melsim_variant.bed",
+    output:
+        "{sample}/velvetant.tsv"
+    shell: """
+    {module}; module load fraserconda
+    python VelvetAnt.py -x --snps-bed {input.snps} --splicing-clusters {input.juncs} -o {output} {input.bam}
+    """
 
 rule get_all_map_stats:
     input: *samples_to_files('assigned_dmelR.mapstats')(),
@@ -443,6 +597,32 @@ rule true_hets:
     cp {output} `dirname {output}`/true_hets.tsv
     """
 
+rule kallisto_summary:
+    input:
+        *samples_to_files('abundance.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'summary_kallisto.tsv')
+    log:
+        path.join(analysis_dir, 'mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename abundance.tsv \
+	   --key target_id \
+       --out-basename summary_kallisto \
+	   --column tpm \
+		{analysis_dir} \
+		| tee {log}
+        """
+
 rule expr_summary:
     input:
         *samples_to_files('genes.fpkm_tracking')(),
@@ -494,6 +674,58 @@ rule ase_summary:
 		| tee {log}
         """
 
+rule cds_ase_summary:
+    input:
+        *samples_to_files('melsim_cds_ase_by_read.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'cds_ase_summary_by_read.tsv')
+    log:
+        path.join(analysis_dir, 'cds_mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename melsim_cds_ase_by_read.tsv \
+	   --key gene \
+	   --column ase_value \
+       --out-basename cds_ase_summary_by_read \
+		{analysis_dir} \
+		| tee {log}
+        """
+
+rule exons_ase_summary:
+    input:
+        *samples_to_files('melsim_exon_ase_by_read.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'exon_ase_summary_by_read.tsv')
+    log:
+        path.join(analysis_dir, 'exon_mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename melsim_exon_ase_by_read.tsv \
+	   --key gene \
+	   --column ase_value \
+       --out-basename exon_ase_summary_by_read \
+		{analysis_dir} \
+		| tee {log}
+        """
+
 rule psi_summary:
     input:
         *samples_to_files('psi.tsv')(),
@@ -520,6 +752,32 @@ rule psi_summary:
 		| tee {log}
         """
 
+rule velvetant_summary:
+    input:
+        *samples_to_files('velvetant.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'velvetant_summary.tsv')
+    log:
+        path.join(analysis_dir, 'velvetant_mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename velvetant.tsv \
+	   --key 0 \
+	   --column pref_index \
+       --out-basename velvetant_summary \
+		{analysis_dir} \
+		| tee {log}
+        """
+
 
 rule sort_bam:
     input: "{sample}.bam"
@@ -540,10 +798,11 @@ rule dedup:
     input: "{sample}.bam"
     output: ("{sample}_dedup.bam")
     log: "{sample}_dedup.log"
-    shell: """{module}; module load picard/2.8.1
+    shell: """{module}; module load picard
     picard MarkDuplicates \
         SORTING_COLLECTION_SIZE_RATIO=.05 \
 		MAX_FILE_HANDLES_FOR_READ_ENDS_MAP=1000 \
+        MAX_RECORDS_IN_RAM=2500000 \
 		READ_NAME_REGEX=null \
 		REMOVE_DUPLICATES=true \
 		DUPLICATE_SCORING_STRATEGY=RANDOM \
@@ -551,9 +810,9 @@ rule dedup:
         """
 rule get_sra:
     output:
-        temp("sequence/{srr}_1.fastq.gz"),
-        temp("sequence/{srr}_2.fastq.gz")
-    log: "sequence/{srr}.log"
+        "sequence/{srr}_1.fastq.gz",
+        "sequence/{srr}_2.fastq.gz"
+    #log: "sequence/{srr}.log"
     resources: max_downloads=1
     shell: """{module}; module load sra-tools
 
@@ -585,6 +844,38 @@ rule star_map:
     fi
     """
 
+def interleave_reads(wildcards):
+    retval =  " ".join(" ".join([a, b])
+            for a, b
+            in zip(
+                getreads_nowc(1)(path.basename(wildcards.sample)),
+                getreads_nowc(2)(path.basename(wildcards.sample))
+                )
+            )
+    return retval
+
+rule makedir:
+    output: "{prefix}.log", "{prefix}/"
+    shell: "touch {wildcards.prefix}.log; mkdir -p {wildcards.prefix}"
+
+rule kallisto_quant:
+    input:
+        unpack(getreads(1)),
+        unpack(getreads(2)),
+        index='Reference/dmel_5.57_kallisto',
+        dir=ancient('{sample}/')
+    priority: 50
+    params:
+        reads=interleave_reads
+    output: "{sample}/abundance.h5", "{sample}/abundance.tsv"
+    shell:"""
+    mkdir -p {wildcards.sample}
+    ~/Downloads/kallisto/kallisto quant \
+        -i {input.index} \
+        -o {wildcards.sample} \
+        {params.reads}
+    """
+
 
 rule masked_star_ref:
     input:
@@ -611,7 +902,7 @@ rule ref_genome:
         date=lambda wildcards: dates[wildcards.species],
         version=lambda wildcards: versions[wildcards.species]
 
-    shell: """{module}; module load wget
+    shell: """{module}; #module load wget
     mkdir -p prereqs
 	wget -O {output}.gz ftp://ftp.flybase.org/releases/{params.date}/d{wildcards.species}_{params.version}/fasta/d{wildcards.species}-all-chromosome-{params.version}.fasta.gz
 	gunzip --force {output}.gz
@@ -624,7 +915,7 @@ rule ref_gff:
         date=lambda wildcards: dates[wildcards.species],
         version=lambda wildcards: versions[wildcards.species]
 
-    shell: """{module}; module load wget
+    shell: """{module}; #module load wget
     mkdir -p prereqs
 	wget -O {output}.gz ftp://ftp.flybase.org/releases/{params.date}/d{wildcards.species}_{params.version}/gff/d{wildcards.species}-all-{params.version}.gff.gz
 	gunzip --force {output}.gz
@@ -697,6 +988,7 @@ rule get_combined_variants:
     params:
         dir=path.join(analysis_dir, "on_{parent}")
     shell: """
+    {module}; module load java
 	gatk -T GenotypeGVCFs \
 		-R {input.ref_fasta} \
 		-V {input.parent_gvcf} \
@@ -716,7 +1008,7 @@ rule get_combined_variants:
 rule fadict:
     input: "{file}.fasta"
     output: "{file}.dict"
-    shell: "picard CreateSequenceDictionary R={input} O={output}"
+    shell: "{module}; module load picard; picard CreateSequenceDictionary R={input} O={output}"
 
 rule index_fasta:
     input: "{file}.fasta"
@@ -736,10 +1028,11 @@ rule call_variants:
         path.join(analysis_dir, "on_{reference}", "{species}_gdna_raw_variants_uncalibrated.log")
     threads: 4
     shell: """
+    {module}; module load java
 	gatk -T HaplotypeCaller \
 		-R {input.ref_fasta} \
 		-I {input.bam} \
-		-nct 8 \
+		-nct 16 \
 		--genotyping_mode DISCOVERY \
 		--output_mode EMIT_ALL_SITES \
 		--emitRefConfidence GVCF \
@@ -806,6 +1099,7 @@ rule map_gdna:
     input:
         unpack(getreads(1)),
         unpack(getreads(2)),
+        ancient(path.join(analysis_dir, "on_{reference}")+'/'),
         bt2_index="Reference/d{reference}_prepend.1.bt2"
     output:
         path.join(analysis_dir, "on_{reference}", "{sample}_bowtie2.bam")
@@ -816,11 +1110,11 @@ rule map_gdna:
         r1s=getreadscomma(1),
         r2s=getreadscomma(2),
         outdir= lambda wildcards, output: path.dirname(output[0])
-    threads: 4
+    threads: 12
     shell: """{module}; module load samtools/1.3 bowtie2
     bowtie2 \
 		--very-sensitive-local \
-		-p 8 \
+		-p 11 \
 		--rg-id {wildcards.sample} \
 		--rg "SM:{wildcards.sample}" \
 		--rg "PL:illumina" \
@@ -852,6 +1146,6 @@ rule sentinel_recalc_ase:
 rule sentinel_recalc_psi:
     output: touch(path.join(analysis_dir, "recalc_psi"))
 
-ruleorder: ref_genome > melfasta > getfasta
+ruleorder: ref_genome > melfasta > getfasta > combined_fasta > nonmel_fasta_from_bed
 
 

@@ -10,17 +10,26 @@ def parse_into_pwms(fname):
     all_tfs = defaultdict(list)
     nsites = 0
     motif = []
+    # It has been pointed out that the FlyFactorSurvey version of hkb does have
+    # predicted binding in the interesting region of hunchback. So I'm very
+    # hackily including that as well.
+    is_special_hkb = 'hkb_NAR' in line
     tf = line.strip().split()[-1].split('_')[0].lower()
     for line in in_file:
         if line.startswith('MOTIF'):
+            if is_special_hkb:
+                all_tfs['hkb_FFS'].append((nsites, motif))
             if nsites:
                 all_tfs[tf].append((nsites, motif))
                 nsites = 0
             motif = []
             tf = line.strip().split()[-1].split('_')[0].lower()
+            is_special_hkb = 'hkb_NAR' in line
         elif line.startswith('MEME'):
             if nsites:
                 all_tfs[tf].append((nsites, motif))
+            if is_special_hkb:
+                all_tfs['hkb_FFS'].append((nsites, motif))
             motif = []
             nsites = 0
         elif 'nsites' in line:

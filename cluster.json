@@ -1,10 +1,37 @@
 {
         "__default__" :
         {
-                "queue" : "batch"
+                "time" : "02:00:00",
+                "cpus": 1,
+                "memory": "15G",
+                jobname: "{rule}.{wildcards}",
+                "partition": "hbfraser,hns,owners",
+        },
+        "get_sra":
+        {
+                "time": "18:00:00",
+        },
+        "call_variants":{
+                "cpus": 16,
+                "time": "6:00:00",
+
         },
         "dedup" :
         {
-                "queue" : "fast_io"
+                "time": "12:00:00",
+                "memory": "64G",
+        },
+        "map_gdna":
+        {
+                "time": "1-00:00:00",
+                "cpus": 12,
+                "memory": "60G",
+
+        },
+        "star_map" :
+        {
+                "time" : "01:00:00",
+                "cpus": 16,
+                "memory": "30G"
         }
 }
