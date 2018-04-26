@@ -97,12 +97,6 @@ if __name__ == "__main__":
     #lott.drop_duplicates(subset='fbgn', keep=False, inplace=True)
     #lott.index = lott.fbgn
 
-    paris = pd.read_table('prereqs/GSE68062_Gene_CLASS_after_FPKM_normalization.txt', index_col=1,
-            header=0,
-            names=['gn', 'FBgn', 'yak', 'pse', 'vir']+[s+'_'+n for s in 'mel yak pse vir'.split() for n in 'class prob'.split()],
-            )
-
-
     in_both = ase.index.intersection(expr.index)
     ase = ase.ix[in_both]
     expr = expr.ix[in_both]
@@ -169,6 +163,12 @@ if __name__ == "__main__":
                          data=[all(bias_dirs.ix[gene] == (0, 0)) for gene in
                                ase.index]
                        )
+    low_expr = pd.Series({gene: any( bias_dirs.ix[gene]==99)
+                          for gene in ase.index})
+    low_expr_genes = (lott.index
+                      .difference(ase.index)
+                      .union(ut.true_index(low_expr))
+                     )
 
 
     maternal_ttest = pd.Series(index=all_ase.index,
@@ -252,8 +252,8 @@ if __name__ == "__main__":
     pu.svg_heatmap((ase.ix[me_mat_lott_zyg], lott_expr.ix[me_mat_lott_zyg]), 'analysis/results/me_mat_lott_zyg.svg',
                    norm_rows_by=('center0pre', 'max'), cmap=(cm.RdBu, cm.viridis),  **plot_kwargs)
 
-    peak_genes = [line.strip() for line in open('analysis/results/peak_genes.txt')]
-    logist_genes = [line.strip() for line in open('analysis/results/logist_genes.txt')]
+    peak_genes = [line.strip() for line in open('analysis/results/asepeak_genes.txt')]
+    logist_genes = [line.strip() for line in open('analysis/results/aselogist_genes.txt')]
 
     data['num_peak'] = len(peak_genes)
     data['num_logist'] = len(logist_genes)
