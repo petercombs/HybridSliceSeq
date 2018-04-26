@@ -18,6 +18,8 @@ mel_fasta = 'Reference/dmel_prepend.fasta'
 
 variants = path.join(hybrid_dir, 'melsim_variant.bed')
 
+localrules: all, makedir, all_files_per_sample
+
 configfile: "Parameters/config.json"
 
 mxs_r1 = ['melXsim_cyc14C_rep1_sl{:02d}'.format(i) for i in range(4, 30)]
@@ -337,6 +339,89 @@ rule exons:
 
 ruleorder: mel_bed > non_mel_bed
 
+rule make_snpdir:
+    input:
+        vcf="analysis_godot/on_{target}/melsim_variants_on{target}.gvcf"
+    output:
+        dir="analysis_godot/on_{target}/snpdir",
+        file="analysis_godot/on_{target}/snpdir/all.txt.gz",
+    shell:"""
+    mkdir -p {output.dir}
+    cat {input.vcf}             \
+            | grep -v "^#"             \
+            | awk 'BEGIN {{OFS="\t"}}; length($4) == 1 && length($5) == 1 {{print $1,$2,$4,$5}};' \
+            | gzip -c  \
+            > {output.file}
+"""
+
+rule wasp_find_snps:
+    input:
+        bam="{sample}/{prefix}_dedup.bam",
+        bai="{sample}/{prefix}_dedup.bam.bai",
+        snpdir="analysis_godot/on_mel/snpdir",
+        snpfile="analysis_godot/on_mel/snpdir/all.txt.gz"
+    output:
+        temp("{sample}/{prefix}_dedup.remap.fq1.gz"),
+        temp("{sample}/{prefix}_dedup.remap.fq2.gz"),
+        temp("{sample}/{prefix}_dedup.keep.bam"),
+        temp("{sample}/{prefix}_dedup.to.remap.bam"),
+
+    shell:
+        """python ~/FWASP/mapping/find_intersecting_snps.py \
+            --progressbar \
+            --phased --paired_end \
+            {input.bam} {input.snpdir}
+        """
+
+
+rule wasp_remap:
+    input:
+        R1="{sample}/{prefix}.remap.fq1.gz",
+        R2="{sample}/{prefix}.remap.fq2.gz",
+        genome="Reference/dmel_prepend/Genome",
+        genomedir="Reference/dmel_prepend/"
+    output:
+        temp("{sample}/{prefix}.remap.bam")
+    threads: 16
+    shell: """{module}; module load STAR;
+    rm -rf {wildcards.sample}/STARtmp
+    STAR \
+            --genomeDir {input.genomedir} \
+            --outFileNamePrefix {wildcards.sample}/remap \
+            --outSAMattributes MD NH --clip5pNbases 6 \
+            --outSAMtype BAM Unsorted \
+            --outTmpDir {wildcards.sample}/STARtmp \
+            --limitBAMsortRAM 20000000000 \
+            --runThreadN {threads} \
+            --readFilesCommand zcat \
+            --readFilesIn {input.R1} {input.R2}
+    mv {wildcards.sample}/remapAligned.out.bam {output}
+            """
+
+rule wasp_keep:
+    input:
+        toremap="{file}.to.remap.bam",
+        remapped="{file}.remap.bam",
+    output:
+        temp("{file}.remap.kept.bam"),
+    shell: """
+    export CONDA_PATH_BACKUP=""
+    export PS1=""
+    source activate peter
+    python ~/FWASP/mapping/filter_remapped_reads.py \
+            -p \
+            {input.toremap} {input.remapped} \
+            {output} """
+
+rule wasp_merge:
+    input:
+        "{file}.remap.kept.bam",
+        "{file}.keep.bam",
+    output:
+        temp("{file}.keep.merged.bam")
+    shell:
+        "{module}; module load samtools; samtools merge {output} {input}"
+
 def samples_to_files(fname):
     # Returns a function that is callable by an input rule
     def retfun():
@@ -385,7 +470,33 @@ rule sample_gene_ase:
         "{sample}/melsim_gene_ase_by_read.tsv"
     log:
         "{sample}/melsim_gene_ase_by_read.log"
-    shell: """ export PYTHONPATH=$PYTHONPATH:/home/pcombs/ASEr/;
+    shell: """ 
+    source activate peter
+    export PYTHONPATH=$HOME/ASEr/;
+    python ~/ASEr/bin/GetGeneASEbyReads.py \
+        --outfile {output} \
+        --id-name gene_name \
+        --ase-function pref_index \
+        --min-reads-per-allele 0 \
+        {input.variants} \
+        {input.gtf} \
+        {input.bam}
+    """
+
+rule wasp_gene_ase:
+    input:
+        bam="{sample}/orig_dedup.keep.merged.sorted.bam",
+        bai="{sample}/orig_dedup.keep.merged.sorted.bam.bai",
+        variants=variants,
+        hets=path.join(analysis_dir, "on_mel", "melsim_true_hets.tsv"),
+        gtf=mel_gtf,
+        sentinel=path.join(analysis_dir, 'recalc_ase')
+    threads: 1
+    output:
+        "{sample}/wasp_gene_ase_by_read.tsv"
+    shell: """ 
+    source activate peter
+    export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
         --outfile {output} \
         --id-name gene_name \
@@ -409,7 +520,9 @@ rule sample_cds_ase:
         "{sample}/melsim_cds_ase_by_read.tsv"
     log:
         "{sample}/melsim_cds_ase_by_read.log"
-    shell: """ export PYTHONPATH=$PYTHONPATH:/home/pcombs/ASEr/;
+    shell: """ 
+    source activate peter
+    export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
         --outfile {output} \
         --id-name gene_name \
@@ -434,7 +547,9 @@ rule sample_exon_ase:
         "{sample}/melsim_exon_ase_by_read.tsv"
     log:
         "{sample}/melsim_exon_ase_by_read.log"
-    shell: """ export PYTHONPATH=$PYTHONPATH:/home/pcombs/ASEr/;
+    shell: """ 
+    source activate peter
+    export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
         --outfile {output} \
         --id-name gene_id \
@@ -452,7 +567,7 @@ rule exons_gtf:
     output:
         "Reference/{species}_good_exons.gtf"
     shell:"""
-    python2 /home/pcombs/R/DEXSeq/python_scripts/dexseq_prepare_annotation.py \
+    python2 $HOME/R/DEXSeq/python_scripts/dexseq_prepare_annotation.py \
         --aggregate=yes {input} {output}
     """
 
@@ -674,6 +789,32 @@ rule ase_summary:
 		| tee {log}
         """
 
+rule ase_summary_wasp:
+    input:
+        *samples_to_files('wasp_gene_ase_by_read.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'wasp_summary_by_read.tsv')
+    log:
+        path.join(analysis_dir, 'ase_mst.log')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename wasp_gene_ase_by_read.tsv \
+	   --key gene \
+	   --column ase_value \
+       --out-basename wasp_summary_by_read \
+		{analysis_dir} \
+		| tee {log}
+        """
+
 rule cds_ase_summary:
     input:
         *samples_to_files('melsim_cds_ase_by_read.tsv')(),
@@ -808,6 +949,7 @@ rule dedup:
 		DUPLICATE_SCORING_STRATEGY=RANDOM \
 		INPUT={input} OUTPUT={output} METRICS_FILE={log}
         """
+
 rule get_sra:
     output:
         "sequence/{srr}_1.fastq.gz",
@@ -831,6 +973,30 @@ rule star_map:
     output: "{sample}/assigned_dmelR.bam"
     threads: 6
     log: "{sample}/assigned_dmelR.log"
+    shell: """{module}; module load STAR
+    STAR --parametersFiles Parameters/STAR_params.in \
+    --genomeDir {input.genomedir} \
+    --outFileNamePrefix {wildcards.sample}/ \
+    --outSAMattributes MD NH \
+    --outSAMtype BAM SortedByCoordinate \
+    --clip5pNbases 6 \
+    --readFilesIn {params.r1s} {params.r2s}
+    if [ -s  {wildcards.sample}/Aligned.sortedByCoord.out.bam ]; then
+        mv {wildcards.sample}/Aligned.sortedByCoord.out.bam {output};
+    fi
+    """
+
+rule star_map_mel:
+    input:
+        unpack(getreads(1)),
+        unpack(getreads(2)),
+        genome='Reference/dmel_prepend/Genome',
+        genomedir='Reference/dmel_prepend',
+    params:
+        r1s=getreadscomma(1),
+        r2s=getreadscomma(2),
+    output: "{sample}/orig.bam"
+    threads: 6
     shell: """{module}; module load STAR
     STAR --parametersFiles Parameters/STAR_params.in \
     --genomeDir {input.genomedir} \
@@ -876,6 +1042,24 @@ rule kallisto_quant:
         {params.reads}
     """
 
+
+rule mel_star_ref:
+    input:
+        fasta='Reference/dmel_prepend.fasta',
+        gtf=mel_gtf,
+    output:
+        outdir='Reference/dmel_prepend',
+        outfile="Reference/dmel_prepend/Genome"
+    log: path.join(hybrid_dir, "masked.log")
+    priority: 50
+    shell:""" {module}; module load STAR
+    rm -rf {output.outdir}
+    mkdir -p {output.outdir}
+	STAR --runMode genomeGenerate --genomeDir {output.outdir} \
+		--outTmpDir {output.outdir}/_tmp/ \
+		--genomeFastaFiles {input.fasta} \
+		--sjdbGTFfile {input.gtf}
+    """
 
 rule masked_star_ref:
     input:
@@ -1041,6 +1225,7 @@ rule call_variants:
 		-stand_call_conf 30 \
 		-o {output}
     """
+
 rule split_genome_to_regions:
     input: "Reference/d{reference}.chr.sizes"
     output: expand("Reference/d{reference}.split/10m_{subset}.bed", reference="{reference}", subset=range(num_mel_windows))

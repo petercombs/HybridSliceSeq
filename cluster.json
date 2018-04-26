@@ -33,5 +33,25 @@
                 "time" : "01:00:00",
                 "cpus": 16,
                 "memory": "30G"
-        }
+        },
+        "wasp_remap":
+        {
+                "time": "4:00:00",
+                "cpus": 16,
+                "memory": "60G",
+        },
+        "wasp_keep":
+        {
+                "time": "2:00:00", "memory": "20G",
+        },
+        "wasp_find_snps":
+        {
+                "time": "5:00:00",
+        },
+        "true_hets":
+        {
+            "time": "4:00:00",
+            "cpus": 16,
+            "memory": "30G",
+        },
 }
