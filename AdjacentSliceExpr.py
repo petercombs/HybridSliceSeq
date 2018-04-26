@@ -3,6 +3,9 @@ import numpy as np
 import Utils as ut
 import matplotlib.pyplot as mpl
 
+import warnings
+warnings.filterwarnings('ignore', category=FutureWarning)
+
 if __name__ == "__main__":
     if 'ase' not in locals() or ('reload_ase' in locals() and locals()['reload_ase']):
         print("Reloading data")
@@ -74,6 +77,7 @@ if __name__ == "__main__":
         ax.set_yticks([])
         #if i < (cols * (rows-1)):
         ax.set_xticks([])
+    print("ASE Corrs:", np.mean(adj_ase_corrs), '+/-', np.std(adj_ase_corrs))
     fig.subplots_adjust(hspace=0.05, wspace=0.05,
                         left=0.025, right=0.975,
                         top=0.975, bottom=0.025)
@@ -89,7 +93,7 @@ if __name__ == "__main__":
     expr_x_sorted = expr.loc[:, sxs.index]
 
     num_slices = len(sxs.index)
-    figwidth, figheight = 6,9
+    figwidth, figheight = 6.5,9
     fig = mpl.figure(figsize=(figwidth,figheight))
     total_area = figwidth*figheight
     subplot_area = total_area / num_slices
@@ -116,8 +120,9 @@ if __name__ == "__main__":
             ax.set_yticks([])
         if i < (cols * (rows-1)):
             ax.set_xticks([])
+    print("Expr Corrs: ", np.mean(adj_expr_corrs), '+/-', np.std(adj_expr_corrs))
     fig.subplots_adjust(hspace=0.05, wspace=0.05,
-                        left=0.025, right=0.975,
+                        left=0.05, right=0.975,
                         top=0.975, bottom=0.025)
     mpl.savefig('analysis/results/adj_slice_expr_corr', dpi=300)
 
