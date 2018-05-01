@@ -789,6 +789,30 @@ rule ase_summary:
 		| tee {log}
         """
 
+rule ase_summary_refalt:
+    input:
+        *samples_to_files('wasp_gene_ase_by_read.tsv')(),
+        map_stats=path.join(analysis_dir, 'map_stats.tsv'),
+        sentinel=path.join(analysis_dir, 'retabulate'),
+    output:
+        path.join(analysis_dir, 'ase_summary_refalt.tsv')
+    shell: """
+    {module}; module load fraserconda;
+    python MakeSummaryTable.py \
+	   --strip-low-reads 1000000 \
+	   --strip-on-unique \
+	   --strip-as-nan \
+	   --mapped-bamfile assigned_dmelR.bam \
+	   --strip-low-map-rate 52 \
+	   --map-stats {input.map_stats} \
+	   --filename melsim_gene_ase_by_read.tsv \
+	   --key gene \
+       --refalt \
+	   --column ref_counts \
+       --out-basename ase_summary_refalt \
+		{analysis_dir} 
+        """
+
 rule ase_summary_wasp:
     input:
         *samples_to_files('wasp_gene_ase_by_read.tsv')(),
