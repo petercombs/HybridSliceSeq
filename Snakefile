@@ -805,7 +805,7 @@ rule ase_summary_refalt:
 	   --mapped-bamfile assigned_dmelR.bam \
 	   --strip-low-map-rate 52 \
 	   --map-stats {input.map_stats} \
-	   --filename melsim_gene_ase_by_read.tsv \
+	   --filename wasp_gene_ase_by_read.tsv \
 	   --key gene \
        --refalt \
 	   --column ref_counts \
