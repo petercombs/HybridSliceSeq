@@ -1,4 +1,4 @@
-library("DESeq2")
+suppressPackageStartupMessages(library("DESeq2"))
 
 args <- commandArgs(trailingOnly=TRUE)
 print(args)
