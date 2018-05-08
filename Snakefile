@@ -470,7 +470,7 @@ rule sample_gene_ase:
         "{sample}/melsim_gene_ase_by_read.tsv"
     log:
         "{sample}/melsim_gene_ase_by_read.log"
-    shell: """ 
+    shell: """
     source activate peter
     export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
@@ -494,7 +494,7 @@ rule wasp_gene_ase:
     threads: 1
     output:
         "{sample}/wasp_gene_ase_by_read.tsv"
-    shell: """ 
+    shell: """
     source activate peter
     export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
@@ -520,7 +520,7 @@ rule sample_cds_ase:
         "{sample}/melsim_cds_ase_by_read.tsv"
     log:
         "{sample}/melsim_cds_ase_by_read.log"
-    shell: """ 
+    shell: """
     source activate peter
     export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
@@ -547,7 +547,7 @@ rule sample_exon_ase:
         "{sample}/melsim_exon_ase_by_read.tsv"
     log:
         "{sample}/melsim_exon_ase_by_read.log"
-    shell: """ 
+    shell: """
     source activate peter
     export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
@@ -808,6 +808,7 @@ rule ase_summary_refalt:
 	   --filename wasp_gene_ase_by_read.tsv \
 	   --key gene \
        --refalt \
+       --float-format %3.0f \
        --exclude-column chrom \
        --exclude-column-value dmel_X \
        --exclude-samples melXsim_cyc14C_rep3 simXmel_cyc14C_rep2 \
@@ -1167,7 +1168,7 @@ rule bad_gtf:
     shell: """
     echo {threads}
 	cat {input} \
-		| grep -vP '(snoRNA|CR[0-9]{{4}}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
+		| grep -P '(snoRNA|CR[0-9]{{4}}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
 		> {output}
         """
 
