@@ -808,9 +808,12 @@ rule ase_summary_refalt:
 	   --filename melsim_gene_ase_by_read.tsv \
 	   --key gene \
        --refalt \
+       --exclude-column chrom \
+       --exclude-column-value dmel_X \
+       --exclude-samples melXsim_cyc14C_rep3 simXmel_cyc14C_rep2 \
 	   --column ref_counts \
        --out-basename ase_summary_refalt \
-		{analysis_dir} 
+		{analysis_dir}
         """
 
 rule ase_summary_wasp:

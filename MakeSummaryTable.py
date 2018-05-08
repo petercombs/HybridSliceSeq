@@ -59,6 +59,16 @@ def parse_args():
                               'expression table'))
     parser.add_argument('--column', '-C', default='FPKM',
                         help='Column to read out (either name or number)')
+    parser.add_argument('--exclude-column', '-X',
+                        default=False
+                       )
+    parser.add_argument('--exclude-column-value',
+                        nargs='+',
+                        default=[],
+                       )
+    parser.add_argument('--exclude-samples', '-x',
+                        nargs='+', default=[],
+                       )
     parser.add_argument('--no-header', dest='header', action='store_false',
                         default=True,
                         help='No header line in the file')
@@ -225,6 +235,11 @@ def get_expr_values(fname):
         if skip:
             print(reads, total_reads, map_rate,
                   args.strip_low_map_rate / 100)
+
+    for sample in args.exclude_samples:
+        if sample in dirname:
+            for val in args.exclude_column_value:
+                table.ix[table[args.exclude_column] == val, :] = pandas.np.nan
 
     if skip:
         if args.strip_as_nan:
