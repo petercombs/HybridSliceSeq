@@ -1004,6 +1004,7 @@ rule star_map:
     shell: """{module}; module load STAR
     STAR --parametersFiles Parameters/STAR_params.in \
     --genomeDir {input.genomedir} \
+    --outSAMstrandField intronMotif \
     --outFileNamePrefix {wildcards.sample}/ \
     --outSAMattributes MD NH \
     --outSAMtype BAM SortedByCoordinate \

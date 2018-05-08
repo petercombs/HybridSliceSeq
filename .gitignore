@@ -22,3 +22,4 @@ fit_and_eval*
 *.err
 *.pickle.in
 *.func.pickle
+scratch

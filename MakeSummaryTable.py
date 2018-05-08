@@ -236,10 +236,16 @@ def get_expr_values(fname):
             print(reads, total_reads, map_rate,
                   args.strip_low_map_rate / 100)
 
+    excluded = 0
     for sample in args.exclude_samples:
         if sample in dirname:
             for val in args.exclude_column_value:
+                excluded += sum(table[args.exclude_column] == val)
                 table.ix[table[args.exclude_column] == val, :] = pandas.np.nan
+
+    if excluded:
+        print("Excluding {} entries from {}".format(excluded, dirname))
+        print(dirname, args.exclude_samples, args.exclude_column_value)
 
     if skip:
         if args.strip_as_nan:
