@@ -470,7 +470,7 @@ rule sample_gene_ase:
         "{sample}/melsim_gene_ase_by_read.tsv"
     log:
         "{sample}/melsim_gene_ase_by_read.log"
-    shell: """ 
+    shell: """
     source activate peter
     export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
@@ -494,7 +494,7 @@ rule wasp_gene_ase:
     threads: 1
     output:
         "{sample}/wasp_gene_ase_by_read.tsv"
-    shell: """ 
+    shell: """
     source activate peter
     export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
@@ -520,7 +520,7 @@ rule sample_cds_ase:
         "{sample}/melsim_cds_ase_by_read.tsv"
     log:
         "{sample}/melsim_cds_ase_by_read.log"
-    shell: """ 
+    shell: """
     source activate peter
     export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
@@ -547,7 +547,7 @@ rule sample_exon_ase:
         "{sample}/melsim_exon_ase_by_read.tsv"
     log:
         "{sample}/melsim_exon_ase_by_read.log"
-    shell: """ 
+    shell: """
     source activate peter
     export PYTHONPATH=$HOME/ASEr/;
     python ~/ASEr/bin/GetGeneASEbyReads.py \
@@ -1360,4 +1360,28 @@ rule sentinel_recalc_psi:
 
 ruleorder: ref_genome > melfasta > getfasta > combined_fasta > nonmel_fasta_from_bed
 
+rule get_ase_stats:
+    input:
+       "analysis_godot/wasp_summary_by_read.tsv",
+       "analysis_godot/summary.tsv",
+       "prereqs/journal.pbio.1000590.s002",
+       "prereqs/gene_map_table_fb_2016_01.tsv",
+       "analysis/mel_deseq.tsv",
+       "analysis/sim_deseq.tsv",
+       'analysis/results/asepeak_genes.txt',
+       'analysis/results/aselogist_genes.txt',
+       'analysis/results/fd_peak.numpy',
+       'analysis/results/fd_logist.numpy',
+       'analysis/results/all_peak_r2s.csv',
+       'analysis/results/all_logist.csv',
+    output:
+        expand('analysis/results/{fname}',
+                fname=['maternal.txt', 'paternal.txt', 'mel_dom.txt', 'sim_dom.txt',
+                        'mel_dom.svg', 'sim_dom.svg',
+                        'me_zyg_lott_mat.svg',
+                        'me_mat_lott_zyg.svg'
+                ])
+    shell: """ {module}
+    module load fraserconda
+    python GetASEStats.py"""
 
