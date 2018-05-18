@@ -6,7 +6,7 @@ from numpy import isfinite, int64, int32, int16, int8, sign, abs, nan
 import Utils as ut
 import PlotUtils as pu
 from Utils import startswith, fbgns, pd_kwargs
-from matplotlib import cm
+from matplotlib import cm, pyplot
 from warnings import filterwarnings
 
 filterwarnings('ignore', category=FutureWarning)
@@ -145,6 +145,60 @@ if __name__ == "__main__":
     deseq_sim = pd.read_table('analysis/sim_deseq.tsv', index_col=0,
                               keep_default_na=False, na_values=['NA', '---'])
 
+    deseq_mat_pvals = pd.DataFrame(index=deseq_mel.index.union(deseq_sim.index),
+                                   columns=['mel', 'sim'],
+                                   data=np.nan)
+
+    deseq_mat_pvals.ix[deseq_mel.index, 'mel'] = (
+        deseq_mel.padj * (deseq_mel.log2FoldChange > 0) +
+        (1-deseq_mel.padj) * (deseq_mel.log2FoldChange < 0)
+    )
+    deseq_mat_pvals.ix[deseq_sim.index, 'sim'] = (
+        deseq_sim.padj * (deseq_sim.log2FoldChange > 0) +
+        (1-deseq_sim.padj) * (deseq_sim.log2FoldChange < 0)
+    )
+
+    deseq_mat_lfcs = pd.DataFrame(index=deseq_mel.index.union(deseq_sim.index),
+                                   columns=['mel', 'sim'],
+                                   data=np.nan)
+
+    deseq_mat_lfcs.ix[deseq_mel.index, 'mel'] = deseq_mel.log2FoldChange
+    deseq_mat_lfcs.ix[deseq_sim.index, 'sim'] = -deseq_sim.log2FoldChange
+    min_lfc = deseq_mat_lfcs.T.mean()
+
+    has_ase = ut.true_index(ase.T.count() > ase.shape[1]/2)
+    lott_mat = ut.true_index(lott.CLASS == 'mat')
+    lott_matzyg = ut.true_index(lott.CLASS == 'matzyg')
+    lott_zyg = ut.true_index(lott.CLASS == 'zyg')
+    pyplot.violinplot([min_lfc[lott_mat.intersection(has_ase)].dropna(),
+                       min_lfc[lott_matzyg.intersection(has_ase)].dropna(),
+                       min_lfc[lott_zyg.intersection(has_ase)].dropna()],
+                      showmedians=True,showextrema=False,
+                      bw_method='silverman',
+                     )
+    for i, genes in enumerate([lott_mat, lott_matzyg, lott_zyg]):
+        genes = genes.intersection(has_ase)
+        pyplot.hlines(min_lfc[genes].dropna(), i+0.98, i+1.02, 'k', alpha=0.1)
+    pyplot.xticks([1,2,3],
+                  [
+                      '{}\n{}'.format(c, len(ut.true_index(lott.CLASS==c).intersection(has_ase)))
+                      for c in ['mat', 'matzyg', 'zyg']
+                  ]
+                 )
+    pyplot.hlines(0, 0.5, 3.5)
+    pyplot.xlim(0.5, 3.5)
+    ax=pyplot.gca()
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_bounds(min_lfc[has_ase].min(), min_lfc[has_ase].max())
+    pyplot.ylabel('Maternal Log 2 Fold Change')
+    pyplot.savefig('analysis/results/lott_lfcs.png', dpi=300)
+
+
+
+
+
     # Species dominance
     mel_mel_bias = ut.true_index((deseq_mel.padj < .05) & (deseq_mel.log2FoldChange > 0))
     sim_mel_bias = ut.true_index((deseq_sim.padj < .05) & (deseq_sim.log2FoldChange > 0))
@@ -157,17 +211,33 @@ if __name__ == "__main__":
     sim_dom = mel_sim_bias.intersection(sim_sim_bias)
     zygotic = ut.true_index((deseq_mel.padj > .05) & (deseq_sim.padj > .05))
 
+    semi_maternal_mel = ut.true_index((deseq_mel.padj < .05)
+                                      & (deseq_mel.log2FoldChange > 0)
+                                      & (deseq_sim.padj > .05))
+    semi_maternal_sim = ut.true_index((deseq_sim.padj < .05)
+                                     & (deseq_sim.log2FoldChange < 0)
+                                     & (deseq_mel.padj > .05))
+    semi_maternal = semi_maternal_mel.append(semi_maternal_sim)
+
+
+    print(*maternal, sep='\n', file=open('analysis/results/maternal.txt', 'w'))
+    print(*paternal, sep='\n', file=open('analysis/results/paternal.txt', 'w'))
+    print(*mel_dom, sep='\n', file=open('analysis/results/mel_dom.txt', 'w'))
+    print(*sim_dom, sep='\n', file=open('analysis/results/sim_dom.txt', 'w'))
+
     data['num_maternal'] = len(maternal)
     data['num_paternal'] = len(paternal)
     data['mel_dominant'] = len(mel_dom)
     data['sim_dominant'] = len(sim_dom)
+    data['num_semimat'] = len(semi_maternal)
 
 
-    mel_dom = expr.select(**ut.sel_startswith('simXsim')).T.max()[mel_dom].sort_values().index
-    sim_dom = expr.select(**ut.sel_startswith('melXmel')).T.max()[sim_dom].sort_values().index
+    expected = (sim_parental - mel_parental)/(sim_parental + mel_parental)
+    mel_dom = expected.ix[mel_dom].T.mean().sort_values().index
+    sim_dom = expected.ix[sim_dom].T.mean().sort_values().index
 
     print("Making species bias figs")
-    pu.svg_heatmap((expr, (sim_parental - mel_parental)/(sim_parental + mel_parental), ase), 'analysis/results/mel_dom.svg',
+    pu.svg_heatmap((expr, expected, ase), 'analysis/results/mel_dom.svg',
                    index=mel_dom,
                    norm_rows_by=('maxall', 'center0pre', 'center0pre'),
                    cmap=(pu.ISH, cm.RdBu, cm.RdBu),
@@ -181,7 +251,7 @@ if __name__ == "__main__":
                    nan_replace='no',
                    **pu.kwargs_heatmap)
 
-    pu.svg_heatmap((expr, (sim_parental - mel_parental)/(sim_parental + mel_parental), ase), 'analysis/results/sim_dom.svg',
+    pu.svg_heatmap((expr, expected, ase), 'analysis/results/sim_dom.svg',
                    index=sim_dom,
                    norm_rows_by=('maxall', 'center0pre', 'center0pre'),
                    cmap=(pu.ISH, cm.RdBu, cm.RdBu),
@@ -195,15 +265,21 @@ if __name__ == "__main__":
                    **pu.kwargs_heatmap)
 
 
-    low_expr_lott = slices_with_expr[lott.index[lott.CLASS == 'mat']] < FRAC_FOR_MATERNAL * len(expr.columns)
-    data['lott_maternal_low'] = sum(low_expr_lott)
-    has_ase_lott = (slices_with_aseval > FRAC_FOR_MATERNAL * len(ase.columns)).ix[lott.index[lott.CLASS == 'mat']].dropna()
-    data['lott_maternal_measured'] = sum(has_ase_lott)
+    lott_mat = ut.true_index(lott.CLASS == 'mat')
+    data['lott_maternal'] = len(lott_mat)
+    low_expr_lott = ut.true_index(~(isfinite(deseq_mel.padj[lott_mat])
+                                    & isfinite(deseq_sim.padj[lott_mat])))
+    data['lott_maternal_low'] = len(low_expr_lott)
+    has_ase_lott = ut.true_index(
+        (isfinite(deseq_mel.padj[lott_mat])
+         & isfinite(deseq_sim.padj[lott_mat]))
+    )
+    data['lott_maternal_measured'] = len(has_ase_lott)
 
-    data['lott_maternal_agree'] = len(maternal.intersection(ut.true_index(lott.CLASS == 'mat')))
+    data['lott_maternal_agree'] = len(maternal.intersection(lott_mat))
 
     me_mat_lott_zyg = ut.true_index(lott.CLASS == 'zyg').intersection(maternal)
-    me_zyg_lott_mat = ut.true_index(lott.CLASS == 'mat').intersection(zygotic)
+    me_zyg_lott_mat = lott_mat.intersection(zygotic)
     me_zyg_lott_mat = ase_rectified.ix[me_zyg_lott_mat].T.mean().sort_values().index
     data['lott_disagree_t_one'] = len(me_mat_lott_zyg)
     data['lott_disagree_t_two'] = len(me_zyg_lott_mat)
@@ -214,8 +290,9 @@ if __name__ == "__main__":
     #               **plot_kwargs)
 
     small_heatmap_kwargs = plot_kwargs.copy()
-    small_heatmap_kwargs['box_height'] = 5
+    small_heatmap_kwargs['box_height'] = 3
     small_heatmap_kwargs['draw_row_labels'] = False
+    small_heatmap_kwargs['nan_replace'] = 'no'
     pu.svg_heatmap((ase.ix[me_mat_lott_zyg], lott_expr.ix[me_mat_lott_zyg]),
                    'analysis/results/me_mat_lott_zyg.svg',
                    norm_rows_by=('center0pre', 'max'),
@@ -226,6 +303,14 @@ if __name__ == "__main__":
                    norm_rows_by=('center0pre', 'max'),
                    cmap=(cm.RdBu, cm.viridis),
                    **small_heatmap_kwargs)
+
+    pu.svg_heatmap((ase, lott_expr),
+                   'analysis/results/semimaternal.svg',
+                   index=semi_maternal,
+                   norm_rows_by=('center0pre', 'max'),
+                   cmap=(cm.RdBu, cm.viridis),
+                   **small_heatmap_kwargs)
+
 
     peak_genes = [line.strip() for line in open('analysis/results/asepeak_genes.txt')]
     logist_genes = [line.strip() for line in open('analysis/results/aselogist_genes.txt')]
