@@ -42,6 +42,7 @@ if __name__ == "__main__":
     sxs = xs.sort_values()
     sxs_ase = sxs
     ase_x_sorted = ase.loc[lott_zyg, sxs.index]
+    ase_x_sorted = ase.loc[:, sxs.index]
 
     num_slices = len(sxs.index)
     figwidth, figheight = 6,9
@@ -82,6 +83,38 @@ if __name__ == "__main__":
                         left=0.025, right=0.975,
                         top=0.975, bottom=0.025)
     mpl.savefig('analysis/results/adj_slice_ase_corr', dpi=300)
+
+    offset=0
+    adj_ase_corrs = []
+    fig = mpl.figure(figsize=(figwidth,figheight))
+    ase_x_sorted = ase_x_sorted.ix[lott_zyg]
+    for i, (col1, col2) in enumerate(zip(sxs.index, sxs.index[1:])):
+        if col1.startswith('mel') and col2.startswith('sim'):
+            offset = 1
+            continue
+        i -= offset
+        ax = mpl.subplot(rows, cols, i+1)
+        mpl.hist2d(ase_x_sorted[col1], ase_x_sorted[col2],
+                   bins=np.arange(-1.05, 1.05, .05),
+                   cmin=0, cmax=5,
+                  )
+        corr = ase_x_sorted[col1].corr(ase_x_sorted[col2])
+        adj_ase_corrs.append(corr)
+        mpl.text(-1, 1,
+                "{:.02f}".format(corr),
+                 fontdict={'size': 8, 'color': 'white'},
+                horizontalalignment='left',
+                verticalalignment='top')
+        ax.set_aspect(1)
+        #if i % cols != 0:
+        ax.set_yticks([])
+        #if i < (cols * (rows-1)):
+        ax.set_xticks([])
+    print("Zygotic ASE Corrs:", np.mean(adj_ase_corrs), '+/-', np.std(adj_ase_corrs))
+    fig.subplots_adjust(hspace=0.05, wspace=0.05,
+                        left=0.025, right=0.975,
+                        top=0.975, bottom=0.025)
+    mpl.savefig('analysis/results/adj_slice_ase_corr_zyg', dpi=300)
 
 
 
