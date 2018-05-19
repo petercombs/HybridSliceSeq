@@ -500,6 +500,7 @@ rule wasp_gene_ase:
     python ~/ASEr/bin/GetGeneASEbyReads.py \
         --outfile {output} \
         --id-name gene_name \
+        --assign-all-reads \
         --ase-function pref_index \
         --min-reads-per-allele 0 \
         {input.variants} \
