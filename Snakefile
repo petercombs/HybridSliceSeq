@@ -809,6 +809,7 @@ rule ase_summary_refalt:
 	   --filename wasp_gene_ase_by_read.tsv \
 	   --key gene \
        --refalt \
+       --float-format %3.0f \
        --exclude-column chrom \
        --exclude-column-value dmel_X \
        --exclude-samples melXsim_cyc14C_rep3 simXmel_cyc14C_rep2 \
@@ -1004,6 +1005,7 @@ rule star_map:
     shell: """{module}; module load STAR
     STAR --parametersFiles Parameters/STAR_params.in \
     --genomeDir {input.genomedir} \
+    --outSAMstrandField intronMotif \
     --outFileNamePrefix {wildcards.sample}/ \
     --outSAMattributes MD NH \
     --outSAMtype BAM SortedByCoordinate \
@@ -1168,7 +1170,7 @@ rule bad_gtf:
     shell: """
     echo {threads}
 	cat {input} \
-		| grep -vP '(snoRNA|CR[0-9]{{4}}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
+		| grep -P '(snoRNA|CR[0-9]{{4}}|Rp[ILS]|mir-|tRNA|unsRNA|snRNA|snmRNA|scaRNA|rRNA|RNA:|mt:|His.*:)' \
 		> {output}
         """
 

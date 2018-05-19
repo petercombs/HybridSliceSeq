@@ -48,6 +48,11 @@
         {
                 "time": "5:00:00",
         },
+        "sample_expr":
+        {
+            "cpus": 8,
+
+        },
         "true_hets":
         {
             "time": "4:00:00",
