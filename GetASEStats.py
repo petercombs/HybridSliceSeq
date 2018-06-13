@@ -317,6 +317,7 @@ if __name__ == "__main__":
 
     data['num_peak'] = len(peak_genes)
     data['num_logist'] = len(logist_genes)
+    data['num_strong_svase'] = len(peak_genes) + len(logist_genes)
 
     peak_fd = np.fromfile('analysis/results/fd_peak.numpy')
     logist_fd = np.fromfile('analysis/results/fd_logist.numpy')

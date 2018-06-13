@@ -6,6 +6,7 @@
                 "memory": "15G",
                 jobname: "{rule}.{wildcards}",
                 "partition": "hbfraser,hns,owners",
+                "torque_queue": "batch"
         },
         "get_sra":
         {

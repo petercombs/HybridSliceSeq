@@ -1376,13 +1376,14 @@ rule get_ase_stats:
        'analysis/results/fd_peak.numpy',
        'analysis/results/fd_logist.numpy',
        'analysis/results/all_peak_r2s.csv',
-       'analysis/results/all_logist.csv',
+       'analysis/results/all_logist_r2s.csv',
     output:
         expand('analysis/results/{fname}',
                 fname=['maternal.txt', 'paternal.txt', 'mel_dom.txt', 'sim_dom.txt',
                         'mel_dom.svg', 'sim_dom.svg',
                         'me_zyg_lott_mat.svg',
-                        'me_mat_lott_zyg.svg'
+                        'me_mat_lott_zyg.svg',
+                        'stats.tex',
                 ])
     shell: """ {module}
     module load fraserconda

@@ -15,6 +15,10 @@ from progressbar import (ProgressBar, Percentage, Timer, Bar, FileTransferSpeed,
 import PlotUtils as pu
 import Utils as ut
 import warnings
+
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
+
 if __name__ == "__main__":
     from matplotlib import cm
     import matplotlib.pyplot as mpl
@@ -34,6 +38,8 @@ def fit_func(func, index, data, xs, p0=None, median_in=None, randomize=False,
              print_error=False):
     warnings.filterwarnings('ignore', '.*overflow encountered.*')
     warnings.filterwarnings('ignore', '.*Covariance of the parameters.*')
+    warnings.filterwarnings('ignore', category=DeprecationWarning)
+    warnings.filterwarnings('ignore', category=FutureWarning)
     ys = data.ix[index]
     if median_in and not median_in[0] < ys.median() < median_in[1]:
         print("Median {} outside of range [{}, {}]"
