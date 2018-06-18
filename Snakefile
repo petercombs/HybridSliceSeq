@@ -1389,3 +1389,24 @@ rule get_ase_stats:
     module load fraserconda
     python GetASEStats.py"""
 
+rule ase_figure:
+    input:
+        ase="analysis_godot/ase_summary_by_read.tsv",
+        expression="analysis_godot/summary.tsv",
+    output:
+        expand("analysis/results/ase{fit}_{data}",
+                fit=['logist', 'peak'],
+                data=["genes.txt", "ase.svg", "ase.png",
+                "ase_r1.svg", "ase_r1.png", "expr_hyb.svg",
+                "expr.svg", "fits.png"],
+                )
+    shell: """{module}
+    module load fraserconda
+    python FitASEFuncs.py \
+        --expression-file {input.expression} \
+        --ase-file {input.ase} \
+        --prefix ase \
+        --male-samples melXsim_cyc14C_rep3 simXmel_cyc14C_rep2 \
+        --cutoff-r2 0.45
+        """
+
