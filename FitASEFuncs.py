@@ -407,7 +407,7 @@ if __name__ == "__main__":
     for i, gene in enumerate(r2_logist_genes):
         mpl.subplot(len(r2_logist_genes), 1, i+1)
         mpl.plot(sorted(xs), logistic(array(sorted(xs)), *res_logist.ix[gene]),
-             'g-', linewidth=3)
+             'g-', linewidth=9)
         mpl.yticks([])
         mpl.xticks([])
         mpl.xlim(0, 1)
@@ -420,7 +420,7 @@ if __name__ == "__main__":
     for i, gene in enumerate(r2_peak_genes):
         mpl.subplot(len(r2_peak_genes), 1, i+1)
         mpl.plot(sorted(xs), peak(array(sorted(xs)), *res_peak.ix[gene]),
-             'g-', linewidth=3)
+             'g-', linewidth=9)
         mpl.yticks([])
         mpl.xticks([])
         mpl.xlim(0, 1)

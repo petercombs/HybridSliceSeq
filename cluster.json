@@ -4,7 +4,7 @@
                 "time" : "02:00:00",
                 "cpus": 1,
                 "memory": "15G",
-                jobname: "{rule}.{wildcards}",
+                "jobname": "{rule}.{wildcards}",
                 "partition": "hbfraser,hns,owners",
                 "torque_queue": "batch"
         },
