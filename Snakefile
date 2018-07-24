@@ -1393,6 +1393,7 @@ rule ase_figure:
     input:
         ase="analysis_godot/ase_summary_by_read.tsv",
         expression="analysis_godot/summary.tsv",
+        code="FitASEFuncs.py",
     output:
         expand("analysis/results/ase{fit}_{data}",
                 fit=['logist', 'peak'],
