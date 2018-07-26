@@ -411,7 +411,7 @@ if __name__ == "__main__":
         mpl.yticks([])
         mpl.xticks([])
         mpl.xlim(0, 1)
-        mpl.ylim(args.fit_ymin, args.fit_ymax)
+        mpl.ylim(args.fit_ymin-.15, args.fit_ymax+.15)
     mpl.tight_layout(pad=0, h_pad=0, w_pad=0)
     mpl.savefig('analysis/results/{prefix}logist{suffix}_fits'
                 .format(prefix=args.prefix, suffix=args.suffix),)
@@ -424,7 +424,7 @@ if __name__ == "__main__":
         mpl.yticks([])
         mpl.xticks([])
         mpl.xlim(0, 1)
-        mpl.ylim(args.fit_ymin, args.fit_ymax)
+        mpl.ylim(args.fit_ymin-.15, args.fit_ymax+.15)
     mpl.tight_layout(pad=0, h_pad=0, w_pad=0)
     mpl.savefig('analysis/results/{prefix}peak{suffix}_fits'
                 .format(prefix=args.prefix, suffix=args.suffix),
