@@ -39,6 +39,7 @@ if __name__ == "__main__":
     fit = stats.linregress(mat_counts.select(ut.startswith(hybs)), pat_counts.select(ut.startswith(hybs)))
     xmin, xmax = mat_counts.min(), mat_counts.select(ut.startswith(hybs)).max()
     plot([xmin, xmax], [xmin * fit.slope + fit.intercept, xmax * fit.slope + fit.intercept], 'r:')
+    print(1/fit.slope, 'fold more maternal than paternal reads')
     ax = gca()
     ax.spines['right'].set_visible(False)
     ax.spines['top'].set_visible(False)

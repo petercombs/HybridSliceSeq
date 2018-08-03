@@ -529,6 +529,7 @@ if __name__ == "__main__":
             small_atlas[tf] = atlas_expr.ix[:, tf, time_point]
         small_atlas.sort_values(by='c', inplace=True)
 
+        fig = mpl.figure(figsize=(6,2.5))
         ax = mpl.subplot(1, 2, 1, aspect='equal')
         mpl.scatter(
             small_atlas.x,
@@ -578,7 +579,6 @@ if __name__ == "__main__":
             c=p1,
             edgecolors=(0,0,0,0),
             cmap=pu.ISH,
-            vmax=1.2,
         )
         ax.set_axis_bgcolor((.6, .6, .6))
         #print(fitter.score(X.ix[in_central, :], y.ix[in_central] > co))
@@ -623,19 +623,24 @@ if __name__ == "__main__":
         mpl.ylabel('predicted sim data')
         '''
 
+    print("Made it here", dir)
     mpl.savefig(path.join(dir,
-                          'analysis/results/model_tweak/{}'.format(target_gene)))
+                          'analysis/results/model_tweak/{}'.format(target_gene)),
+                dpi=300,
+               )
     setcolor.set_backgroundcolor(mpl.gca(), 'k')
     setcolor.set_foregroundcolor(mpl.gca(), 'w')
     mpl.savefig(path.join(dir,
-                          'analysis/results/model_tweak/{}_bgblk'.format(target_gene)))
+                          'analysis/results/model_tweak/{}_bgblk'.format(target_gene)),
+                dpi=300
+               )
     print(best_model.summary().as_latex(),
           file=open(path.join(dir,
                               'analysis/results/model_tweak/{}_model.tex'.format(target_gene)),
                     'w')
          )
     ase = (
-        pd.read_table('analysis_godot/ase_summary_by_read2.tsv', **ut.pd_kwargs)
+        pd.read_table('analysis_godot/ase_summary_by_read.tsv', **ut.pd_kwargs)
         .ix[target_gene]
         .select(ut.startswith(('melXsim', 'simXmel')))
     )
@@ -759,6 +764,7 @@ if __name__ == "__main__":
                     plotted = True
                 elif the_tf[-1] in ('2', 'P') and the_tf[:-1] in rnaseq_expr.index:
                     mpl.scatter(rnaseq_expr.ix[the_tf[:-1], ase.index], ase)
+                    the_tf = the_tf[:-1]
                     plotted = True
                 else:
                     plotted = False
