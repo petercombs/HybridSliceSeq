@@ -145,7 +145,10 @@ def plot_changes(model, changes, atlas, new_figure=True, xlims=None, ylims=None,
         mpl.title(str(changes))
     ax = mpl.gca()
     ax.set_aspect(1)
-    ax.set_axis_bgcolor((.6, .6, .6))
+    try:
+        ax.set_axis_bgcolor((.6, .6, .6))
+    except AttributeError:
+        ax.set_facecolor((.6, .6, .6))
     return p1, p2
 
 def get_virtual_ase_slices(model, changes, atlas, n_slices, fitter=None,
@@ -295,7 +298,10 @@ def plot_both(model, changes, atlas, n_slices=27, fitter=None, denom_cutoff=5,
                     cmap=pu.ISH,
                    )
         ax0.set_aspect(1)
-        ax0.set_axis_bgcolor((.6, .6, .6))
+        try:
+            ax0.set_axis_bgcolor((.6, .6, .6))
+        except AttributeError:
+            ax0.set_axis_facecolor((.6, .6, .6))
         ax0.set_xticks([])
         ax0.set_yticks([])
         if xlims:
@@ -539,7 +545,10 @@ if __name__ == "__main__":
             edgecolors=(0, 0, 0, 0),
             cmap=pu.ISH,
         )
-        ax.set_axis_bgcolor((.6, .6, .6))
+        try:
+            ax.set_axis_bgcolor((.6, .6, .6))
+        except AttributeError:
+            ax.set_facecolor((.6, .6, .6))
         mpl.ylabel('Original data')
         #print(len(small_atlas.c))
         #ax.add_patch(PathPatch(poly, fill=False))
@@ -580,7 +589,10 @@ if __name__ == "__main__":
             edgecolors=(0,0,0,0),
             cmap=pu.ISH,
         )
-        ax.set_axis_bgcolor((.6, .6, .6))
+        try:
+            ax.set_axis_bgcolor((.6, .6, .6))
+        except AttributeError:
+            ax.set_facecolor((.6, .6, .6))
         #print(fitter.score(X.ix[in_central, :], y.ix[in_central] > co))
         mpl.xlim(*xlims)
         mpl.ylim(*ylims)
