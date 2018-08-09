@@ -359,7 +359,8 @@ rule wasp_find_snps:
         bam="{sample}/{prefix}_dedup.bam",
         bai="{sample}/{prefix}_dedup.bam.bai",
         snpdir="analysis_godot/on_mel/snpdir",
-        snpfile="analysis_godot/on_mel/snpdir/all.txt.gz"
+        snpfile="analysis_godot/on_mel/snpdir/all.txt.gz",
+        sentinel='analysis/rewasp',
     output:
         temp("{sample}/{prefix}_dedup.remap.fq1.gz"),
         temp("{sample}/{prefix}_dedup.remap.fq2.gz"),
@@ -1360,6 +1361,9 @@ rule sentinel_recalc_ase:
 
 rule sentinel_recalc_psi:
     output: touch(path.join(analysis_dir, "recalc_psi"))
+
+rule sentinel_wasp:
+    output: touch('analysis/rewasp')
 
 ruleorder: ref_genome > melfasta > getfasta > combined_fasta > nonmel_fasta_from_bed
 
