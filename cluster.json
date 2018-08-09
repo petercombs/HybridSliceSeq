@@ -19,6 +19,7 @@
         },
         "dedup" :
         {
+                "partition": "hbfraser,hns,owners,bigmem",
                 "time": "12:00:00",
                 "memory": "64G",
         },
