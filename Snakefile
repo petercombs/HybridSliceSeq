@@ -396,7 +396,10 @@ rule wasp_remap:
             --runThreadN {threads} \
             --readFilesCommand zcat \
             --readFilesIn {input.R1} {input.R2}
+    if [ $? -eq 0 ]
+    then
     mv {wildcards.sample}/remapAligned.out.bam {output}
+    fi
             """
 
 rule wasp_keep:
@@ -988,6 +991,7 @@ rule get_sra:
     resources: max_downloads=1
     shell: """{module}; module load sra-tools
 
+    prefetch -t fasp {wildcards.srr}
     fastq-dump --gzip --split-3 --outdir sequence {wildcards.srr}
     """
 
