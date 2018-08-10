@@ -1046,13 +1046,13 @@ rule star_map_mel:
     shell: """{module}; module load STAR
     STAR --parametersFiles Parameters/STAR_params.in \
     --genomeDir {input.genomedir} \
-    --outFileNamePrefix {wildcards.sample}/ \
+    --outFileNamePrefix {wildcards.sample}/mel \
     --outSAMattributes MD NH \
     --outSAMtype BAM SortedByCoordinate \
     --clip5pNbases 6 \
     --readFilesIn {params.r1s} {params.r2s}
-    if [ -s  {wildcards.sample}/Aligned.sortedByCoord.out.bam ]; then
-        mv {wildcards.sample}/Aligned.sortedByCoord.out.bam {output};
+    if [ -s  {wildcards.sample}/melAligned.sortedByCoord.out.bam ]; then
+        mv {wildcards.sample}/melAligned.sortedByCoord.out.bam {output};
     fi
     """
 
