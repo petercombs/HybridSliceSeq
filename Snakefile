@@ -405,7 +405,7 @@ rule wasp_remap:
 rule wasp_keep:
     input:
         toremap="{file}.to.remap.bam",
-        remapped="{file}.remap.bam",
+        remapped="{file}.remap.namesorted.bam",
     output:
         temp("{file}.remap.kept.bam"),
     shell: """
@@ -961,6 +961,17 @@ rule sort_bam:
     shell: """{module}; module load samtools
     samtools sort -o {output} --threads {threads} {input}
     """
+
+
+rule name_sort_bam:
+    input: "{sample}.bam"
+    output: "{sample}.namesorted.bam"
+    log: "{sample}.sorted.log"
+    threads: 4
+    shell: """{module}; module load samtools
+    samtools sort -n -o {output} --threads {threads} {input}
+    """
+
 
 rule index_bam:
     input: "{sample}.bam"
